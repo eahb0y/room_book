@@ -1,0 +1,122 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* ═══ Warm Midnight Editorial ═══ */
+    --background: 240 7% 5%;
+    --foreground: 37 28% 90%;
+    --card: 240 4% 9%;
+    --card-foreground: 37 28% 90%;
+    --popover: 240 5% 10%;
+    --popover-foreground: 37 28% 90%;
+    --primary: 29 67% 53%;
+    --primary-foreground: 240 7% 5%;
+    --secondary: 240 5% 13%;
+    --secondary-foreground: 37 12% 72%;
+    --muted: 240 5% 11%;
+    --muted-foreground: 34 8% 50%;
+    --accent: 240 5% 15%;
+    --accent-foreground: 37 28% 90%;
+    --destructive: 0 55% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5% 18%;
+    --input: 240 6% 14%;
+    --ring: 29 67% 53%;
+    --radius: 0.625rem;
+
+    --sidebar-background: 240 7% 7%;
+    --sidebar-foreground: 37 28% 90%;
+    --sidebar-primary: 29 67% 53%;
+    --sidebar-primary-foreground: 240 7% 5%;
+    --sidebar-accent: 240 5% 13%;
+    --sidebar-accent-foreground: 37 28% 90%;
+    --sidebar-border: 240 5% 18%;
+    --sidebar-ring: 29 67% 53%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-family: 'Golos Text', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* Editorial serif for all headings */
+  h1, h2, h3 {
+    font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+    letter-spacing: -0.015em;
+  }
+
+  /* Warm copper text selection */
+  ::selection {
+    background: hsl(29 67% 53% / 0.25);
+    color: hsl(37 28% 95%);
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: hsl(240 5% 24%); border-radius: 99px; }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(29 67% 53%); }
+}
+
+/* ═══════════════════════════════════════
+   Film grain overlay
+   ═══════════════════════════════════════ */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.32;
+  mix-blend-mode: overlay;
+}
+
+/* ═══════════════════════════════════════
+   Stagger animation delays
+   ═══════════════════════════════════════ */
+.stagger-1 { animation-delay: 0.06s !important; }
+.stagger-2 { animation-delay: 0.12s !important; }
+.stagger-3 { animation-delay: 0.18s !important; }
+.stagger-4 { animation-delay: 0.24s !important; }
+.stagger-5 { animation-delay: 0.30s !important; }
+.stagger-6 { animation-delay: 0.36s !important; }
+
+/* ═══════════════════════════════════════
+   Card hover glow
+   ═══════════════════════════════════════ */
+.card-hover {
+  transition: border-color 0.4s ease, box-shadow 0.4s ease, transform 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.card-hover:hover {
+  border-color: hsl(29 67% 53% / 0.3);
+  box-shadow:
+    0 0 0 1px hsl(29 67% 53% / 0.08),
+    0 8px 40px -8px hsl(29 67% 53% / 0.1),
+    0 4px 20px -4px rgba(0, 0, 0, 0.5);
+  transform: translateY(-2px);
+}
+
+/* ═══════════════════════════════════════
+   Copper gradient text
+   ═══════════════════════════════════════ */
+.text-copper-gradient {
+  background: linear-gradient(135deg, hsl(29 55% 62%), hsl(25 75% 48%));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}

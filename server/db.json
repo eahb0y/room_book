@@ -1,0 +1,18 @@
+{
+  "invitations": [
+    {
+      "id": "1770654871244-invite-1770656695642",
+      "venueId": "1770654871244",
+      "venueName": "test1",
+      "token": "6933ca596d7b4952a1e5dd706afef187",
+      "createdByUserId": "1770654777354",
+      "inviteeFirstName": "tester",
+      "inviteeLastName": "testerrr",
+      "inviteeEmail": "tester123@gmail.com",
+      "createdAt": "2026-02-09T17:04:55.643Z",
+      "maxUses": 1,
+      "uses": 0,
+      "status": "pending"
+    }
+  ]
+}
