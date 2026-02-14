@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
@@ -17,15 +17,7 @@ export default function Login() {
   const location = useLocation();
   const login = useAuthStore((state) => state.login);
   const inviteToken = new URLSearchParams(location.search).get('invite');
-
-  const pendingInvite = inviteToken || sessionStorage.getItem('pendingInviteToken');
-  const isInviteFlow = Boolean(pendingInvite);
-
-  useEffect(() => {
-    if (inviteToken) {
-      sessionStorage.setItem('pendingInviteToken', inviteToken);
-    }
-  }, [inviteToken]);
+  const isInviteFlow = Boolean(inviteToken);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,17 +27,17 @@ export default function Login() {
     try {
       const success = await login({ email, password });
       if (success) {
-        if (pendingInvite) {
-          sessionStorage.setItem('pendingInviteToken', pendingInvite);
-          navigate(`/invite/${pendingInvite}`);
+        if (inviteToken) {
+          navigate(`/invite/${inviteToken}`);
         } else {
           navigate('/app');
         }
       } else {
         setError('Неверный email или пароль');
       }
-    } catch {
-      setError('Произошла ошибка при входе');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Произошла ошибка при входе';
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -112,7 +104,10 @@ export default function Login() {
               </Button>
               {isInviteFlow ? (
                 <p className="text-sm text-center text-muted-foreground">
-                  Нет аккаунта? Обратитесь к администратору.
+                  Нет аккаунта?{' '}
+                  <Link to={`/register?invite=${inviteToken}`} className="text-primary hover:text-primary/80 transition-colors">
+                    Зарегистрироваться
+                  </Link>
                 </p>
               ) : (
                 <p className="text-sm text-center text-muted-foreground">

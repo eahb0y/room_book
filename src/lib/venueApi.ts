@@ -1,13 +1,52 @@
 import type { Venue } from '@/types';
-import { request } from '@/lib/apiClient';
+import { supabaseDbRequest } from '@/lib/supabaseHttp';
+
+interface VenueRow {
+  id: string;
+  name: string;
+  description: string;
+  address: string;
+  admin_id: string;
+  created_at: string;
+}
+
+const mapVenue = (row: VenueRow): Venue => ({
+  id: row.id,
+  name: row.name,
+  description: row.description,
+  address: row.address,
+  adminId: row.admin_id,
+  createdAt: row.created_at,
+});
 
 export const listVenues = async (params?: { adminId?: string; userId?: string }) => {
-  const search = new URLSearchParams();
-  if (params?.adminId) search.set('adminId', params.adminId);
-  if (params?.userId) search.set('userId', params.userId);
-  const suffix = search.toString() ? `?${search.toString()}` : '';
-  const data = await request<{ venues: Venue[] }>(`/api/venues${suffix}`);
-  return data.venues;
+  if (params?.adminId) {
+    const rows = await supabaseDbRequest<VenueRow[]>(
+      `venues?select=*&admin_id=eq.${encodeURIComponent(params.adminId)}&order=created_at.desc`,
+      { method: 'GET' },
+    );
+
+    return rows.map(mapVenue);
+  }
+
+  if (params?.userId) {
+    const rows = await supabaseDbRequest<Array<{ venues: VenueRow | null }>>(
+      `venue_memberships?select=venues(*)&user_id=eq.${encodeURIComponent(params.userId)}`,
+      { method: 'GET' },
+    );
+
+    const deduped = new Map<string, Venue>();
+    rows.forEach((row) => {
+      if (!row.venues) return;
+      const venue = mapVenue(row.venues);
+      deduped.set(venue.id, venue);
+    });
+
+    return Array.from(deduped.values());
+  }
+
+  const rows = await supabaseDbRequest<VenueRow[]>('venues?select=*&order=created_at.desc', { method: 'GET' });
+  return rows.map(mapVenue);
 };
 
 export const createVenue = async (payload: {
@@ -16,17 +55,49 @@ export const createVenue = async (payload: {
   address: string;
   adminId: string;
 }) => {
-  const data = await request<{ venue: Venue }>('/api/venues', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-  return data.venue;
+  const rows = await supabaseDbRequest<VenueRow[]>(
+    'venues',
+    {
+      method: 'POST',
+      headers: {
+        Prefer: 'return=representation',
+      },
+      body: JSON.stringify([
+        {
+          name: payload.name,
+          description: payload.description,
+          address: payload.address,
+          admin_id: payload.adminId,
+        },
+      ]),
+    },
+  );
+
+  const created = rows[0];
+  if (!created) throw new Error('Venue was not created');
+
+  return mapVenue(created);
 };
 
 export const updateVenue = async (id: string, payload: Partial<Pick<Venue, 'name' | 'description' | 'address'>>) => {
-  const data = await request<{ venue: Venue }>(`/api/venues/${encodeURIComponent(id)}`, {
-    method: 'PATCH',
-    body: JSON.stringify(payload),
-  });
-  return data.venue;
+  const patch: Record<string, unknown> = {};
+  if (payload.name !== undefined) patch.name = payload.name;
+  if (payload.description !== undefined) patch.description = payload.description;
+  if (payload.address !== undefined) patch.address = payload.address;
+
+  const rows = await supabaseDbRequest<VenueRow[]>(
+    `venues?id=eq.${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      headers: {
+        Prefer: 'return=representation',
+      },
+      body: JSON.stringify(patch),
+    },
+  );
+
+  const updated = rows[0];
+  if (!updated) throw new Error('Venue not found');
+
+  return mapVenue(updated);
 };

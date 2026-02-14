@@ -66,7 +66,7 @@ export default function RoomManagement() {
     setError('');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -84,16 +84,16 @@ export default function RoomManagement() {
     if (!venue) return;
 
     if (editingRoom) {
-      updateRoom(editingRoom.id, { name, capacity: capacityNum });
+      await updateRoom(editingRoom.id, { name, capacity: capacityNum });
     } else {
-      createRoom({ name, capacity: capacityNum, venueId: venue.id });
+      await createRoom({ name, capacity: capacityNum, venueId: venue.id });
     }
 
     handleCloseDialog();
   };
 
-  const handleDelete = (roomId: string) => {
-    deleteRoom(roomId);
+  const handleDelete = async (roomId: string) => {
+    await deleteRoom(roomId);
     setDeleteConfirmId(null);
   };
 

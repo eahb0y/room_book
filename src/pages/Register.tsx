@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
@@ -19,62 +19,8 @@ export default function Register() {
   const location = useLocation();
   const register = useAuthStore((state) => state.register);
   const inviteToken = new URLSearchParams(location.search).get('invite');
-  const pendingInvite = inviteToken || sessionStorage.getItem('pendingInviteToken');
-  const isInviteFlow = Boolean(pendingInvite);
+  const isInviteFlow = Boolean(inviteToken);
   const role: UserRole = isInviteFlow ? 'user' : 'admin';
-
-  useEffect(() => {
-    if (inviteToken) {
-      sessionStorage.setItem('pendingInviteToken', inviteToken);
-    }
-  }, [inviteToken]);
-
-  if (isInviteFlow) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background px-4 relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-[30%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-primary/[0.04] rounded-full blur-[120px] animate-glow-pulse" />
-        </div>
-
-        <div className="w-full max-w-md relative z-10 animate-fade-up">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary/90 mb-5 shadow-glow">
-              <UserPlus className="h-6 w-6 text-white" />
-            </div>
-            <h1 className="text-3xl font-semibold text-foreground mb-2">
-              Регистрация недоступна
-            </h1>
-            <p className="text-muted-foreground text-sm">
-              Приглашение работает только для существующих аккаунтов.
-            </p>
-          </div>
-
-          <Card className="border-border/40 shadow-xl shadow-black/20">
-            <CardContent className="space-y-5 pt-6">
-              <p className="text-sm text-muted-foreground">
-                Войдите в систему, чтобы принять приглашение. Если у вас нет аккаунта,
-                обратитесь к администратору.
-              </p>
-              <Button
-                className="w-full h-11 font-medium text-sm tracking-wide"
-                onClick={() => navigate(`/login?invite=${pendingInvite}`)}
-              >
-                Перейти ко входу
-              </Button>
-            </CardContent>
-            <CardFooter className="flex flex-col gap-4 pb-6">
-              <p className="text-sm text-center text-muted-foreground">
-                Уже входили ранее?{' '}
-                <Link to={`/login?invite=${pendingInvite}`} className="text-primary hover:text-primary/80 transition-colors">
-                  Войти
-                </Link>
-              </p>
-            </CardFooter>
-          </Card>
-        </div>
-      </div>
-    );
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,17 +41,17 @@ export default function Register() {
     try {
       const success = await register({ email, password, role });
       if (success) {
-        if (pendingInvite) {
-          sessionStorage.setItem('pendingInviteToken', pendingInvite);
-          navigate(`/invite/${pendingInvite}`);
+        if (inviteToken) {
+          navigate(`/invite/${inviteToken}`);
         } else {
           navigate('/app');
         }
       } else {
         setError('Пользователь с таким email уже существует');
       }
-    } catch {
-      setError('Произошла ошибка при регистрации');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Произошла ошибка при регистрации';
+      setError(message);
     } finally {
       setIsLoading(false);
     }
@@ -186,7 +132,10 @@ export default function Register() {
               </Button>
               <p className="text-sm text-center text-muted-foreground">
                 Уже есть аккаунт?{' '}
-                <Link to="/login" className="text-primary hover:text-primary/80 transition-colors">
+                <Link
+                  to={inviteToken ? `/login?invite=${inviteToken}` : '/login'}
+                  className="text-primary hover:text-primary/80 transition-colors"
+                >
                   Войти
                 </Link>
               </p>

@@ -14,8 +14,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function VenueManagement() {
   const user = useAuthStore((state) => state.user);
-  const createUser = useAuthStore((state) => state.createUser);
-  const getUserByEmail = useAuthStore((state) => state.getUserByEmail);
   const navigate = useNavigate();
   const venues = useVenueStore((state) => state.venues);
   const createVenue = useVenueStore((state) => state.createVenue);
@@ -37,9 +35,7 @@ export default function VenueManagement() {
   const [inviteFirstName, setInviteFirstName] = useState('');
   const [inviteLastName, setInviteLastName] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
-  const [invitePassword, setInvitePassword] = useState('');
   const [inviteSubmitting, setInviteSubmitting] = useState(false);
-  const [createdCredentials, setCreatedCredentials] = useState<{ email: string; password: string } | null>(null);
   const [inviteError, setInviteError] = useState('');
   const [inviteSuccess, setInviteSuccess] = useState('');
 
@@ -106,10 +102,10 @@ export default function VenueManagement() {
 
     try {
       if (existingVenue) {
-        updateVenue(existingVenue.id, { name, description, address });
+        await updateVenue(existingVenue.id, { name, description, address });
         setSuccess('Заведение успешно обновлено');
       } else {
-        createVenue({ name, description, address, adminId: user!.id });
+        await createVenue({ name, description, address, adminId: user!.id });
         setSuccess('Заведение успешно создано');
       }
     } catch {
@@ -133,24 +129,10 @@ export default function VenueManagement() {
     }
   };
 
-  const generateTempPassword = (length = 10) => {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
-    const bytes = new Uint8Array(length);
-    if (typeof crypto !== 'undefined' && 'getRandomValues' in crypto) {
-      crypto.getRandomValues(bytes);
-    } else {
-      for (let i = 0; i < length; i += 1) {
-        bytes[i] = Math.floor(Math.random() * 256);
-      }
-    }
-    return Array.from(bytes, (byte) => chars[byte % chars.length]).join('');
-  };
-
   const handleCreateInvite = async () => {
     if (!existingVenue || !user) return;
     setInviteError('');
     setInviteSuccess('');
-    setCreatedCredentials(null);
     const trimmedFirstName = inviteFirstName.trim();
     const trimmedLastName = inviteLastName.trim();
     const trimmedEmail = inviteEmail.trim().toLowerCase();
@@ -160,32 +142,10 @@ export default function VenueManagement() {
     }
     setInviteSubmitting(true);
     try {
-      const existingUser = getUserByEmail(trimmedEmail);
-      let inviteeUserId = existingUser?.id;
-      let generatedPassword: string | null = null;
-
-      if (!existingUser) {
-        const passwordToUse = invitePassword.trim() || generateTempPassword();
-        const result = createUser({
-          email: trimmedEmail,
-          password: passwordToUse,
-          role: 'user',
-          firstName: trimmedFirstName,
-          lastName: trimmedLastName,
-        });
-        if (!result.success || !result.user) {
-          setInviteError(result.error || 'Не удалось создать пользователя');
-          return;
-        }
-        inviteeUserId = result.user.id;
-        generatedPassword = passwordToUse;
-      }
-
       await createInvitation({
         venueId: existingVenue.id,
         venueName: existingVenue.name,
         createdByUserId: user.id,
-        inviteeUserId,
         inviteeFirstName: trimmedFirstName,
         inviteeLastName: trimmedLastName,
         inviteeEmail: trimmedEmail,
@@ -194,13 +154,7 @@ export default function VenueManagement() {
       setInviteFirstName('');
       setInviteLastName('');
       setInviteEmail('');
-      setInvitePassword('');
-      if (generatedPassword) {
-        setCreatedCredentials({ email: trimmedEmail, password: generatedPassword });
-        setInviteSuccess('Инвайт и аккаунт созданы');
-      } else {
-        setInviteSuccess('Инвайт создан для существующего аккаунта');
-      }
+      setInviteSuccess('Инвайт создан. Пользователь может перейти по ссылке и зарегистрироваться.');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Не удалось создать приглашение';
       setInviteError(message);
@@ -286,19 +240,6 @@ export default function VenueManagement() {
       setInviteSuccess('Ссылка скопирована');
     } catch {
       setInviteError('Не удалось скопировать ссылку');
-    }
-  };
-
-  const handleCopyCredentials = async () => {
-    if (!createdCredentials) return;
-    setInviteError('');
-    setInviteSuccess('');
-    const payload = `Email: ${createdCredentials.email}\nПароль: ${createdCredentials.password}`;
-    try {
-      await navigator.clipboard.writeText(payload);
-      setInviteSuccess('Данные доступа скопированы');
-    } catch {
-      setInviteError('Не удалось скопировать данные доступа');
     }
   };
 
@@ -436,28 +377,6 @@ export default function VenueManagement() {
               </CardDescription>
           </CardHeader>
           <CardContent>
-            {createdCredentials && (
-              <div className="rounded-lg border border-emerald-800/40 bg-emerald-950/20 p-4 mb-4 space-y-2">
-                <p className="text-sm text-emerald-200 font-medium">Аккаунт создан</p>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <Input
-                    value={`${createdCredentials.email} / ${createdCredentials.password}`}
-                    readOnly
-                    className="h-10 bg-emerald-950/30 border-emerald-800/40 text-xs font-mono text-emerald-200"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleCopyCredentials}
-                    className="h-10 border-emerald-800/40 text-emerald-200 hover:bg-emerald-950/40"
-                  >
-                    <Copy className="h-3.5 w-3.5 mr-1.5" />
-                    Копировать
-                  </Button>
-                </div>
-              </div>
-            )}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -502,34 +421,6 @@ export default function VenueManagement() {
                       required
                       className="h-11 bg-input/50 border-border/50 focus:border-primary/60 transition-colors"
                     />
-                  </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label htmlFor="invitePassword" className="text-sm text-muted-foreground">
-                      Временный пароль
-                    </Label>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <Input
-                        id="invitePassword"
-                        type="text"
-                        autoComplete="new-password"
-                        value={invitePassword}
-                        onChange={(e) => setInvitePassword(e.target.value)}
-                        placeholder="Оставьте пустым для автогенерации"
-                        className="h-11 bg-input/50 border-border/50 focus:border-primary/60 transition-colors"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="h-11 border-border/50 hover:border-primary/30"
-                        onClick={() => setInvitePassword(generateTempPassword())}
-                        disabled={inviteSubmitting}
-                      >
-                        Сгенерировать
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Этот пароль нужен пользователю для входа.
-                    </p>
                   </div>
                 </div>
 

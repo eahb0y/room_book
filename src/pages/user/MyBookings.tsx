@@ -48,8 +48,8 @@ export default function MyBookings() {
     if (user?.role === 'admin') navigate('/app');
   }, [user, isAuthenticated, navigate]);
 
-  const handleCancel = (bookingId: string) => {
-    cancelBooking(bookingId);
+  const handleCancel = async (bookingId: string) => {
+    await cancelBooking(bookingId);
     setCancelConfirmId(null);
     setSuccessMessage('Бронирование успешно отменено');
     setTimeout(() => setSuccessMessage(''), 3000);

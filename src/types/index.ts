@@ -98,13 +98,5 @@ export interface AuthState {
   isAuthenticated: boolean;
   login: (credentials: LoginCredentials) => Promise<boolean>;
   register: (credentials: RegisterCredentials) => Promise<boolean>;
-  createUser: (payload: {
-    email: string;
-    password: string;
-    role?: UserRole;
-    firstName?: string;
-    lastName?: string;
-  }) => Promise<{ success: boolean; error?: string; user?: User }>;
-  logout: () => void;
-  getUserByEmail: (email: string) => Promise<User | undefined>;
+  logout: () => Promise<void>;
 }

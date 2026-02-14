@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useVenueStore } from '@/store/venueStore';
@@ -9,13 +9,11 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, CheckCircle2, Ticket } from 'lucide-react';
 
-const INVITE_STORAGE_KEY = 'pendingInviteToken';
-
 export default function Invite() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuthStore();
-  const addMembership = useVenueStore((state) => state.addMembership);
+  const loadUserData = useVenueStore((state) => state.loadUserData);
   const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [inviteLoadError, setInviteLoadError] = useState('');
@@ -24,26 +22,25 @@ export default function Invite() {
   const [error, setError] = useState('');
   const redeemAttemptRef = useRef<string | null>(null);
 
-  const invitationStatus = useMemo(() => {
-    if (!invitation) return 'missing';
-    if (invitation.revokedAt) return 'revoked';
-    if (invitation.expiresAt && new Date(invitation.expiresAt) <= new Date()) return 'expired';
-    if (invitation.maxUses !== undefined && invitation.uses >= invitation.maxUses) return 'used';
-    return 'valid';
-  }, [invitation]);
+  const invitationStatus = !isAuthenticated
+    ? 'pending-auth'
+    : !invitation
+      ? 'missing'
+      : invitation.revokedAt
+        ? 'revoked'
+        : invitation.expiresAt && new Date(invitation.expiresAt) <= new Date()
+          ? 'expired'
+          : invitation.maxUses !== undefined && invitation.uses >= invitation.maxUses
+            ? 'used'
+            : 'valid';
 
-  const inviteSubtitle = useMemo(() => {
-    if (inviteLoading) return 'Проверяем приглашение…';
-    if (invitation?.venueName) return `Вы приглашены в «${invitation.venueName}»`;
-    return 'Приглашение';
-  }, [inviteLoading, invitation?.venueName]);
-
-  useEffect(() => {
-    if (!token) return;
-    if (!isAuthenticated) {
-      sessionStorage.setItem(INVITE_STORAGE_KEY, token);
-    }
-  }, [token, isAuthenticated]);
+  const inviteSubtitle = !isAuthenticated
+    ? 'Войдите, чтобы проверить приглашение'
+    : inviteLoading
+      ? 'Проверяем приглашение…'
+      : invitation?.venueName
+        ? `Вы приглашены в «${invitation.venueName}»`
+        : 'Приглашение';
 
   useEffect(() => {
     if (!token) return;
@@ -53,7 +50,12 @@ export default function Invite() {
   }, [token]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || !isAuthenticated) {
+      setInviteLoading(false);
+      setInviteLoadError('');
+      setInvitation(null);
+      return;
+    }
     let isActive = true;
     setInviteLoading(true);
     setInviteLoadError('');
@@ -83,7 +85,7 @@ export default function Invite() {
     return () => {
       isActive = false;
     };
-  }, [token]);
+  }, [token, isAuthenticated]);
 
   useEffect(() => {
     if (!token || !isAuthenticated || !user) return;
@@ -98,10 +100,9 @@ export default function Invite() {
 
     setRedeemState('loading');
     redeemInvitation(token, user.id, user.email)
-      .then((result) => {
+      .then(async (result) => {
         if (result.success && result.venueId) {
-          sessionStorage.removeItem(INVITE_STORAGE_KEY);
-          addMembership(result.venueId, user.id, result.invitationId);
+          await loadUserData(user.id);
           navigate(`/venue/${result.venueId}`);
         } else {
           setError('Не удалось применить приглашение');
@@ -113,11 +114,10 @@ export default function Invite() {
         setError(message);
         setRedeemState('error');
       });
-  }, [token, isAuthenticated, user, inviteLoading, inviteLoadError, invitationStatus, redeemState, addMembership, navigate]);
+  }, [token, isAuthenticated, user, inviteLoading, inviteLoadError, invitationStatus, redeemState, loadUserData, navigate]);
 
   const handleContinue = () => {
     if (!token) return;
-    sessionStorage.setItem(INVITE_STORAGE_KEY, token);
     navigate(`/login?invite=${token}`);
   };
 
@@ -151,7 +151,7 @@ export default function Invite() {
               </Alert>
             )}
 
-            {!inviteLoading && !inviteLoadError && invitationStatus !== 'valid' && (
+            {!inviteLoading && !inviteLoadError && isAuthenticated && invitationStatus !== 'valid' && (
               <Alert variant="destructive" className="animate-scale-in">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
@@ -182,13 +182,20 @@ export default function Invite() {
               </Alert>
             )}
 
-            {invitationStatus === 'valid' && !isAuthenticated && (
+            {!isAuthenticated && (
               <>
                 <p className="text-sm text-muted-foreground">
-                  Приглашение доступно только для существующих аккаунтов. Войдите в систему.
+                  Войдите или зарегистрируйтесь, чтобы принять приглашение.
                 </p>
                 <div className="flex flex-col gap-3">
                   <Button onClick={handleContinue} className="h-11">Войти</Button>
+                  <Button
+                    variant="outline"
+                    className="h-11"
+                    onClick={() => token && navigate(`/register?invite=${token}`)}
+                  >
+                    Зарегистрироваться
+                  </Button>
                 </div>
               </>
             )}

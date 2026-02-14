@@ -72,7 +72,7 @@ export default function BookingPage() {
 
     setIsLoading(true);
 
-    const result = createBooking({
+    const result = await createBooking({
       roomId: roomId!,
       userId: user!.id,
       bookingDate: dateStr,

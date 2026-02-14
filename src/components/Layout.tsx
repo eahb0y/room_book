@@ -28,8 +28,8 @@ export default function Layout({ children }: LayoutProps) {
     }
   }, [isAuthenticated, user, loadedFor, loadAdminData, loadUserData]);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 
