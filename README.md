@@ -13,8 +13,7 @@ React + TypeScript + Vite app with Supabase Auth + Postgres storage.
 Create `.env` (already prepared in this workspace) with:
 
 ```bash
-VITE_SUPABASE_URL=https://pzbeulhxxfrhyzoimawm.supabase.co
-VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_B9NG1GWespJMNWWJOeKBOA_aEOhIDag
+
 ```
 
 ## 3. Run
