@@ -60,6 +60,8 @@ export interface Room {
   venueId: string;
   name: string;
   capacity: number;
+  photoUrl?: string | null;
+  photoUrls?: string[];
   createdAt: string;
 }
 

@@ -3,7 +3,7 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useVenueStore } from '@/store/venueStore';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, Building2, LogOut, Home, DoorOpen, List } from 'lucide-react';
+import { CalendarDays, Building2, LogOut, Home, DoorOpen, List, Users } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -106,6 +106,11 @@ export default function Layout({ children }: LayoutProps) {
                     <Building2 className="h-4 w-4" />
                     <span>Моё заведение</span>
                     <span className={activeBar('/my-venue')} />
+                  </Link>
+                  <Link to="/people" className={navLink('/people')}>
+                    <Users className="h-4 w-4" />
+                    <span>Люди</span>
+                    <span className={activeBar('/people')} />
                   </Link>
                   <Link to="/rooms" className={navLink('/rooms')}>
                     <DoorOpen className="h-4 w-4" />

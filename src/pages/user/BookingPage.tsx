@@ -1,285 +1,504 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { addDays, format, isBefore, startOfToday } from 'date-fns';
+import { ru } from 'date-fns/locale';
+import { AlertCircle, ArrowLeft, Calendar as CalendarIcon, CheckCircle2, ChevronLeft, ChevronRight, Clock3, DoorOpen, Users } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useVenueStore } from '@/store/venueStore';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { DoorOpen, Users, ArrowLeft, Calendar as CalendarIcon, Clock, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { format, isBefore, startOfToday } from 'date-fns';
-import { ru } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { getRoomPhotoUrls } from '@/lib/roomPhotos';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Calendar } from '@/components/ui/calendar';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { RoomPhotoGallery } from '@/components/RoomPhotoGallery';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const SLOT_STEP_MINUTES = 15;
+const MINUTES_IN_DAY = 24 * 60;
+const SLOT_START_MINUTES = Array.from({ length: MINUTES_IN_DAY / SLOT_STEP_MINUTES }, (_, index) => index * SLOT_STEP_MINUTES);
+const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
+
+const toMinutes = (time: string) => {
+  const [hour, minute] = time.split(':');
+  return parseInt(hour, 10) * 60 + parseInt(minute, 10);
+};
+
+const toTime = (totalMinutes: number) => {
+  if (totalMinutes >= MINUTES_IN_DAY) return '24:00';
+  const safeMinutes = Math.max(0, totalMinutes);
+  const hour = Math.floor(safeMinutes / 60).toString().padStart(2, '0');
+  const minute = (safeMinutes % 60).toString().padStart(2, '0');
+  return `${hour}:${minute}`;
+};
 
 export default function BookingPage() {
   const { roomId } = useParams<{ roomId: string }>();
   const { user, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
 
-  const room = useVenueStore((state) => state.rooms.find((r) => r.id === roomId));
+  const isVenueStoreLoading = useVenueStore((state) => state.isLoading);
+  const room = useVenueStore((state) => state.rooms.find((currentRoom) => currentRoom.id === roomId));
   const venue = useVenueStore((state) =>
-    room ? state.venues.find((v) => v.id === room.venueId) : undefined
+    room ? state.venues.find((currentVenue) => currentVenue.id === room.venueId) : undefined
   );
   const membership = useVenueStore((state) =>
     room && user ? state.getMembership(room.venueId, user.id) : undefined
   );
   const allBookings = useVenueStore((state) => state.bookings);
-  const bookings = useMemo(() => allBookings.filter((b) => b.roomId === roomId && b.status === 'active'), [allBookings, roomId]);
+  const bookings = useMemo(
+    () => allBookings.filter((booking) => booking.roomId === roomId && booking.status === 'active'),
+    [allBookings, roomId]
+  );
   const createBooking = useVenueStore((state) => state.createBooking);
+  const loadRoomBookings = useVenueStore((state) => state.loadRoomBookings);
 
-  const [date, setDate] = useState<Date>();
-  const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
+  const [date, setDate] = useState<Date>(startOfToday());
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [dialogStartTime, setDialogStartTime] = useState('');
+  const [dialogEndTime, setDialogEndTime] = useState('');
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated) { navigate('/login'); return; }
-    if (user?.role === 'admin') navigate('/app');
-    if (!room) navigate('/app');
-    if (user && room && !membership) navigate('/app');
-  }, [user, isAuthenticated, room, membership, navigate]);
-
-  const getBookingsForDate = (selectedDate: Date) => {
-    const dateStr = format(selectedDate, 'yyyy-MM-dd');
-    return bookings.filter((b) => b.bookingDate === dateStr && b.status === 'active');
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccess(false);
-
-    if (!date || !startTime || !endTime) {
-      setError('Заполните все поля');
+    if (!isAuthenticated) {
+      navigate('/login');
       return;
     }
-    if (startTime >= endTime) {
+
+    if (user?.role === 'admin') {
+      navigate('/app');
+      return;
+    }
+
+    if (!isVenueStoreLoading && roomId && !room) {
+      navigate('/app');
+      return;
+    }
+
+    if (user && room && !membership) {
+      navigate('/app');
+    }
+  }, [isAuthenticated, isVenueStoreLoading, membership, navigate, room, roomId, user]);
+
+  useEffect(() => {
+    if (!roomId || !user || user.role !== 'user') return;
+    void loadRoomBookings(roomId);
+  }, [loadRoomBookings, roomId, user]);
+
+  const selectedDateBookings = useMemo(() => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    return bookings.filter((booking) => booking.bookingDate === dateStr);
+  }, [bookings, date]);
+
+  const busyRanges = useMemo(() => (
+    selectedDateBookings.map((booking) => ({
+      start: toMinutes(booking.startTime),
+      end: toMinutes(booking.endTime),
+    }))
+  ), [selectedDateBookings]);
+
+  const isSlotBusy = useCallback((slotStartMinute: number) => (
+    busyRanges.some((range) =>
+      slotStartMinute < range.end && slotStartMinute + SLOT_STEP_MINUTES > range.start
+    )
+  ), [busyRanges]);
+
+  const getAvailableEndMinutes = useCallback((startMinute: number) => {
+    const nextBusyStart = busyRanges
+      .filter((range) => range.start > startMinute)
+      .reduce((nearest, range) => Math.min(nearest, range.start), MINUTES_IN_DAY);
+
+    const values: number[] = [];
+    for (let minute = startMinute + SLOT_STEP_MINUTES; minute <= nextBusyStart; minute += SLOT_STEP_MINUTES) {
+      values.push(minute);
+    }
+    return values;
+  }, [busyRanges]);
+
+  const availableStartTimes = useMemo(() => (
+    SLOT_START_MINUTES
+      .filter((minute) => !isSlotBusy(minute))
+      .filter((minute) => getAvailableEndMinutes(minute).length > 0)
+      .map((minute) => toTime(minute))
+  ), [getAvailableEndMinutes, isSlotBusy]);
+
+  const availableEndTimes = useMemo(() => {
+    if (!dialogStartTime) return [];
+    return getAvailableEndMinutes(toMinutes(dialogStartTime)).map((minute) => toTime(minute));
+  }, [dialogStartTime, getAvailableEndMinutes]);
+
+  const dayTabs = useMemo(
+    () => Array.from({ length: 7 }, (_, index) => addDays(date, index - 3)),
+    [date]
+  );
+
+  const pickDate = (nextDate: Date) => {
+    setDate(nextDate);
+    setIsDialogOpen(false);
+    setDialogStartTime('');
+    setDialogEndTime('');
+    setError('');
+    setSuccessMessage('');
+  };
+
+  const openSlotDialog = (slotMinute: number) => {
+    const selectedStart = toTime(slotMinute);
+    const ends = getAvailableEndMinutes(slotMinute).map((minute) => toTime(minute));
+    if (ends.length === 0) return;
+
+    setError('');
+    setSuccessMessage('');
+    setDialogStartTime(selectedStart);
+    setDialogEndTime(ends[0]);
+    setIsDialogOpen(true);
+  };
+
+  const handleCreateBooking = async () => {
+    setError('');
+    setSuccessMessage('');
+
+    if (!dialogStartTime || !dialogEndTime) {
+      setError('Укажите начало и окончание бронирования');
+      return;
+    }
+
+    if (dialogStartTime >= dialogEndTime) {
       setError('Время окончания должно быть позже времени начала');
       return;
     }
-
-    const dateStr = format(date, 'yyyy-MM-dd');
 
     if (isBefore(date, startOfToday())) {
       setError('Нельзя бронировать на прошедшую дату');
       return;
     }
 
-    setIsLoading(true);
-
-    const result = await createBooking({
-      roomId: roomId!,
-      userId: user!.id,
-      bookingDate: dateStr,
-      startTime,
-      endTime,
-    });
-
-    if (result.success) {
-      setSuccess(true);
-      setDate(undefined);
-      setStartTime('');
-      setEndTime('');
-    } else {
-      setError(result.error || 'Произошла ошибка при бронировании');
+    if (!roomId || !user) {
+      setError('Не удалось определить пользователя или комнату');
+      return;
     }
 
+    setIsLoading(true);
+    const result = await createBooking({
+      roomId,
+      userId: user.id,
+      bookingDate: format(date, 'yyyy-MM-dd'),
+      startTime: dialogStartTime,
+      endTime: dialogEndTime,
+    });
     setIsLoading(false);
+
+    if (!result.success) {
+      setError(result.error || 'Произошла ошибка при бронировании');
+      return;
+    }
+
+    setIsDialogOpen(false);
+    setDialogStartTime('');
+    setDialogEndTime('');
+    setSuccessMessage(`Бронь создана: ${dialogStartTime} — ${dialogEndTime}`);
   };
 
-  if (!room || !venue) return null;
+  const canGoToPreviousDay = !isBefore(addDays(date, -1), startOfToday());
 
-  const selectedDateBookings = date ? getBookingsForDate(date) : [];
+  if (!room || !venue) return null;
+  const roomPhotos = getRoomPhotoUrls(room);
 
   return (
-    <div className="space-y-8">
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm">
-        <Link to="/app" className="text-muted-foreground hover:text-primary transition-colors">Заведения</Link>
-        <span className="text-muted-foreground/40">/</span>
-        <Link to={`/venue/${venue.id}`} className="text-muted-foreground hover:text-primary transition-colors">{venue.name}</Link>
-        <span className="text-muted-foreground/40">/</span>
-        <span className="text-foreground/80">{room.name}</span>
-      </div>
-
-      {/* Room info */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
-        <div>
-          <h1 className="text-4xl font-semibold text-foreground tracking-tight">
-            {room.name}
-          </h1>
-          <div className="flex flex-wrap gap-4 mt-2">
-            <p className="text-muted-foreground flex items-center gap-2">
+    <div className="space-y-6">
+      <div className="relative overflow-hidden rounded-2xl border border-border/40 bg-muted/20">
+        {roomPhotos.length > 0 ? (
+          <RoomPhotoGallery
+            photos={roomPhotos}
+            roomName={room.name}
+            imageContainerClassName="h-56 w-full rounded-none border-none bg-transparent sm:h-72"
+            imageClassName="h-56 sm:h-72"
+            showThumbnails={false}
+            showControls={false}
+          />
+        ) : (
+          <div className="h-56 w-full bg-gradient-to-br from-primary/20 via-secondary/30 to-muted sm:h-72" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/65 via-black/25 to-black/5" />
+        <div className="absolute inset-x-0 bottom-0 p-5 sm:p-6">
+          <h1 className="text-3xl font-semibold tracking-tight text-white sm:text-4xl">{room.name}</h1>
+          <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/85">
+            <p className="flex items-center gap-2">
               <DoorOpen className="h-4 w-4" />
               <span>{venue.name}</span>
             </p>
-            <p className="text-muted-foreground flex items-center gap-2">
+            <p className="flex items-center gap-2">
               <Users className="h-4 w-4" />
               <span>до {room.capacity} человек</span>
             </p>
           </div>
         </div>
-        <Button variant="outline" onClick={() => navigate(`/venue/${venue.id}`)} className="border-border/50 hover:border-primary/30 shrink-0">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Назад
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2 text-sm">
+          <Link to="/app" className="text-muted-foreground transition-colors hover:text-primary">Заведения</Link>
+          <span className="text-muted-foreground/40">/</span>
+          <Link to={`/venue/${venue.id}`} className="text-muted-foreground transition-colors hover:text-primary">{venue.name}</Link>
+          <span className="text-muted-foreground/40">/</span>
+          <span className="text-foreground/90">{room.name}</span>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => navigate(`/venue/${venue.id}`)}
+          className="h-10 shrink-0 border-border/50 hover:border-primary/30"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Назад к списку комнат
         </Button>
       </div>
 
-      {/* Booking form + Schedule */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Form */}
-        <Card className="border-border/40 animate-fade-up">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2.5 text-lg">
-              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                <CalendarIcon className="h-4 w-4 text-primary" />
-              </div>
-              <span className="font-body font-semibold">Бронирование</span>
-            </CardTitle>
-            <CardDescription>
-              Выберите дату и время для бронирования
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {error && (
-                <Alert variant="destructive" className="animate-scale-in">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-              {success && (
-                <Alert className="bg-emerald-950/30 border-emerald-800/40 animate-scale-in">
-                  <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                  <AlertDescription className="text-emerald-300">
-                    Бронирование успешно создано!
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              <div className="space-y-2">
-                <Label className="text-sm text-muted-foreground">Дата *</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        'w-full justify-start text-left font-normal h-11 bg-input/50 border-border/50 hover:border-primary/30',
-                        !date && 'text-muted-foreground'
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {date ? format(date, 'PPP', { locale: ru }) : 'Выберите дату'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 border-border/50" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={date}
-                      onSelect={setDate}
-                      disabled={(date) => isBefore(date, startOfToday())}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="startTime" className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <Clock className="h-3.5 w-3.5" />
-                    <span>Начало *</span>
-                  </Label>
-                  <Input
-                    id="startTime"
-                    type="time"
-                    value={startTime}
-                    onChange={(e) => setStartTime(e.target.value)}
-                    required
-                    className="h-11 bg-input/50 border-border/50 focus:border-primary/60 transition-colors"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="endTime" className="flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <Clock className="h-3.5 w-3.5" />
-                    <span>Окончание *</span>
-                  </Label>
-                  <Input
-                    id="endTime"
-                    type="time"
-                    value={endTime}
-                    onChange={(e) => setEndTime(e.target.value)}
-                    required
-                    className="h-11 bg-input/50 border-border/50 focus:border-primary/60 transition-colors"
-                  />
-                </div>
-              </div>
-
-              <Button type="submit" className="w-full h-11 font-medium" disabled={isLoading}>
-                {isLoading ? 'Создание…' : 'Забронировать'}
+      <Card className="border-border/40 animate-fade-up">
+        <CardHeader className="gap-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <CardTitle className="text-lg font-semibold font-body">Выберите день</CardTitle>
+              <CardDescription className="mt-1">
+                Нажмите на свободный 15‑минутный слот, затем задайте начало и конец бронирования
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                disabled={!canGoToPreviousDay}
+                onClick={() => pickDate(addDays(date, -1))}
+                className="h-9 w-9 border-border/50"
+              >
+                <ChevronLeft className="h-4 w-4" />
               </Button>
-            </form>
-          </CardContent>
-        </Card>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => pickDate(addDays(date, 1))}
+                className="h-9 w-9 border-border/50"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => pickDate(startOfToday())}
+                className="h-9 border-border/50"
+              >
+                Сегодня
+              </Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="outline" className="h-9 border-border/50">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {format(date, 'd MMM yyyy', { locale: ru })}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-auto border-border/50 p-0">
+                  <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={(picked) => {
+                      if (!picked) return;
+                      pickDate(picked);
+                    }}
+                    disabled={(calendarDate) => isBefore(calendarDate, startOfToday())}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+          <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+            {dayTabs.map((day) => {
+              const isPast = isBefore(day, startOfToday());
+              const isCurrent = format(day, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
+              return (
+                <button
+                  key={format(day, 'yyyy-MM-dd')}
+                  type="button"
+                  disabled={isPast}
+                  onClick={() => pickDate(day)}
+                  className={cn(
+                    'rounded-lg border px-2 py-2 text-left transition-all',
+                    isCurrent
+                      ? 'border-primary/70 bg-primary/12 text-foreground'
+                      : 'border-border/50 bg-muted/20 text-muted-foreground hover:border-primary/30 hover:text-foreground',
+                    isPast && 'cursor-not-allowed opacity-40'
+                  )}
+                >
+                  <p className="text-[11px] uppercase tracking-wide">{format(day, 'EEE', { locale: ru })}</p>
+                  <p className="mt-1 text-sm font-semibold">{format(day, 'd MMM', { locale: ru })}</p>
+                </button>
+              );
+            })}
+          </div>
+        </CardHeader>
+      </Card>
 
-        {/* Schedule */}
-        <Card className="border-border/40 animate-fade-up stagger-2">
-          <CardHeader>
-            <CardTitle className="text-lg font-body font-semibold">Расписание комнаты</CardTitle>
-            <CardDescription>
-              {date ? (
-                <>
-                  Занятые слоты на{' '}
-                  <span className="text-foreground/80 font-medium">
-                    {format(date, 'd MMMM yyyy', { locale: ru })}
-                  </span>
-                </>
-              ) : (
-                'Выберите дату для просмотра расписания'
-              )}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {!date ? (
-              <div className="flex flex-col items-center justify-center py-10">
-                <CalendarIcon className="h-10 w-10 text-muted-foreground/20 mb-4" />
-                <p className="text-muted-foreground/60 text-sm">Выберите дату слева</p>
-              </div>
-            ) : selectedDateBookings.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10">
-                <div className="w-12 h-12 rounded-full bg-emerald-950/30 flex items-center justify-center mb-4">
-                  <CheckCircle2 className="h-6 w-6 text-emerald-400" />
-                </div>
-                <p className="text-emerald-400 font-medium text-sm">Комната свободна весь день</p>
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-3">
-                  Занятые интервалы
-                </p>
-                {selectedDateBookings
-                  .sort((a, b) => a.startTime.localeCompare(b.startTime))
-                  .map((booking) => (
-                    <div
-                      key={booking.id}
-                      className="flex items-center gap-3 p-3 rounded-lg bg-red-950/20 border border-red-900/30"
-                    >
-                      <Clock className="h-4 w-4 text-red-400" />
-                      <span className="font-medium text-red-300 text-sm font-mono">
-                        {booking.startTime} — {booking.endTime}
-                      </span>
+      <Card className="border-border/40 animate-fade-up stagger-2">
+        <CardHeader>
+          <CardTitle className="text-lg font-body font-semibold">
+            Расписание на {format(date, 'd MMMM yyyy', { locale: ru })}
+          </CardTitle>
+          <CardDescription>
+            Красный цвет - занято. Нейтральный цвет - свободно, нажмите для брони.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {error && (
+            <Alert variant="destructive" className="animate-scale-in">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          {successMessage && (
+            <Alert className="border-emerald-800/40 bg-emerald-950/30 animate-scale-in">
+              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+              <AlertDescription className="text-emerald-300">{successMessage}</AlertDescription>
+            </Alert>
+          )}
+
+          <ScrollArea className="h-[680px] rounded-xl border border-border/40 bg-muted/10 p-3 pr-2">
+            <div className="space-y-1.5">
+              {HOURS.map((hour) => {
+                const quarterSlots = [0, 15, 30, 45].map((quarterMinute) => hour * 60 + quarterMinute);
+                return (
+                  <div key={hour} className="grid grid-cols-[64px_1fr] items-start gap-3">
+                    <div className="pt-2 font-mono text-xs text-muted-foreground">{toTime(hour * 60)}</div>
+                    <div className="flex flex-col gap-1.5">
+                      {quarterSlots.map((minute) => {
+                        const busy = isSlotBusy(minute);
+                        return (
+                          <button
+                            key={minute}
+                            type="button"
+                            disabled={busy}
+                            onClick={() => openSlotDialog(minute)}
+                            className={cn(
+                              'w-full rounded-md border px-2 py-2 text-left transition-all',
+                              busy
+                                ? 'cursor-not-allowed border-red-900/45 bg-red-950/35 text-red-200'
+                                : 'border-border/60 bg-background/65 text-foreground hover:border-primary/45 hover:bg-primary/10'
+                            )}
+                          >
+                            <p className="font-mono text-xs">{toTime(minute)}</p>
+                            <p className="mt-1 text-[10px] uppercase tracking-wide opacity-80">
+                              {busy ? 'занято' : 'свободно'}
+                            </p>
+                          </button>
+                        );
+                      })}
                     </div>
-                  ))}
+                  </div>
+                );
+              })}
+            </div>
+          </ScrollArea>
+
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {selectedDateBookings
+              .slice()
+              .sort((first, second) => first.startTime.localeCompare(second.startTime))
+              .map((booking) => (
+                <div key={booking.id} className="flex items-center gap-2 rounded-lg border border-red-900/35 bg-red-950/20 px-3 py-2 text-sm">
+                  <Clock3 className="h-4 w-4 text-red-300" />
+                  <span className="font-mono text-red-200">
+                    {booking.startTime} - {booking.endTime}
+                  </span>
+                </div>
+              ))}
+            {selectedDateBookings.length === 0 && (
+              <div className="col-span-full rounded-lg border border-emerald-800/35 bg-emerald-950/20 px-3 py-2 text-sm text-emerald-300">
+                На выбранный день комната полностью свободна.
               </div>
             )}
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Dialog
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) {
+            setDialogStartTime('');
+            setDialogEndTime('');
+          }
+        }}
+      >
+        <DialogContent className="border-border/50">
+          <DialogHeader>
+            <DialogTitle>Новое бронирование</DialogTitle>
+            <DialogDescription>
+              {format(date, "d MMMM yyyy, EEEE", { locale: ru })}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">Начало</p>
+              <Select
+                value={dialogStartTime}
+                onValueChange={(value) => {
+                  setDialogStartTime(value);
+                  const ends = getAvailableEndMinutes(toMinutes(value)).map((minute) => toTime(minute));
+                  setDialogEndTime((current) => (ends.includes(current) ? current : (ends[0] ?? '')));
+                }}
+              >
+                <SelectTrigger className="w-full h-10 border-border/50 bg-input/50">
+                  <SelectValue placeholder="Выберите начало" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableStartTimes.map((slot) => (
+                    <SelectItem key={slot} value={slot}>
+                      {slot}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">Окончание</p>
+              <Select value={dialogEndTime} onValueChange={setDialogEndTime}>
+                <SelectTrigger className="w-full h-10 border-border/50 bg-input/50">
+                  <SelectValue placeholder="Выберите окончание" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableEndTimes.map((slot) => (
+                    <SelectItem key={slot} value={slot}>
+                      {slot}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              className="border-border/50"
+              onClick={() => setIsDialogOpen(false)}
+              disabled={isLoading}
+            >
+              Отмена
+            </Button>
+            <Button type="button" onClick={handleCreateBooking} disabled={isLoading || !dialogStartTime || !dialogEndTime}>
+              {isLoading ? 'Создание…' : 'Подтвердить бронь'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

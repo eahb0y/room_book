@@ -26,8 +26,21 @@ create table if not exists public.rooms (
   venue_id uuid not null references public.venues (id) on delete cascade,
   name text not null,
   capacity integer not null check (capacity > 0),
+  photo_url text,
+  photo_urls text[] not null default '{}',
   created_at timestamptz not null default now()
 );
+
+alter table public.rooms
+  add column if not exists photo_url text;
+
+alter table public.rooms
+  add column if not exists photo_urls text[] not null default '{}';
+
+update public.rooms
+set photo_urls = array[photo_url]
+where photo_url is not null
+  and coalesce(cardinality(photo_urls), 0) = 0;
 
 create table if not exists public.invitations (
   id uuid primary key default gen_random_uuid(),

@@ -2,10 +2,12 @@ import { useEffect, useMemo } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useVenueStore } from '@/store/venueStore';
+import { RoomPhotoGallery } from '@/components/RoomPhotoGallery';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { DoorOpen, Users, ArrowLeft, ArrowRight, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { getRoomPhotoUrls } from '@/lib/roomPhotos';
 
 export default function RoomList() {
   const { venueId } = useParams<{ venueId: string }>();
@@ -80,32 +82,43 @@ export default function RoomList() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {rooms.map((room, i) => (
-            <Card key={room.id} className={`card-hover stagger-${Math.min(i + 1, 6)} animate-fade-up`}>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2.5 text-base">
-                  <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <DoorOpen className="h-4 w-4 text-primary" />
-                  </div>
-                  <span className="font-body font-semibold">{room.name}</span>
-                </CardTitle>
-                <CardDescription className="pl-[42px]">
-                  <Badge variant="secondary" className="flex items-center gap-1.5 w-fit text-xs">
-                    <Users className="h-3 w-3" />
-                    <span>до {room.capacity} человек</span>
-                  </Badge>
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pl-[42px]">
-                <Button asChild className="w-full group/btn h-10">
-                  <Link to={`/room/${room.id}`} className="flex items-center justify-center gap-2">
-                    <span>Забронировать</span>
-                    <ArrowRight className="h-4 w-4 transition-transform group-hover/btn:translate-x-0.5" />
-                  </Link>
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+          {rooms.map((room, i) => {
+            const roomPhotos = getRoomPhotoUrls(room);
+
+            return (
+              <Card key={room.id} className={`card-hover stagger-${Math.min(i + 1, 6)} animate-fade-up`}>
+                {roomPhotos.length > 0 ? (
+                  <RoomPhotoGallery
+                    photos={roomPhotos}
+                    roomName={room.name}
+                    imageContainerClassName="w-full aspect-[16/10] rounded-t-xl border-x-0 border-t-0 border-b border-border/40 bg-muted/30"
+                  />
+                ) : null}
+                <CardHeader className={`pb-3 ${roomPhotos.length > 0 ? 'pt-4' : ''}`}>
+                  <CardTitle className="flex items-center gap-2.5 text-base">
+                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <DoorOpen className="h-4 w-4 text-primary" />
+                    </div>
+                    <span className="font-body font-semibold">{room.name}</span>
+                  </CardTitle>
+                  <CardDescription className="pl-[42px]">
+                    <Badge variant="secondary" className="flex items-center gap-1.5 w-fit text-xs">
+                      <Users className="h-3 w-3" />
+                      <span>до {room.capacity} человек</span>
+                    </Badge>
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pl-[42px]">
+                  <Button asChild className="w-full group/btn h-10">
+                    <Link to={`/room/${room.id}`} className="flex items-center justify-center gap-2">
+                      <span>Забронировать</span>
+                      <ArrowRight className="h-4 w-4 transition-transform group-hover/btn:translate-x-0.5" />
+                    </Link>
+                  </Button>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

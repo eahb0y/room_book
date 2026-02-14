@@ -111,6 +111,8 @@ export const useVenueStore = create<VenueState>((set, get) => ({
       name: roomData.name,
       capacity: roomData.capacity,
       venueId: roomData.venueId,
+      photoUrls: roomData.photoUrls,
+      photoUrl: roomData.photoUrl,
     });
     set((state) => ({ rooms: mergeById(state.rooms, [room]) }));
     return room;
@@ -120,6 +122,8 @@ export const useVenueStore = create<VenueState>((set, get) => ({
     const room = await roomApi.updateRoom(id, {
       name: roomData.name,
       capacity: roomData.capacity,
+      photoUrls: roomData.photoUrls,
+      photoUrl: roomData.photoUrl,
     });
     set((state) => ({ rooms: mergeById(state.rooms, [room]) }));
     return room;

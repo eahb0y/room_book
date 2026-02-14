@@ -1,7 +1,11 @@
 import { create } from 'zustand';
-import type { AuthState } from '@/types';
+import type { AuthState, User } from '@/types';
 import * as authApi from '@/lib/authApi';
+import { getAuthSession } from '@/lib/supabaseSession';
 import { useVenueStore } from '@/store/venueStore';
+
+const AUTH_STATE_STORAGE_KEY = 'workspace-booking-auth-state';
+const isBrowser = typeof window !== 'undefined';
 
 const isAuthError = (err: unknown) => {
   const message = err instanceof Error ? err.message.toLowerCase() : '';
@@ -23,14 +27,86 @@ const isDuplicateError = (err: unknown) => {
   );
 };
 
+const isUser = (value: unknown): value is User => {
+  if (!value || typeof value !== 'object') return false;
+  const user = value as Record<string, unknown>;
+
+  return (
+    typeof user.id === 'string' &&
+    typeof user.email === 'string' &&
+    typeof user.createdAt === 'string' &&
+    (user.role === 'admin' || user.role === 'user') &&
+    (user.firstName === undefined || typeof user.firstName === 'string') &&
+    (user.lastName === undefined || typeof user.lastName === 'string')
+  );
+};
+
+const removePersistedAuthState = () => {
+  if (!isBrowser) return;
+
+  try {
+    window.sessionStorage.removeItem(AUTH_STATE_STORAGE_KEY);
+  } catch {
+    // Ignore storage errors and keep in-memory fallback.
+  }
+};
+
+const persistAuthState = (state: Pick<AuthState, 'user' | 'isAuthenticated'>) => {
+  if (!isBrowser) return;
+
+  if (!state.isAuthenticated || !state.user) {
+    removePersistedAuthState();
+    return;
+  }
+
+  try {
+    window.sessionStorage.setItem(
+      AUTH_STATE_STORAGE_KEY,
+      JSON.stringify({
+        user: state.user,
+        isAuthenticated: true,
+      }),
+    );
+  } catch {
+    // Ignore storage errors and keep in-memory fallback.
+  }
+};
+
+const readPersistedAuthState = (): Pick<AuthState, 'user' | 'isAuthenticated'> => {
+  if (!isBrowser || !getAuthSession()) {
+    removePersistedAuthState();
+    return { user: null, isAuthenticated: false };
+  }
+
+  try {
+    const raw = window.sessionStorage.getItem(AUTH_STATE_STORAGE_KEY);
+    if (!raw) return { user: null, isAuthenticated: false };
+
+    const parsed = JSON.parse(raw) as { user?: unknown; isAuthenticated?: unknown };
+    if (parsed.isAuthenticated !== true || !isUser(parsed.user)) {
+      removePersistedAuthState();
+      return { user: null, isAuthenticated: false };
+    }
+
+    return { user: parsed.user, isAuthenticated: true };
+  } catch {
+    removePersistedAuthState();
+    return { user: null, isAuthenticated: false };
+  }
+};
+
+const initialAuthState = readPersistedAuthState();
+
 export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  isAuthenticated: false,
+  user: initialAuthState.user,
+  isAuthenticated: initialAuthState.isAuthenticated,
 
   login: async (credentials) => {
     try {
       const user = await authApi.login(credentials);
-      set({ user, isAuthenticated: true });
+      const nextState = { user, isAuthenticated: true };
+      persistAuthState(nextState);
+      set(nextState);
       return true;
     } catch (err) {
       if (isAuthError(err)) return false;
@@ -41,7 +117,9 @@ export const useAuthStore = create<AuthState>((set) => ({
   register: async (credentials) => {
     try {
       const user = await authApi.register(credentials);
-      set({ user, isAuthenticated: true });
+      const nextState = { user, isAuthenticated: true };
+      persistAuthState(nextState);
+      set(nextState);
       return true;
     } catch (err) {
       if (isDuplicateError(err)) return false;
@@ -51,7 +129,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: async () => {
     await authApi.logout();
-    set({ user: null, isAuthenticated: false });
+    const nextState = { user: null, isAuthenticated: false };
+    persistAuthState(nextState);
+    set(nextState);
     useVenueStore.getState().reset();
   },
 }));

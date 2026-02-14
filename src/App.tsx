@@ -7,6 +7,7 @@ import Register from '@/pages/Register';
 import Invite from '@/pages/Invite';
 import AdminDashboard from '@/pages/admin/AdminDashboard';
 import VenueManagement from '@/pages/admin/VenueManagement';
+import PeopleManagement from '@/pages/admin/PeopleManagement';
 import RoomManagement from '@/pages/admin/RoomManagement';
 import AdminBookings from '@/pages/admin/AdminBookings';
 import VenueList from '@/pages/user/VenueList';
@@ -83,6 +84,16 @@ function App() {
             <PrivateRoute>
               <Layout>
                 <VenueManagement />
+              </Layout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/people"
+          element={
+            <PrivateRoute>
+              <Layout>
+                <PeopleManagement />
               </Layout>
             </PrivateRoute>
           }
