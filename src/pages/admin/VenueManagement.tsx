@@ -9,8 +9,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Building2, MapPin, FileText, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useI18n } from '@/i18n/useI18n';
 
 export default function VenueManagement() {
+  const { t } = useI18n();
   const user = useAuthStore((state) => state.user);
   const navigate = useNavigate();
   const venues = useVenueStore((state) => state.venues);
@@ -49,7 +51,7 @@ export default function VenueManagement() {
     setSuccess('');
 
     if (!name.trim() || !address.trim()) {
-      setError('Название и адрес обязательны для заполнения');
+      setError(t('Название и адрес обязательны для заполнения'));
       return;
     }
 
@@ -58,13 +60,13 @@ export default function VenueManagement() {
     try {
       if (existingVenue) {
         await updateVenue(existingVenue.id, { name, description, address });
-        setSuccess('Заведение успешно обновлено');
+        setSuccess(t('Заведение успешно обновлено'));
       } else {
         await createVenue({ name, description, address, adminId: user!.id });
-        setSuccess('Заведение успешно создано');
+        setSuccess(t('Заведение успешно создано'));
       }
     } catch {
-      setError('Произошла ошибка при сохранении');
+      setError(t('Произошла ошибка при сохранении'));
     } finally {
       setIsLoading(false);
     }
@@ -74,10 +76,10 @@ export default function VenueManagement() {
     <div className="max-w-2xl mx-auto space-y-8">
       <div>
         <h1 className="text-4xl font-semibold text-foreground tracking-tight">
-          {existingVenue ? 'Редактирование заведения' : 'Создание заведения'}
+          {existingVenue ? t('Редактирование заведения') : t('Создание заведения')}
         </h1>
         <p className="text-muted-foreground mt-2">
-          {existingVenue ? 'Обновите информацию о вашем заведении' : 'Добавьте своё заведение в систему'}
+          {existingVenue ? t('Обновите информацию о вашем заведении') : t('Добавьте своё заведение в систему')}
         </p>
       </div>
 
@@ -87,10 +89,10 @@ export default function VenueManagement() {
             <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
               <Building2 className="h-4 w-4 text-primary" />
             </div>
-            <span className="font-body font-semibold">Информация о заведении</span>
+            <span className="font-body font-semibold">{t('Информация о заведении')}</span>
           </CardTitle>
           <CardDescription>
-            Заполните основную информацию о вашем заведении
+            {t('Заполните основную информацию о вашем заведении')}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -110,11 +112,11 @@ export default function VenueManagement() {
             <div className="space-y-2">
               <Label htmlFor="name" className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Building2 className="h-3.5 w-3.5" />
-                <span>Название заведения *</span>
+                <span>{t('Название заведения *')}</span>
               </Label>
               <Input
                 id="name"
-                placeholder="Например: Коворкинг Центр"
+                placeholder={t('Например: Коворкинг Центр')}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 required
@@ -125,11 +127,11 @@ export default function VenueManagement() {
             <div className="space-y-2">
               <Label htmlFor="address" className="flex items-center gap-2 text-sm text-muted-foreground">
                 <MapPin className="h-3.5 w-3.5" />
-                <span>Адрес *</span>
+                <span>{t('Адрес *')}</span>
               </Label>
               <Input
                 id="address"
-                placeholder="Например: ул. Ленина, 1"
+                placeholder={t('Например: ул. Ленина, 1')}
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 required
@@ -140,11 +142,11 @@ export default function VenueManagement() {
             <div className="space-y-2">
               <Label htmlFor="description" className="flex items-center gap-2 text-sm text-muted-foreground">
                 <FileText className="h-3.5 w-3.5" />
-                <span>Описание</span>
+                <span>{t('Описание')}</span>
               </Label>
               <Textarea
                 id="description"
-                placeholder="Опишите ваше заведение…"
+                placeholder={t('Опишите ваше заведение…')}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={4}
@@ -154,7 +156,7 @@ export default function VenueManagement() {
 
             <div className="flex gap-3 pt-2">
               <Button type="submit" disabled={isLoading} className="flex-1 h-11">
-                {isLoading ? 'Сохранение…' : existingVenue ? 'Обновить заведение' : 'Создать заведение'}
+                {isLoading ? t('Сохранение…') : existingVenue ? t('Обновить заведение') : t('Создать заведение')}
               </Button>
               <Button
                 type="button"
@@ -162,7 +164,7 @@ export default function VenueManagement() {
                 onClick={() => navigate('/app')}
                 className="h-11 border-border/50 hover:border-primary/30"
               >
-                Отмена
+                {t('Отмена')}
               </Button>
             </div>
           </form>

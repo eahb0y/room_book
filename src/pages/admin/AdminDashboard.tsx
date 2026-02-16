@@ -5,8 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Building2, DoorOpen, CalendarDays, ArrowRight } from 'lucide-react';
 import { useVenueStore } from '@/store/venueStore';
 import { Button } from '@/components/ui/button';
+import { useI18n } from '@/i18n/useI18n';
+import { getBookingViewStatus } from '@/lib/bookingStatus';
 
 export default function AdminDashboard() {
+  const { t } = useI18n();
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const venues = useVenueStore((state) => state.venues);
@@ -24,25 +27,25 @@ export default function AdminDashboard() {
     }
   }, [user, navigate]);
 
-  const activeBookings = bookings.filter((b) => b.status === 'active');
+  const activeBookings = bookings.filter((b) => getBookingViewStatus(b) === 'active');
 
   const stats = [
     {
-      label: 'Заведение',
-      value: venue ? venue.name : 'Не создано',
-      sub: venue ? venue.address : 'Добавьте своё заведение',
+      label: t('Заведение'),
+      value: venue ? venue.name : t('Не создано'),
+      sub: venue ? venue.address : t('Добавьте своё заведение'),
       icon: Building2,
     },
     {
-      label: 'Комнат',
+      label: t('Комнат'),
       value: rooms.length,
-      sub: 'Переговорных комнат',
+      sub: t('Переговорных комнат'),
       icon: DoorOpen,
     },
     {
-      label: 'Бронирований',
+      label: t('Бронирования'),
       value: activeBookings.length,
-      sub: 'Активных сейчас',
+      sub: t('Активных сейчас'),
       icon: CalendarDays,
     },
   ];
@@ -52,10 +55,10 @@ export default function AdminDashboard() {
       {/* Hero heading */}
       <div>
         <h1 className="text-4xl font-semibold text-foreground tracking-tight">
-          Панель управления
+          {t('Панель управления')}
         </h1>
         <p className="text-muted-foreground mt-2 text-lg">
-          Добро пожаловать, <span className="text-foreground/80">{user?.email}</span>
+          {t('Добро пожаловать, {email}', { email: user?.email ?? '' })}
         </p>
       </div>
 
@@ -87,17 +90,17 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <Card className="card-hover group stagger-4 animate-fade-up">
           <CardHeader>
-            <CardTitle className="text-lg">Управление заведением</CardTitle>
+            <CardTitle className="text-lg">{t('Управление заведением')}</CardTitle>
             <CardDescription>
               {venue
-                ? 'Редактируйте информацию о вашем заведении'
-                : 'Создайте своё заведение для начала работы'}
+                ? t('Редактируйте информацию о вашем заведении')
+                : t('Создайте своё заведение для начала работы')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button asChild className="group/btn">
               <Link to="/my-venue" className="flex items-center gap-2">
-                <span>{venue ? 'Редактировать' : 'Создать заведение'}</span>
+                <span>{venue ? t('Редактировать') : t('Создать заведение')}</span>
                 <ArrowRight className="h-4 w-4 transition-transform group-hover/btn:translate-x-0.5" />
               </Link>
             </Button>
@@ -106,15 +109,15 @@ export default function AdminDashboard() {
 
         <Card className="card-hover group stagger-5 animate-fade-up">
           <CardHeader>
-            <CardTitle className="text-lg">Управление комнатами</CardTitle>
+            <CardTitle className="text-lg">{t('Управление комнатами')}</CardTitle>
             <CardDescription>
-              Добавляйте и управляйте переговорными комнатами
+              {t('Добавляйте и управляйте переговорными комнатами')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Button asChild className="group/btn">
               <Link to="/rooms" className="flex items-center gap-2">
-                <span>Управление комнатами</span>
+                <span>{t('Управление комнатами')}</span>
                 <ArrowRight className="h-4 w-4 transition-transform group-hover/btn:translate-x-0.5" />
               </Link>
             </Button>

@@ -5,8 +5,10 @@ import { useVenueStore } from '@/store/venueStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Building2, MapPin, ArrowRight, DoorOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useI18n } from '@/i18n/useI18n';
 
 export default function VenueList() {
+  const { t } = useI18n();
   const { user, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
   const memberships = useVenueStore((state) => state.memberships);
@@ -37,10 +39,10 @@ export default function VenueList() {
     <div className="space-y-8">
       <div>
         <h1 className="text-4xl font-semibold text-foreground tracking-tight">
-          Доступные заведения
+          {t('Доступные заведения')}
         </h1>
         <p className="text-muted-foreground mt-2">
-          Выберите заведение для просмотра доступных комнат
+          {t('Выберите заведение для просмотра доступных комнат')}
         </p>
       </div>
 
@@ -50,9 +52,9 @@ export default function VenueList() {
             <div className="w-16 h-16 rounded-2xl bg-secondary/50 flex items-center justify-center mb-5">
               <Building2 className="h-7 w-7 text-muted-foreground/40" />
             </div>
-            <p className="text-muted-foreground mb-1">Пока нет доступных заведений</p>
+            <p className="text-muted-foreground mb-1">{t('Пока нет доступных заведений')}</p>
             <p className="text-sm text-muted-foreground/70">
-              Загляните позже или обратитесь к администратору
+              {t('Загляните позже или обратитесь к администратору')}
             </p>
           </CardContent>
         </Card>
@@ -71,6 +73,7 @@ function VenueCard({ venue, index }: {
   venue: { id: string; name: string; description: string; address: string; adminId: string; createdAt: string };
   index: number;
 }) {
+  const { t } = useI18n();
   const allRooms = useVenueStore((state) => state.rooms);
   const rooms = useMemo(() => allRooms.filter((r) => r.venueId === venue.id), [allRooms, venue.id]);
 
@@ -97,11 +100,11 @@ function VenueCard({ venue, index }: {
         <div className="flex items-center justify-between pl-[42px]">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <DoorOpen className="h-3.5 w-3.5" />
-            <span>{rooms.length} комнат</span>
+            <span>{t('{count} комнат', { count: rooms.length })}</span>
           </div>
           <Button asChild size="sm" className="group/btn h-9">
             <Link to={`/venue/${venue.id}`} className="flex items-center gap-1.5">
-              <span>Просмотреть</span>
+              <span>{t('Просмотреть')}</span>
               <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover/btn:translate-x-0.5" />
             </Link>
           </Button>

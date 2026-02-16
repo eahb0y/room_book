@@ -28,6 +28,10 @@ interface VenueState {
 
   createBooking: (booking: Omit<Booking, 'id' | 'createdAt' | 'status'>) => Promise<{ success: boolean; error?: string }>;
   cancelBooking: (id: string) => Promise<void>;
+  updateBooking: (
+    id: string,
+    booking: Pick<Booking, 'roomId' | 'bookingDate' | 'startTime' | 'endTime' | 'status'>,
+  ) => Promise<{ success: boolean; error?: string }>;
 
   reset: () => void;
 }
@@ -161,6 +165,23 @@ export const useVenueStore = create<VenueState>((set, get) => ({
   cancelBooking: async (id) => {
     const booking = await bookingApi.cancelBooking(id);
     set((state) => ({ bookings: mergeById(state.bookings, [booking]) }));
+  },
+
+  updateBooking: async (id, bookingData) => {
+    try {
+      const booking = await bookingApi.updateBooking(id, {
+        roomId: bookingData.roomId,
+        bookingDate: bookingData.bookingDate,
+        startTime: bookingData.startTime,
+        endTime: bookingData.endTime,
+        status: bookingData.status,
+      });
+      set((state) => ({ bookings: mergeById(state.bookings, [booking]) }));
+      return { success: true };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Произошла ошибка при сохранении';
+      return { success: false, error: message };
+    }
   },
 
   reset: () => {

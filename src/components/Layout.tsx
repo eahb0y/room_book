@@ -3,7 +3,10 @@ import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useVenueStore } from '@/store/venueStore';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, Building2, LogOut, Home, DoorOpen, List, Users } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { CalendarDays, Building2, LogOut, Home, DoorOpen, List, Users, UserRound } from 'lucide-react';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
+import { useI18n } from '@/i18n/useI18n';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -11,6 +14,7 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const { user, isAuthenticated, logout } = useAuthStore();
+  const { t } = useI18n();
   const loadAdminData = useVenueStore((state) => state.loadAdminData);
   const loadUserData = useVenueStore((state) => state.loadUserData);
   const loadedFor = useVenueStore((state) => state.loadedFor);
@@ -34,6 +38,19 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   const isActive = (path: string) => location.pathname === path;
+
+  const fullName = [user?.firstName, user?.lastName]
+    .filter((value): value is string => Boolean(value && value.trim()))
+    .join(' ')
+    .trim();
+
+  const initials = fullName
+    ? fullName
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((part) => part.charAt(0).toUpperCase())
+        .join('')
+    : user?.email?.charAt(0).toUpperCase() ?? 'U';
 
   const navLink = (path: string) =>
     `group relative flex items-center gap-2.5 px-4 py-4 text-sm tracking-wide transition-all duration-300 whitespace-nowrap ${
@@ -63,17 +80,22 @@ export default function Layout({ children }: LayoutProps) {
                 <CalendarDays className="h-[18px] w-[18px] text-white" />
               </div>
               <span className="font-display text-xl tracking-tight text-foreground">
-                Пространство
+                {t('Пространство')}
               </span>
             </Link>
 
             {isAuthenticated && (
               <div className="flex items-center gap-3">
+                <LanguageSwitcher className="shrink-0" />
                 <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-secondary/50 border border-border/30">
-                  <div className="w-2 h-2 rounded-full bg-emerald-500/80" />
-                  <span className="text-sm text-muted-foreground font-body">
-                    {user?.email}
-                  </span>
+                  <Avatar className="h-7 w-7 border border-border/50">
+                    {user?.avatarUrl ? <AvatarImage src={user.avatarUrl} alt={fullName || user.email} /> : null}
+                    <AvatarFallback className="text-[11px]">{initials}</AvatarFallback>
+                  </Avatar>
+                  <div className="leading-tight">
+                    {fullName && <p className="text-xs text-foreground">{fullName}</p>}
+                    <p className="text-xs text-muted-foreground font-body">{user?.email}</p>
+                  </div>
                 </div>
                 <Button
                   variant="ghost"
@@ -82,7 +104,7 @@ export default function Layout({ children }: LayoutProps) {
                   className="text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-all duration-300"
                 >
                   <LogOut className="h-4 w-4" />
-                  <span className="hidden sm:inline ml-2">Выйти</span>
+                  <span className="hidden sm:inline ml-2">{t('Выйти')}</span>
                 </Button>
               </div>
             )}
@@ -99,41 +121,51 @@ export default function Layout({ children }: LayoutProps) {
                 <>
                   <Link to="/app" className={navLink('/app')}>
                     <Home className="h-4 w-4" />
-                    <span>Главная</span>
+                    <span>{t('Главная')}</span>
                     <span className={activeBar('/app')} />
                   </Link>
                   <Link to="/my-venue" className={navLink('/my-venue')}>
                     <Building2 className="h-4 w-4" />
-                    <span>Моё заведение</span>
+                    <span>{t('Моё заведение')}</span>
                     <span className={activeBar('/my-venue')} />
                   </Link>
                   <Link to="/people" className={navLink('/people')}>
                     <Users className="h-4 w-4" />
-                    <span>Люди</span>
+                    <span>{t('Люди')}</span>
                     <span className={activeBar('/people')} />
                   </Link>
                   <Link to="/rooms" className={navLink('/rooms')}>
                     <DoorOpen className="h-4 w-4" />
-                    <span>Комнаты</span>
+                    <span>{t('Комнаты')}</span>
                     <span className={activeBar('/rooms')} />
                   </Link>
                   <Link to="/bookings" className={navLink('/bookings')}>
                     <List className="h-4 w-4" />
-                    <span>Бронирования</span>
+                    <span>{t('Бронирования')}</span>
                     <span className={activeBar('/bookings')} />
+                  </Link>
+                  <Link to="/profile" className={navLink('/profile')}>
+                    <UserRound className="h-4 w-4" />
+                    <span>{t('Профиль')}</span>
+                    <span className={activeBar('/profile')} />
                   </Link>
                 </>
               ) : (
                 <>
                   <Link to="/app" className={navLink('/app')}>
                     <Building2 className="h-4 w-4" />
-                    <span>Заведения</span>
+                    <span>{t('Заведения')}</span>
                     <span className={activeBar('/app')} />
                   </Link>
                   <Link to="/my-bookings" className={navLink('/my-bookings')}>
                     <CalendarDays className="h-4 w-4" />
-                    <span>Мои бронирования</span>
+                    <span>{t('Мои бронирования')}</span>
                     <span className={activeBar('/my-bookings')} />
+                  </Link>
+                  <Link to="/profile" className={navLink('/profile')}>
+                    <UserRound className="h-4 w-4" />
+                    <span>{t('Профиль')}</span>
+                    <span className={activeBar('/profile')} />
                   </Link>
                 </>
               )}

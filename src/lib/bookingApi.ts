@@ -26,6 +26,38 @@ const mapBooking = (row: BookingRow): Booking => ({
 const isOverlapping = (startA: string, endA: string, startB: string, endB: string) =>
   startA < endB && endA > startB;
 
+const ensureNoOverlap = async (params: {
+  roomId: string;
+  bookingDate: string;
+  startTime: string;
+  endTime: string;
+  excludeId?: string;
+}) => {
+  const filters = [
+    'select=start_time,end_time',
+    `room_id=eq.${encodeURIComponent(params.roomId)}`,
+    `booking_date=eq.${encodeURIComponent(params.bookingDate)}`,
+    'status=eq.active',
+  ];
+
+  if (params.excludeId) {
+    filters.push(`id=neq.${encodeURIComponent(params.excludeId)}`);
+  }
+
+  const existing = await supabaseDbRequest<Array<Pick<BookingRow, 'start_time' | 'end_time'>>>(
+    `bookings?${filters.join('&')}`,
+    { method: 'GET' },
+  );
+
+  const hasOverlap = existing.some((booking) =>
+    isOverlapping(params.startTime, params.endTime, booking.start_time, booking.end_time),
+  );
+
+  if (hasOverlap) {
+    throw new Error('Этот слот уже занят');
+  }
+};
+
 export const listBookings = async (params?: { userId?: string; venueId?: string; roomId?: string }) => {
   if (params?.venueId) {
     const filters = [
@@ -63,18 +95,12 @@ export const createBooking = async (payload: {
   startTime: string;
   endTime: string;
 }) => {
-  const existing = await supabaseDbRequest<Array<Pick<BookingRow, 'start_time' | 'end_time'>>>(
-    `bookings?select=start_time,end_time&room_id=eq.${encodeURIComponent(payload.roomId)}&booking_date=eq.${encodeURIComponent(payload.bookingDate)}&status=eq.active`,
-    { method: 'GET' },
-  );
-
-  const hasOverlap = existing.some((booking) =>
-    isOverlapping(payload.startTime, payload.endTime, booking.start_time, booking.end_time),
-  );
-
-  if (hasOverlap) {
-    throw new Error('Этот слот уже занят');
-  }
+  await ensureNoOverlap({
+    roomId: payload.roomId,
+    bookingDate: payload.bookingDate,
+    startTime: payload.startTime,
+    endTime: payload.endTime,
+  });
 
   const rows = await supabaseDbRequest<BookingRow[]>(
     'bookings',
@@ -112,6 +138,51 @@ export const cancelBooking = async (id: string) => {
       },
       body: JSON.stringify({
         status: 'cancelled',
+      }),
+    },
+  );
+
+  const updated = rows[0];
+  if (!updated) throw new Error('Booking not found');
+
+  return mapBooking(updated);
+};
+
+export const updateBooking = async (
+  id: string,
+  payload: {
+    roomId: string;
+    bookingDate: string;
+    startTime: string;
+    endTime: string;
+    status?: 'active' | 'cancelled';
+  },
+) => {
+  const nextStatus = payload.status ?? 'active';
+
+  if (nextStatus === 'active') {
+    await ensureNoOverlap({
+      roomId: payload.roomId,
+      bookingDate: payload.bookingDate,
+      startTime: payload.startTime,
+      endTime: payload.endTime,
+      excludeId: id,
+    });
+  }
+
+  const rows = await supabaseDbRequest<BookingRow[]>(
+    `bookings?id=eq.${encodeURIComponent(id)}`,
+    {
+      method: 'PATCH',
+      headers: {
+        Prefer: 'return=representation',
+      },
+      body: JSON.stringify({
+        room_id: payload.roomId,
+        booking_date: payload.bookingDate,
+        start_time: payload.startTime,
+        end_time: payload.endTime,
+        status: nextStatus,
       }),
     },
   );

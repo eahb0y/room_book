@@ -9,6 +9,7 @@ create table if not exists public.profiles (
   role text not null check (role in ('admin', 'user')),
   first_name text,
   last_name text,
+  avatar_url text,
   created_at timestamptz not null default now()
 );
 
@@ -36,6 +37,9 @@ alter table public.rooms
 
 alter table public.rooms
   add column if not exists photo_urls text[] not null default '{}';
+
+alter table public.profiles
+  add column if not exists avatar_url text;
 
 update public.rooms
 set photo_urls = array[photo_url]
@@ -107,6 +111,26 @@ create index if not exists idx_bookings_user_id on public.bookings (user_id);
 create index if not exists idx_invitations_venue_id on public.invitations (venue_id);
 create index if not exists idx_invitations_token on public.invitations (token);
 create index if not exists idx_invitations_email on public.invitations (invitee_email);
+
+create or replace function public.prevent_profile_email_update()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.email is distinct from old.email then
+    raise exception 'Email cannot be changed in profile';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_prevent_profile_email_update on public.profiles;
+create trigger trg_prevent_profile_email_update
+before update on public.profiles
+for each row
+execute function public.prevent_profile_email_update();
 
 alter table public.profiles enable row level security;
 alter table public.venues enable row level security;

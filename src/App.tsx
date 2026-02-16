@@ -14,6 +14,7 @@ import VenueList from '@/pages/user/VenueList';
 import RoomList from '@/pages/user/RoomList';
 import BookingPage from '@/pages/user/BookingPage';
 import MyBookings from '@/pages/user/MyBookings';
+import Profile from '@/pages/Profile';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -146,6 +147,16 @@ function App() {
             <PrivateRoute>
               <Layout>
                 <MyBookings />
+              </Layout>
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <PrivateRoute>
+              <Layout>
+                <Profile />
               </Layout>
             </PrivateRoute>
           }

@@ -8,8 +8,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, CheckCircle2, Ticket } from 'lucide-react';
+import { useI18n } from '@/i18n/useI18n';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 export default function Invite() {
+  const { t } = useI18n();
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuthStore();
@@ -35,12 +38,12 @@ export default function Invite() {
             : 'valid';
 
   const inviteSubtitle = !isAuthenticated
-    ? 'Войдите, чтобы проверить приглашение'
+    ? t('Войдите, чтобы проверить приглашение')
     : inviteLoading
-      ? 'Проверяем приглашение…'
+      ? t('Проверяем приглашение…')
       : invitation?.venueName
-        ? `Вы приглашены в «${invitation.venueName}»`
-        : 'Приглашение';
+        ? t('Вы приглашены в «{venue}»', { venue: invitation.venueName })
+        : t('Приглашение');
 
   useEffect(() => {
     if (!token) return;
@@ -68,12 +71,12 @@ export default function Invite() {
       })
       .catch((err) => {
         if (!isActive) return;
-        const message = err instanceof Error ? err.message : 'Не удалось проверить приглашение';
-        const lower = message.toLowerCase();
+        const rawMessage = err instanceof Error ? err.message : t('Не удалось проверить приглашение');
+        const lower = rawMessage.toLowerCase();
         if (lower.includes('not found') || lower.includes('не найдено')) {
           setInviteLoadError('');
         } else {
-          setInviteLoadError(message);
+          setInviteLoadError(t(rawMessage));
         }
         setInvitation(null);
       })
@@ -85,7 +88,7 @@ export default function Invite() {
     return () => {
       isActive = false;
     };
-  }, [token, isAuthenticated]);
+  }, [token, isAuthenticated, t]);
 
   useEffect(() => {
     if (!token || !isAuthenticated || !user) return;
@@ -105,16 +108,16 @@ export default function Invite() {
           await loadUserData(user.id);
           navigate(`/venue/${result.venueId}`);
         } else {
-          setError('Не удалось применить приглашение');
+          setError(t('Не удалось применить приглашение'));
           setRedeemState('error');
         }
       })
       .catch((err) => {
-        const message = err instanceof Error ? err.message : 'Не удалось применить приглашение';
+        const message = err instanceof Error ? t(err.message) : t('Не удалось применить приглашение');
         setError(message);
         setRedeemState('error');
       });
-  }, [token, isAuthenticated, user, inviteLoading, inviteLoadError, invitationStatus, redeemState, loadUserData, navigate]);
+  }, [token, isAuthenticated, user, inviteLoading, inviteLoadError, invitationStatus, redeemState, loadUserData, navigate, t]);
 
   const handleContinue = () => {
     if (!token) return;
@@ -127,6 +130,9 @@ export default function Invite() {
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-[30%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-primary/[0.04] rounded-full blur-[120px] animate-glow-pulse" />
       </div>
+      <div className="absolute right-4 top-4 z-20">
+        <LanguageSwitcher />
+      </div>
 
       <div className="w-full max-w-lg relative z-10 animate-fade-up">
         {/* Heading */}
@@ -135,7 +141,7 @@ export default function Invite() {
             <Ticket className="h-6 w-6 text-white" />
           </div>
           <h1 className="text-3xl font-semibold text-foreground mb-2">
-            Приглашение
+            {t('Приглашение')}
           </h1>
           <p className="text-muted-foreground text-sm">
             {inviteSubtitle}
@@ -156,12 +162,12 @@ export default function Invite() {
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
                   {invitationStatus === 'missing'
-                    ? 'Приглашение не найдено'
+                    ? t('Приглашение не найдено')
                     : invitationStatus === 'revoked'
-                    ? 'Приглашение было отозвано'
+                    ? t('Приглашение было отозвано')
                     : invitationStatus === 'expired'
-                    ? 'Срок действия приглашения истёк'
-                    : 'Лимит использования приглашения исчерпан'}
+                    ? t('Срок действия приглашения истёк')
+                    : t('Лимит использования приглашения исчерпан')}
                 </AlertDescription>
               </Alert>
             )}
@@ -177,7 +183,7 @@ export default function Invite() {
               <Alert className="bg-emerald-950/30 border-emerald-800/40 animate-scale-in">
                 <CheckCircle2 className="h-4 w-4 text-emerald-400" />
                 <AlertDescription className="text-emerald-300">
-                  Приглашение подтверждено, перенаправляем…
+                  {t('Приглашение подтверждено, перенаправляем…')}
                 </AlertDescription>
               </Alert>
             )}
@@ -185,16 +191,16 @@ export default function Invite() {
             {!isAuthenticated && (
               <>
                 <p className="text-sm text-muted-foreground">
-                  Войдите или зарегистрируйтесь, чтобы принять приглашение.
+                  {t('Войдите или зарегистрируйтесь, чтобы принять приглашение.')}
                 </p>
                 <div className="flex flex-col gap-3">
-                  <Button onClick={handleContinue} className="h-11">Войти</Button>
+                  <Button onClick={handleContinue} className="h-11">{t('Войти')}</Button>
                   <Button
                     variant="outline"
                     className="h-11"
                     onClick={() => token && navigate(`/register?invite=${token}`)}
                   >
-                    Зарегистрироваться
+                    {t('Зарегистрироваться')}
                   </Button>
                 </div>
               </>
@@ -204,14 +210,14 @@ export default function Invite() {
               <Alert variant="destructive" className="animate-scale-in">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  Администраторские аккаунты не могут принимать приглашения.
+                  {t('Администраторские аккаунты не могут принимать приглашения.')}
                 </AlertDescription>
               </Alert>
             )}
 
             <div className="pt-2">
               <Link to="/" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                ← Вернуться на главную
+                {t('← Вернуться на главную')}
               </Link>
             </div>
           </CardContent>

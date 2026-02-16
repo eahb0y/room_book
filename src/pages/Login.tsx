@@ -7,8 +7,11 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { AlertCircle, CalendarDays } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useI18n } from '@/i18n/useI18n';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 export default function Login() {
+  const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -33,10 +36,10 @@ export default function Login() {
           navigate('/app');
         }
       } else {
-        setError('Неверный email или пароль');
+        setError(t('Неверный email или пароль'));
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Произошла ошибка при входе';
+      const message = err instanceof Error ? t(err.message) : t('Произошла ошибка при входе');
       setError(message);
     } finally {
       setIsLoading(false);
@@ -49,6 +52,9 @@ export default function Login() {
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-[30%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-primary/[0.04] rounded-full blur-[120px] animate-glow-pulse" />
       </div>
+      <div className="absolute right-4 top-4 z-20">
+        <LanguageSwitcher />
+      </div>
 
       <div className="w-full max-w-md relative z-10 animate-fade-up">
         {/* Heading above card */}
@@ -57,10 +63,10 @@ export default function Login() {
             <CalendarDays className="h-6 w-6 text-white" />
           </div>
           <h1 className="text-3xl font-semibold text-foreground mb-2">
-            Вход в систему
+            {t('Вход в систему')}
           </h1>
           <p className="text-muted-foreground text-sm">
-            Введите данные для доступа к платформе
+            {t('Введите данные для доступа к платформе')}
           </p>
         </div>
 
@@ -86,7 +92,7 @@ export default function Login() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm text-muted-foreground">Пароль</Label>
+                <Label htmlFor="password" className="text-sm text-muted-foreground">{t('Пароль')}</Label>
                 <Input
                   id="password"
                   type="password"
@@ -98,22 +104,22 @@ export default function Login() {
                 />
               </div>
             </CardContent>
-            <CardFooter className="flex flex-col gap-4 pb-6">
+            <CardFooter className="flex flex-col gap-4 pt-2 pb-6">
               <Button type="submit" className="w-full h-11 font-medium text-sm tracking-wide" disabled={isLoading}>
-                {isLoading ? 'Вход...' : 'Войти'}
+                {isLoading ? t('Вход...') : t('Войти')}
               </Button>
               {isInviteFlow ? (
                 <p className="text-sm text-center text-muted-foreground">
-                  Нет аккаунта?{' '}
+                  {t('Нет аккаунта?')}{' '}
                   <Link to={`/register?invite=${inviteToken}`} className="text-primary hover:text-primary/80 transition-colors">
-                    Зарегистрироваться
+                    {t('Зарегистрироваться')}
                   </Link>
                 </p>
               ) : (
                 <p className="text-sm text-center text-muted-foreground">
-                  Нет аккаунта?{' '}
+                  {t('Нет аккаунта?')}{' '}
                   <Link to="/register" className="text-primary hover:text-primary/80 transition-colors">
-                    Зарегистрироваться
+                    {t('Зарегистрироваться')}
                   </Link>
                 </p>
               )}

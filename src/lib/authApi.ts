@@ -32,6 +32,7 @@ interface ProfileRow {
   role: 'admin' | 'user';
   first_name: string | null;
   last_name: string | null;
+  avatar_url: string | null;
   created_at: string;
 }
 
@@ -43,6 +44,7 @@ const mapProfileToUser = (profile: ProfileRow): User => ({
   role: profile.role,
   firstName: profile.first_name ?? undefined,
   lastName: profile.last_name ?? undefined,
+  avatarUrl: profile.avatar_url ?? null,
   createdAt: profile.created_at,
 });
 
@@ -73,6 +75,7 @@ const upsertProfile = async (
     role: 'admin' | 'user';
     firstName?: string;
     lastName?: string;
+    avatarUrl?: string | null;
   },
   accessToken: string,
 ) => {
@@ -90,6 +93,7 @@ const upsertProfile = async (
           role: profile.role,
           first_name: profile.firstName ?? null,
           last_name: profile.lastName ?? null,
+          ...(profile.avatarUrl !== undefined ? { avatar_url: profile.avatarUrl } : {}),
         },
       ]),
     },
@@ -205,6 +209,121 @@ export const register = async (payload: RegisterCredentials) => {
 
   return mapProfileToUser(profile);
 };
+
+export const updateProfile = async (
+  userId: string,
+  payload: {
+    firstName?: string;
+    lastName?: string;
+    avatarUrl?: string | null;
+  },
+) => {
+  const patch: Record<string, string | null> = {};
+
+  if (payload.firstName !== undefined) {
+    const value = payload.firstName.trim();
+    patch.first_name = value.length > 0 ? value : null;
+  }
+
+  if (payload.lastName !== undefined) {
+    const value = payload.lastName.trim();
+    patch.last_name = value.length > 0 ? value : null;
+  }
+
+  if (payload.avatarUrl !== undefined) {
+    const value = payload.avatarUrl?.trim();
+    patch.avatar_url = value && value.length > 0 ? value : null;
+  }
+
+  if (Object.keys(patch).length === 0) {
+    const existing = await fetchProfileById(userId);
+    if (!existing) {
+      throw new Error('Профиль не найден');
+    }
+    return mapProfileToUser(existing);
+  }
+
+  const rows = await supabaseDbRequest<ProfileRow[]>(
+    `profiles?id=eq.${encodeURIComponent(userId)}`,
+    {
+      method: 'PATCH',
+      headers: {
+        Prefer: 'return=representation',
+      },
+      body: JSON.stringify(patch),
+    },
+  );
+
+  const updated = rows[0];
+  if (!updated) {
+    throw new Error('Профиль не найден');
+  }
+
+  return mapProfileToUser(updated);
+};
+
+export const changePassword = async (
+  email: string,
+  payload: {
+    currentPassword: string;
+    newPassword: string;
+  },
+) => {
+  if (!payload.currentPassword || !payload.newPassword) {
+    throw new Error('Заполните все поля');
+  }
+
+  if (payload.newPassword.length < 6) {
+    throw new Error('Пароль должен содержать минимум 6 символов');
+  }
+
+  if (payload.currentPassword === payload.newPassword) {
+    throw new Error('Новый пароль должен отличаться от текущего');
+  }
+
+  let authData: AuthResponse;
+  try {
+    authData = await supabaseAuthRequest<AuthResponse>('/token?grant_type=password', {
+      method: 'POST',
+      body: JSON.stringify({
+        email: normalizeEmail(email),
+        password: payload.currentPassword,
+      }),
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message.toLowerCase() : '';
+    if (
+      message.includes('invalid login') ||
+      message.includes('invalid credentials') ||
+      message.includes('401') ||
+      message.includes('невер')
+    ) {
+      throw new Error('Текущий пароль указан неверно');
+    }
+
+    throw err;
+  }
+
+  await supabaseAuthRequest(
+    '/user',
+    {
+      method: 'PUT',
+      body: JSON.stringify({
+        password: payload.newPassword,
+      }),
+    },
+    { accessToken: authData.access_token, requireAuth: true },
+  );
+
+  setAuthSession(
+    toSession({
+      accessToken: authData.access_token,
+      refreshToken: authData.refresh_token,
+      expiresIn: authData.expires_in,
+    }),
+  );
+};
+
 
 export const logout = async () => {
   const accessToken = getAuthSession()?.accessToken;

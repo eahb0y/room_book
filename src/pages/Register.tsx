@@ -8,8 +8,11 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { AlertCircle, UserPlus } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import type { UserRole } from '@/types';
+import { useI18n } from '@/i18n/useI18n';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 export default function Register() {
+  const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -27,12 +30,12 @@ export default function Register() {
     setError('');
 
     if (password !== confirmPassword) {
-      setError('Пароли не совпадают');
+      setError(t('Пароли не совпадают'));
       return;
     }
 
     if (password.length < 6) {
-      setError('Пароль должен содержать минимум 6 символов');
+      setError(t('Пароль должен содержать минимум 6 символов'));
       return;
     }
 
@@ -47,10 +50,10 @@ export default function Register() {
           navigate('/app');
         }
       } else {
-        setError('Пользователь с таким email уже существует');
+        setError(t('Пользователь с таким email уже существует'));
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Произошла ошибка при регистрации';
+      const message = err instanceof Error ? t(err.message) : t('Произошла ошибка при регистрации');
       setError(message);
     } finally {
       setIsLoading(false);
@@ -63,6 +66,9 @@ export default function Register() {
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-[30%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-primary/[0.04] rounded-full blur-[120px] animate-glow-pulse" />
       </div>
+      <div className="absolute right-4 top-4 z-20">
+        <LanguageSwitcher />
+      </div>
 
       <div className="w-full max-w-md relative z-10 animate-fade-up">
         {/* Heading */}
@@ -71,12 +77,12 @@ export default function Register() {
             <UserPlus className="h-6 w-6 text-white" />
           </div>
           <h1 className="text-3xl font-semibold text-foreground mb-2">
-            {isInviteFlow ? 'Регистрация по приглашению' : 'Регистрация бизнеса'}
+            {isInviteFlow ? t('Регистрация по приглашению') : t('Регистрация бизнеса')}
           </h1>
           <p className="text-muted-foreground text-sm">
             {isInviteFlow
-              ? 'Создайте аккаунт, чтобы принять приглашение'
-              : 'Создайте бизнес-аккаунт для работы с платформой'}
+              ? t('Создайте аккаунт, чтобы принять приглашение')
+              : t('Создайте бизнес-аккаунт для работы с платформой')}
           </p>
         </div>
 
@@ -102,7 +108,7 @@ export default function Register() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm text-muted-foreground">Пароль</Label>
+                <Label htmlFor="password" className="text-sm text-muted-foreground">{t('Пароль')}</Label>
                 <Input
                   id="password"
                   type="password"
@@ -114,7 +120,7 @@ export default function Register() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-sm text-muted-foreground">Подтвердите пароль</Label>
+                <Label htmlFor="confirmPassword" className="text-sm text-muted-foreground">{t('Подтвердите пароль')}</Label>
                 <Input
                   id="confirmPassword"
                   type="password"
@@ -128,15 +134,15 @@ export default function Register() {
             </CardContent>
             <CardFooter className="flex flex-col gap-4 pb-6">
               <Button type="submit" className="w-full h-11 font-medium text-sm tracking-wide" disabled={isLoading}>
-                {isLoading ? 'Регистрация...' : 'Зарегистрироваться'}
+                {isLoading ? t('Регистрация...') : t('Зарегистрироваться')}
               </Button>
               <p className="text-sm text-center text-muted-foreground">
-                Уже есть аккаунт?{' '}
+                {t('Уже есть аккаунт?')}{' '}
                 <Link
                   to={inviteToken ? `/login?invite=${inviteToken}` : '/login'}
                   className="text-primary hover:text-primary/80 transition-colors"
                 >
-                  Войти
+                  {t('Войти')}
                 </Link>
               </p>
             </CardFooter>

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useI18n } from '@/i18n/useI18n';
 
 interface RoomPhotoGalleryProps {
   photos: string[];
@@ -22,6 +23,7 @@ export function RoomPhotoGallery({
   showThumbnails = false,
   showControls = true,
 }: RoomPhotoGalleryProps) {
+  const { t } = useI18n();
   const normalizedPhotos = useMemo(
     () => Array.from(new Set(photos.map((photo) => photo.trim()).filter((photo) => photo.length > 0))),
     [photos],
@@ -52,7 +54,7 @@ export function RoomPhotoGallery({
       <div className={cn('relative overflow-hidden border border-border/40 bg-muted/20', imageContainerClassName)}>
         <img
           src={activePhoto}
-          alt={`Фото комнаты ${roomName}`}
+          alt={t('Фото комнаты {roomName}', { roomName })}
           className={cn('w-full h-full object-cover', imageClassName)}
           loading="lazy"
         />
@@ -67,7 +69,7 @@ export function RoomPhotoGallery({
               onClick={goPrev}
             >
               <ChevronLeft className="h-4 w-4" />
-              <span className="sr-only">Предыдущее фото</span>
+              <span className="sr-only">{t('Предыдущее фото')}</span>
             </Button>
             <Button
               type="button"
@@ -77,7 +79,7 @@ export function RoomPhotoGallery({
               onClick={goNext}
             >
               <ChevronRight className="h-4 w-4" />
-              <span className="sr-only">Следующее фото</span>
+              <span className="sr-only">{t('Следующее фото')}</span>
             </Button>
             <div className="absolute right-2 top-2 rounded-full bg-black/45 px-2 py-0.5 text-[11px] font-medium text-white">
               {boundedActiveIndex + 1}/{normalizedPhotos.length}
@@ -88,7 +90,7 @@ export function RoomPhotoGallery({
                   key={index}
                   type="button"
                   onClick={() => setActiveIndex(index)}
-                  aria-label={`Показать фото ${index + 1}`}
+                  aria-label={t('Показать фото {index}', { index: index + 1 })}
                   className={cn(
                     'h-1.5 w-1.5 rounded-full transition-all',
                     index === boundedActiveIndex ? 'bg-white w-3' : 'bg-white/55 hover:bg-white/75',
@@ -113,9 +115,14 @@ export function RoomPhotoGallery({
                   : 'border-border/40 opacity-80 hover:opacity-100',
               )}
               onClick={() => setActiveIndex(index)}
-              aria-label={`Выбрать фото ${index + 1}`}
+              aria-label={t('Выбрать фото {index}', { index: index + 1 })}
             >
-              <img src={photo} alt={`Миниатюра ${index + 1}`} className="h-full w-full object-cover" loading="lazy" />
+              <img
+                src={photo}
+                alt={t('Миниатюра {index}', { index: index + 1 })}
+                className="h-full w-full object-cover"
+                loading="lazy"
+              />
             </button>
           ))}
         </div>

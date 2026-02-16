@@ -8,8 +8,10 @@ import { DoorOpen, Users, ArrowLeft, ArrowRight, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { getRoomPhotoUrls } from '@/lib/roomPhotos';
+import { useI18n } from '@/i18n/useI18n';
 
 export default function RoomList() {
+  const { t } = useI18n();
   const { venueId } = useParams<{ venueId: string }>();
   const { user, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
@@ -39,7 +41,7 @@ export default function RoomList() {
     <div className="space-y-8">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm">
-        <Link to="/app" className="text-muted-foreground hover:text-primary transition-colors">Заведения</Link>
+        <Link to="/app" className="text-muted-foreground hover:text-primary transition-colors">{t('Заведения')}</Link>
         <span className="text-muted-foreground/40">/</span>
         <span className="text-foreground/80">{venue.name}</span>
       </div>
@@ -64,11 +66,11 @@ export default function RoomList() {
           <div className="w-7 h-7 rounded-md bg-primary/10 flex items-center justify-center">
             <DoorOpen className="h-4 w-4 text-primary" />
           </div>
-          <span className="font-body">Доступные комнаты</span>
+          <span className="font-body">{t('Доступные комнаты')}</span>
         </h2>
         <Button variant="outline" onClick={() => navigate('/app')} className="border-border/50 hover:border-primary/30">
           <ArrowLeft className="h-4 w-4 mr-2" />
-          Назад
+          {t('Назад')}
         </Button>
       </div>
 
@@ -77,7 +79,7 @@ export default function RoomList() {
         <Card className="border-border/40 animate-fade-up">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <DoorOpen className="h-10 w-10 text-muted-foreground/30 mb-4" />
-            <p className="text-muted-foreground text-sm">В этом заведении пока нет комнат</p>
+            <p className="text-muted-foreground text-sm">{t('В этом заведении пока нет комнат')}</p>
           </CardContent>
         </Card>
       ) : (
@@ -104,14 +106,14 @@ export default function RoomList() {
                   <CardDescription className="pl-[42px]">
                     <Badge variant="secondary" className="flex items-center gap-1.5 w-fit text-xs">
                       <Users className="h-3 w-3" />
-                      <span>до {room.capacity} человек</span>
+                      <span>{t('до {count} человек', { count: room.capacity })}</span>
                     </Badge>
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="pl-[42px]">
                   <Button asChild className="w-full group/btn h-10">
                     <Link to={`/room/${room.id}`} className="flex items-center justify-center gap-2">
-                      <span>Забронировать</span>
+                      <span>{t('Забронировать')}</span>
                       <ArrowRight className="h-4 w-4 transition-transform group-hover/btn:translate-x-0.5" />
                     </Link>
                   </Button>

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { addDays, format, isBefore, startOfToday } from 'date-fns';
-import { ru } from 'date-fns/locale';
 import { AlertCircle, ArrowLeft, Calendar as CalendarIcon, CheckCircle2, ChevronLeft, ChevronRight, Clock3, DoorOpen, Users } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useVenueStore } from '@/store/venueStore';
@@ -16,6 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { RoomPhotoGallery } from '@/components/RoomPhotoGallery';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useI18n } from '@/i18n/useI18n';
 
 const SLOT_STEP_MINUTES = 15;
 const MINUTES_IN_DAY = 24 * 60;
@@ -36,6 +36,7 @@ const toTime = (totalMinutes: number) => {
 };
 
 export default function BookingPage() {
+  const { t, dateLocale } = useI18n();
   const { roomId } = useParams<{ roomId: string }>();
   const { user, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
@@ -163,22 +164,22 @@ export default function BookingPage() {
     setSuccessMessage('');
 
     if (!dialogStartTime || !dialogEndTime) {
-      setError('Укажите начало и окончание бронирования');
+      setError(t('Укажите начало и окончание бронирования'));
       return;
     }
 
     if (dialogStartTime >= dialogEndTime) {
-      setError('Время окончания должно быть позже времени начала');
+      setError(t('Время окончания должно быть позже времени начала'));
       return;
     }
 
     if (isBefore(date, startOfToday())) {
-      setError('Нельзя бронировать на прошедшую дату');
+      setError(t('Нельзя бронировать на прошедшую дату'));
       return;
     }
 
     if (!roomId || !user) {
-      setError('Не удалось определить пользователя или комнату');
+      setError(t('Не удалось определить пользователя или комнату'));
       return;
     }
 
@@ -193,14 +194,14 @@ export default function BookingPage() {
     setIsLoading(false);
 
     if (!result.success) {
-      setError(result.error || 'Произошла ошибка при бронировании');
+      setError(result.error ? t(result.error) : t('Произошла ошибка при бронировании'));
       return;
     }
 
     setIsDialogOpen(false);
     setDialogStartTime('');
     setDialogEndTime('');
-    setSuccessMessage(`Бронь создана: ${dialogStartTime} — ${dialogEndTime}`);
+    setSuccessMessage(t('Бронь создана: {start} — {end}', { start: dialogStartTime, end: dialogEndTime }));
   };
 
   const canGoToPreviousDay = !isBefore(addDays(date, -1), startOfToday());
@@ -233,7 +234,7 @@ export default function BookingPage() {
             </p>
             <p className="flex items-center gap-2">
               <Users className="h-4 w-4" />
-              <span>до {room.capacity} человек</span>
+              <span>{t('до {count} человек', { count: room.capacity })}</span>
             </p>
           </div>
         </div>
@@ -241,7 +242,7 @@ export default function BookingPage() {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2 text-sm">
-          <Link to="/app" className="text-muted-foreground transition-colors hover:text-primary">Заведения</Link>
+          <Link to="/app" className="text-muted-foreground transition-colors hover:text-primary">{t('Заведения')}</Link>
           <span className="text-muted-foreground/40">/</span>
           <Link to={`/venue/${venue.id}`} className="text-muted-foreground transition-colors hover:text-primary">{venue.name}</Link>
           <span className="text-muted-foreground/40">/</span>
@@ -253,7 +254,7 @@ export default function BookingPage() {
           className="h-10 shrink-0 border-border/50 hover:border-primary/30"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Назад к списку комнат
+          {t('Назад к списку комнат')}
         </Button>
       </div>
 
@@ -261,9 +262,9 @@ export default function BookingPage() {
         <CardHeader className="gap-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <CardTitle className="text-lg font-semibold font-body">Выберите день</CardTitle>
+              <CardTitle className="text-lg font-semibold font-body">{t('Выберите день')}</CardTitle>
               <CardDescription className="mt-1">
-                Нажмите на свободный 15‑минутный слот, затем задайте начало и конец бронирования
+                {t('Нажмите на свободный 15‑минутный слот, затем задайте начало и конец бронирования')}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -292,13 +293,13 @@ export default function BookingPage() {
                 onClick={() => pickDate(startOfToday())}
                 className="h-9 border-border/50"
               >
-                Сегодня
+                {t('Сегодня')}
               </Button>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button type="button" variant="outline" className="h-9 border-border/50">
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(date, 'd MMM yyyy', { locale: ru })}
+                    {format(date, 'd MMM yyyy', { locale: dateLocale })}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent align="end" className="w-auto border-border/50 p-0">
@@ -309,6 +310,7 @@ export default function BookingPage() {
                       if (!picked) return;
                       pickDate(picked);
                     }}
+                    locale={dateLocale}
                     disabled={(calendarDate) => isBefore(calendarDate, startOfToday())}
                     initialFocus
                   />
@@ -334,8 +336,8 @@ export default function BookingPage() {
                     isPast && 'cursor-not-allowed opacity-40'
                   )}
                 >
-                  <p className="text-[11px] uppercase tracking-wide">{format(day, 'EEE', { locale: ru })}</p>
-                  <p className="mt-1 text-sm font-semibold">{format(day, 'd MMM', { locale: ru })}</p>
+                  <p className="text-[11px] uppercase tracking-wide">{format(day, 'EEE', { locale: dateLocale })}</p>
+                  <p className="mt-1 text-sm font-semibold">{format(day, 'd MMM', { locale: dateLocale })}</p>
                 </button>
               );
             })}
@@ -346,10 +348,10 @@ export default function BookingPage() {
       <Card className="border-border/40 animate-fade-up stagger-2">
         <CardHeader>
           <CardTitle className="text-lg font-body font-semibold">
-            Расписание на {format(date, 'd MMMM yyyy', { locale: ru })}
+            {t('Расписание на {date}', { date: format(date, 'd MMMM yyyy', { locale: dateLocale }) })}
           </CardTitle>
           <CardDescription>
-            Красный цвет - занято. Нейтральный цвет - свободно, нажмите для брони.
+            {t('Красный цвет - занято. Нейтральный цвет - свободно, нажмите для брони.')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -391,7 +393,7 @@ export default function BookingPage() {
                           >
                             <p className="font-mono text-xs">{toTime(minute)}</p>
                             <p className="mt-1 text-[10px] uppercase tracking-wide opacity-80">
-                              {busy ? 'занято' : 'свободно'}
+                              {busy ? t('занято') : t('свободно')}
                             </p>
                           </button>
                         );
@@ -417,7 +419,7 @@ export default function BookingPage() {
               ))}
             {selectedDateBookings.length === 0 && (
               <div className="col-span-full rounded-lg border border-emerald-800/35 bg-emerald-950/20 px-3 py-2 text-sm text-emerald-300">
-                На выбранный день комната полностью свободна.
+                {t('На выбранный день комната полностью свободна.')}
               </div>
             )}
           </div>
@@ -436,15 +438,15 @@ export default function BookingPage() {
       >
         <DialogContent className="border-border/50">
           <DialogHeader>
-            <DialogTitle>Новое бронирование</DialogTitle>
+            <DialogTitle>{t('Новое бронирование')}</DialogTitle>
             <DialogDescription>
-              {format(date, "d MMMM yyyy, EEEE", { locale: ru })}
+              {format(date, "d MMMM yyyy, EEEE", { locale: dateLocale })}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Начало</p>
+              <p className="text-sm text-muted-foreground">{t('Начало')}</p>
               <Select
                 value={dialogStartTime}
                 onValueChange={(value) => {
@@ -454,7 +456,7 @@ export default function BookingPage() {
                 }}
               >
                 <SelectTrigger className="w-full h-10 border-border/50 bg-input/50">
-                  <SelectValue placeholder="Выберите начало" />
+                  <SelectValue placeholder={t('Выберите начало')} />
                 </SelectTrigger>
                 <SelectContent>
                   {availableStartTimes.map((slot) => (
@@ -467,10 +469,10 @@ export default function BookingPage() {
             </div>
 
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">Окончание</p>
+              <p className="text-sm text-muted-foreground">{t('Окончание')}</p>
               <Select value={dialogEndTime} onValueChange={setDialogEndTime}>
                 <SelectTrigger className="w-full h-10 border-border/50 bg-input/50">
-                  <SelectValue placeholder="Выберите окончание" />
+                  <SelectValue placeholder={t('Выберите окончание')} />
                 </SelectTrigger>
                 <SelectContent>
                   {availableEndTimes.map((slot) => (
@@ -491,10 +493,10 @@ export default function BookingPage() {
               onClick={() => setIsDialogOpen(false)}
               disabled={isLoading}
             >
-              Отмена
+              {t('Отмена')}
             </Button>
             <Button type="button" onClick={handleCreateBooking} disabled={isLoading || !dialogStartTime || !dialogEndTime}>
-              {isLoading ? 'Создание…' : 'Подтвердить бронь'}
+              {isLoading ? t('Создание…') : t('Подтвердить бронь')}
             </Button>
           </DialogFooter>
         </DialogContent>

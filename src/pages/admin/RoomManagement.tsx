@@ -20,6 +20,7 @@ import { Label } from '@/components/ui/label';
 import { getRoomPhotoUrls } from '@/lib/roomPhotos';
 import { cn } from '@/lib/utils';
 import type { Room } from '@/types';
+import { useI18n } from '@/i18n/useI18n';
 
 const MAX_ROOM_PHOTO_SIDE = 1400;
 const MAX_ROOM_PHOTO_BYTES = 1_500_000;
@@ -72,6 +73,7 @@ const estimateDataUrlBytes = (dataUrl: string) => {
 };
 
 export default function RoomManagement() {
+  const { t } = useI18n();
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const venues = useVenueStore((state) => state.venues);
@@ -140,7 +142,7 @@ export default function RoomManagement() {
     if (files.length === 0) return;
 
     if (photoUrls.length + files.length > MAX_ROOM_PHOTOS) {
-      setError(`Можно добавить максимум ${MAX_ROOM_PHOTOS} фото`);
+      setError(t('Можно добавить максимум {count} фото', { count: MAX_ROOM_PHOTOS }));
       e.target.value = '';
       return;
     }
@@ -172,7 +174,7 @@ export default function RoomManagement() {
         setSelectedPhotoIndex(0);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось загрузить фото');
+      setError(err instanceof Error ? t(err.message) : t('Не удалось загрузить фото'));
     } finally {
       setIsImageProcessing(false);
       e.target.value = '';
@@ -216,18 +218,18 @@ export default function RoomManagement() {
     setError('');
 
     if (isImageProcessing) {
-      setError('Дождитесь завершения обработки фото');
+      setError(t('Дождитесь завершения обработки фото'));
       return;
     }
 
     if (!name.trim()) {
-      setError('Название комнаты обязательно');
+      setError(t('Название комнаты обязательно'));
       return;
     }
 
     const capacityNum = parseInt(capacity, 10);
     if (isNaN(capacityNum) || capacityNum < 1) {
-      setError('Вместимость должна быть числом больше 0');
+      setError(t('Вместимость должна быть числом больше 0'));
       return;
     }
 
@@ -254,7 +256,7 @@ export default function RoomManagement() {
       }
       handleCloseDialog();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Не удалось сохранить комнату');
+      setError(err instanceof Error ? t(err.message) : t('Не удалось сохранить комнату'));
     }
   };
 
@@ -271,8 +273,8 @@ export default function RoomManagement() {
         <div className="w-16 h-16 rounded-2xl bg-secondary/50 flex items-center justify-center mb-5">
           <Building2Icon className="h-7 w-7 text-muted-foreground/50" />
         </div>
-        <p className="text-muted-foreground mb-4">Сначала создайте заведение</p>
-        <Button onClick={() => navigate('/my-venue')}>Создать заведение</Button>
+        <p className="text-muted-foreground mb-4">{t('Сначала создайте заведение')}</p>
+        <Button onClick={() => navigate('/my-venue')}>{t('Создать заведение')}</Button>
       </div>
     );
   }
@@ -282,15 +284,15 @@ export default function RoomManagement() {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <h1 className="text-4xl font-semibold text-foreground tracking-tight">
-            Управление комнатами
+            {t('Управление комнатами')}
           </h1>
           <p className="text-muted-foreground mt-2">
-            Добавляйте и управляйте переговорными комнатами
+            {t('Добавляйте и управляйте переговорными комнатами')}
           </p>
         </div>
         <Button onClick={() => handleOpenDialog()} className="flex items-center gap-2 h-11 shrink-0">
           <Plus className="h-4 w-4" />
-          <span>Добавить комнату</span>
+          <span>{t('Добавить комнату')}</span>
         </Button>
       </div>
 
@@ -300,8 +302,8 @@ export default function RoomManagement() {
             <div className="w-16 h-16 rounded-2xl bg-secondary/50 flex items-center justify-center mb-5">
               <DoorOpen className="h-7 w-7 text-muted-foreground/40" />
             </div>
-            <p className="text-muted-foreground mb-4">У вас пока нет комнат</p>
-            <Button onClick={() => handleOpenDialog()}>Добавить первую комнату</Button>
+            <p className="text-muted-foreground mb-4">{t('У вас пока нет комнат')}</p>
+            <Button onClick={() => handleOpenDialog()}>{t('Добавить первую комнату')}</Button>
           </CardContent>
         </Card>
       ) : (
@@ -327,7 +329,7 @@ export default function RoomManagement() {
                   </CardTitle>
                   <CardDescription className="flex items-center gap-2 pl-[42px]">
                     <Users className="h-3.5 w-3.5" />
-                    <span>Вместимость: {room.capacity} человек</span>
+                    <span>{t('Вместимость: {count} человек', { count: room.capacity })}</span>
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -339,7 +341,7 @@ export default function RoomManagement() {
                       className="flex-1 flex items-center justify-center gap-2 h-9 border-border/50 hover:border-primary/30"
                     >
                       <Edit2 className="h-3.5 w-3.5" />
-                      <span>Редактировать</span>
+                      <span>{t('Редактировать')}</span>
                     </Button>
                     <Button
                       variant="outline"
@@ -358,13 +360,13 @@ export default function RoomManagement() {
       )}
 
       <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
-        <DialogContent className="border-border/50">
+        <DialogContent className="max-h-[90vh] overflow-y-auto border-border/50">
           <DialogHeader>
             <DialogTitle>
-              {editingRoom ? 'Редактировать комнату' : 'Добавить комнату'}
+              {editingRoom ? t('Редактировать комнату') : t('Добавить комнату')}
             </DialogTitle>
             <DialogDescription>
-              {editingRoom ? 'Измените информацию о комнате' : 'Заполните информацию о новой комнате'}
+              {editingRoom ? t('Измените информацию о комнате') : t('Заполните информацию о новой комнате')}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit}>
@@ -376,22 +378,22 @@ export default function RoomManagement() {
                 </Alert>
               )}
               <div className="space-y-2">
-                <Label htmlFor="name" className="text-sm text-muted-foreground">Название комнаты *</Label>
+                <Label htmlFor="name" className="text-sm text-muted-foreground">{t('Название комнаты *')}</Label>
                 <Input
                   id="name"
-                  placeholder="Например: Переговорная А"
+                  placeholder={t('Например: Переговорная А')}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="h-11 bg-input/50 border-border/50 focus:border-primary/60 transition-colors"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="capacity" className="text-sm text-muted-foreground">Вместимость (человек) *</Label>
+                <Label htmlFor="capacity" className="text-sm text-muted-foreground">{t('Вместимость (человек) *')}</Label>
                 <Input
                   id="capacity"
                   type="number"
                   min="1"
-                  placeholder="Например: 10"
+                  placeholder={t('Например: 10')}
                   value={capacity}
                   onChange={(e) => setCapacity(e.target.value)}
                   className="h-11 bg-input/50 border-border/50 focus:border-primary/60 transition-colors"
@@ -399,7 +401,7 @@ export default function RoomManagement() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="photo" className="text-sm text-muted-foreground">
-                  Фото комнаты (до {MAX_ROOM_PHOTOS})
+                  {t('Фото комнаты (до {count})', { count: MAX_ROOM_PHOTOS })}
                 </Label>
                 <Input
                   id="photo"
@@ -411,7 +413,7 @@ export default function RoomManagement() {
                   className="h-11 bg-input/50 border-border/50 file:mr-3 file:text-xs file:font-medium"
                 />
                 <p className="text-xs text-muted-foreground/70">
-                  JPG/PNG/WebP, каждое фото автоматически сжимается перед сохранением
+                  {t('JPG/PNG/WebP, каждое фото автоматически сжимается перед сохранением')}
                 </p>
               </div>
               {selectedPhoto ? (
@@ -419,7 +421,7 @@ export default function RoomManagement() {
                   <div className="relative w-full aspect-[16/10] overflow-hidden rounded-lg border border-border/50 bg-muted/20">
                     <img
                       src={selectedPhoto}
-                      alt="Предпросмотр фото комнаты"
+                      alt={t('Предпросмотр фото комнаты')}
                       className="w-full h-full object-cover"
                     />
                     <div className="absolute right-2 top-2 rounded-full bg-black/45 px-2 py-0.5 text-[11px] font-medium text-white">
@@ -440,11 +442,11 @@ export default function RoomManagement() {
                               : 'border-border/40 hover:border-primary/45',
                           )}
                         >
-                          <img src={photo} alt={`Миниатюра ${index + 1}`} className="w-full h-full object-cover" />
+                          <img src={photo} alt={t('Миниатюра {index}', { index: index + 1 })} className="w-full h-full object-cover" />
                           {index === 0 ? (
                             <span className="absolute left-1 top-1 inline-flex items-center gap-1 rounded-full bg-black/45 px-1.5 py-0.5 text-[10px] text-white">
                               <Star className="h-2.5 w-2.5" />
-                              Обложка
+                              {t('Обложка')}
                             </span>
                           ) : null}
                         </button>
@@ -456,7 +458,7 @@ export default function RoomManagement() {
                           onClick={() => handleRemovePhoto(index)}
                         >
                           <Trash2 className="h-3 w-3" />
-                          <span className="sr-only">Удалить фото {index + 1}</span>
+                          <span className="sr-only">{t('Удалить фото {index}', { index: index + 1 })}</span>
                         </Button>
                       </div>
                     ))}
@@ -470,7 +472,7 @@ export default function RoomManagement() {
                       disabled={selectedPhotoIndex === 0}
                       onClick={() => handleSetCoverPhoto(selectedPhotoIndex)}
                     >
-                      Сделать обложкой
+                      {t('Сделать обложкой')}
                     </Button>
                     <Button
                       type="button"
@@ -481,7 +483,7 @@ export default function RoomManagement() {
                         setSelectedPhotoIndex(0);
                       }}
                     >
-                      Очистить все
+                      {t('Очистить все')}
                     </Button>
                   </div>
                 </div>
@@ -489,10 +491,10 @@ export default function RoomManagement() {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={handleCloseDialog} className="border-border/50">
-                Отмена
+                {t('Отмена')}
               </Button>
               <Button type="submit" disabled={isImageProcessing}>
-                {editingRoom ? 'Сохранить' : 'Добавить'}
+                {editingRoom ? t('Сохранить') : t('Добавить')}
               </Button>
             </DialogFooter>
           </form>
@@ -502,20 +504,20 @@ export default function RoomManagement() {
       <Dialog open={!!deleteConfirmId} onOpenChange={() => setDeleteConfirmId(null)}>
         <DialogContent className="border-border/50">
           <DialogHeader>
-            <DialogTitle>Подтвердите удаление</DialogTitle>
+            <DialogTitle>{t('Подтвердите удаление')}</DialogTitle>
             <DialogDescription>
-              Вы уверены, что хотите удалить эту комнату? Это действие нельзя отменить.
+              {t('Вы уверены, что хотите удалить эту комнату? Это действие нельзя отменить.')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteConfirmId(null)} className="border-border/50">
-              Отмена
+              {t('Отмена')}
             </Button>
             <Button
               variant="destructive"
               onClick={() => deleteConfirmId && handleDelete(deleteConfirmId)}
             >
-              Удалить
+              {t('Удалить')}
             </Button>
           </DialogFooter>
         </DialogContent>

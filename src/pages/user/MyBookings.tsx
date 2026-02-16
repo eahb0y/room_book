@@ -7,7 +7,6 @@ import { CalendarDays, Clock, Building2, DoorOpen, XCircle, CheckCircle2 } from 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { format, parseISO } from 'date-fns';
-import { ru } from 'date-fns/locale';
 import {
   Dialog,
   DialogContent,
@@ -17,8 +16,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useI18n } from '@/i18n/useI18n';
+import { getBookingViewStatus } from '@/lib/bookingStatus';
 
 export default function MyBookings() {
+  const { t, dateLocale } = useI18n();
   const { user, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
   const cancelBooking = useVenueStore((state) => state.cancelBooking);
@@ -39,6 +41,7 @@ export default function MyBookings() {
         roomName: room?.name,
         venueName: venue?.name,
         userEmail: user.email,
+        viewStatus: getBookingViewStatus(booking),
       };
     });
   }, [user, allBookings, allRooms, allVenues]);
@@ -51,20 +54,20 @@ export default function MyBookings() {
   const handleCancel = async (bookingId: string) => {
     await cancelBooking(bookingId);
     setCancelConfirmId(null);
-    setSuccessMessage('Бронирование успешно отменено');
+    setSuccessMessage(t('Бронирование успешно отменено'));
     setTimeout(() => setSuccessMessage(''), 3000);
   };
 
   const formatDate = (dateStr: string) => {
     try {
-      return format(parseISO(dateStr), 'd MMMM yyyy', { locale: ru });
+      return format(parseISO(dateStr), 'd MMMM yyyy', { locale: dateLocale });
     } catch {
       return dateStr;
     }
   };
 
-  const activeBookings = bookings.filter((b) => b.status === 'active');
-  const pastBookings = bookings.filter((b) => b.status === 'cancelled');
+  const activeBookings = bookings.filter((b) => b.viewStatus === 'active');
+  const pastBookings = bookings.filter((b) => b.viewStatus !== 'active');
 
   if (user?.role === 'admin') return null;
 
@@ -72,10 +75,10 @@ export default function MyBookings() {
     <div className="space-y-8">
       <div>
         <h1 className="text-4xl font-semibold text-foreground tracking-tight">
-          Мои бронирования
+          {t('Мои бронирования')}
         </h1>
         <p className="text-muted-foreground mt-2">
-          Управляйте своими бронированиями
+          {t('Управляйте своими бронированиями')}
         </p>
       </div>
 
@@ -92,16 +95,16 @@ export default function MyBookings() {
           <div className="w-7 h-7 rounded-md bg-emerald-950/50 flex items-center justify-center">
             <CheckCircle2 className="h-4 w-4 text-emerald-400" />
           </div>
-          <span className="font-body">Активные ({activeBookings.length})</span>
+          <span className="font-body">{t('Активные ({count})', { count: activeBookings.length })}</span>
         </h2>
 
         {activeBookings.length === 0 ? (
           <Card className="border-border/40 animate-fade-up">
             <CardContent className="flex flex-col items-center justify-center py-12">
               <CalendarDays className="h-10 w-10 text-muted-foreground/30 mb-4" />
-              <p className="text-muted-foreground mb-4 text-sm">У вас нет активных бронирований</p>
+              <p className="text-muted-foreground mb-4 text-sm">{t('У вас нет активных бронирований')}</p>
               <Button onClick={() => navigate('/app')} variant="outline" className="border-border/50 hover:border-primary/30">
-                Найти комнату
+                {t('Найти комнату')}
               </Button>
             </CardContent>
           </Card>
@@ -120,7 +123,7 @@ export default function MyBookings() {
                       </div>
                       <Badge variant="default" className="flex items-center gap-1 text-xs">
                         <CheckCircle2 className="h-3 w-3" />
-                        <span>Активно</span>
+                        <span>{t('Активно')}</span>
                       </Badge>
                     </div>
 
@@ -147,7 +150,7 @@ export default function MyBookings() {
                         className="w-full flex items-center justify-center gap-2 h-9 border-red-900/30 text-red-400 hover:bg-red-950/30 hover:text-red-300 hover:border-red-800/40"
                       >
                         <XCircle className="h-3.5 w-3.5" />
-                        <span>Отменить</span>
+                        <span>{t('Отменить')}</span>
                       </Button>
                     </div>
                   </div>
@@ -158,14 +161,14 @@ export default function MyBookings() {
         )}
       </div>
 
-      {/* Cancelled Bookings */}
+      {/* History Bookings */}
       {pastBookings.length > 0 && (
         <div>
           <h2 className="text-xl font-semibold mb-5 flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-md bg-secondary/50 flex items-center justify-center">
               <XCircle className="h-4 w-4 text-muted-foreground" />
             </div>
-            <span className="font-body">Отменённые ({pastBookings.length})</span>
+            <span className="font-body">{t('История ({count})', { count: pastBookings.length })}</span>
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {pastBookings.map((booking, i) => (
@@ -180,8 +183,17 @@ export default function MyBookings() {
                         <span className="font-medium text-foreground">{booking.roomName}</span>
                       </div>
                       <Badge variant="secondary" className="flex items-center gap-1 text-xs">
-                        <XCircle className="h-3 w-3" />
-                        <span>Отменено</span>
+                        {booking.viewStatus === 'cancelled' ? (
+                          <>
+                            <XCircle className="h-3 w-3" />
+                            <span>{t('Отменено')}</span>
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="h-3 w-3" />
+                            <span>{t('Завершено')}</span>
+                          </>
+                        )}
                       </Badge>
                     </div>
 
@@ -211,20 +223,20 @@ export default function MyBookings() {
       <Dialog open={!!cancelConfirmId} onOpenChange={() => setCancelConfirmId(null)}>
         <DialogContent className="border-border/50">
           <DialogHeader>
-            <DialogTitle>Подтвердите отмену</DialogTitle>
+            <DialogTitle>{t('Подтвердите отмену')}</DialogTitle>
             <DialogDescription>
-              Вы уверены, что хотите отменить это бронирование?
+              {t('Вы уверены, что хотите отменить это бронирование?')}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setCancelConfirmId(null)} className="border-border/50">
-              Нет, оставить
+              {t('Нет, оставить')}
             </Button>
             <Button
               variant="destructive"
               onClick={() => cancelConfirmId && handleCancel(cancelConfirmId)}
             >
-              Да, отменить
+              {t('Да, отменить')}
             </Button>
           </DialogFooter>
         </DialogContent>

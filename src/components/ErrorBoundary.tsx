@@ -1,4 +1,6 @@
 import { Component, type ReactNode } from 'react';
+import { translate } from '@/i18n/messages';
+import { useLocaleStore } from '@/store/localeStore';
 
 interface Props {
   children: ReactNode;
@@ -25,6 +27,7 @@ export default class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
+      const locale = useLocaleStore.getState().locale;
       return (
         <div style={{
           minHeight: '100vh',
@@ -60,7 +63,7 @@ export default class ErrorBoundary extends Component<Props, State> {
               fontWeight: 600,
               letterSpacing: '-0.015em',
             }}>
-              Что-то пошло не так
+              {translate('Что-то пошло не так', locale)}
             </h1>
             <p style={{
               color: '#807A72',
@@ -68,7 +71,7 @@ export default class ErrorBoundary extends Component<Props, State> {
               marginBottom: '24px',
               lineHeight: 1.6,
             }}>
-              {this.state.error?.message || 'Неизвестная ошибка'}
+              {this.state.error?.message || translate('Неизвестная ошибка', locale)}
             </p>
             <button
               onClick={() => window.location.reload()}
@@ -87,7 +90,7 @@ export default class ErrorBoundary extends Component<Props, State> {
               onMouseOver={(e) => (e.currentTarget.style.background = '#E0924A')}
               onMouseOut={(e) => (e.currentTarget.style.background = '#D4853A')}
             >
-              Перезагрузить
+              {translate('Перезагрузить', locale)}
             </button>
           </div>
         </div>

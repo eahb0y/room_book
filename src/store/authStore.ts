@@ -37,7 +37,8 @@ const isUser = (value: unknown): value is User => {
     typeof user.createdAt === 'string' &&
     (user.role === 'admin' || user.role === 'user') &&
     (user.firstName === undefined || typeof user.firstName === 'string') &&
-    (user.lastName === undefined || typeof user.lastName === 'string')
+    (user.lastName === undefined || typeof user.lastName === 'string') &&
+    (user.avatarUrl === undefined || user.avatarUrl === null || typeof user.avatarUrl === 'string')
   );
 };
 
@@ -97,7 +98,7 @@ const readPersistedAuthState = (): Pick<AuthState, 'user' | 'isAuthenticated'> =
 
 const initialAuthState = readPersistedAuthState();
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: initialAuthState.user,
   isAuthenticated: initialAuthState.isAuthenticated,
 
@@ -125,6 +126,28 @@ export const useAuthStore = create<AuthState>((set) => ({
       if (isDuplicateError(err)) return false;
       throw err;
     }
+  },
+
+  updateProfile: async (payload) => {
+    const currentUser = get().user;
+    if (!currentUser) {
+      throw new Error('Not authenticated');
+    }
+
+    const user = await authApi.updateProfile(currentUser.id, payload);
+    const nextState = { user, isAuthenticated: true };
+    persistAuthState(nextState);
+    set(nextState);
+    return user;
+  },
+
+  changePassword: async (payload) => {
+    const currentUser = get().user;
+    if (!currentUser) {
+      throw new Error('Not authenticated');
+    }
+
+    await authApi.changePassword(currentUser.email, payload);
   },
 
   logout: async () => {

@@ -6,6 +6,7 @@ export interface User {
   email: string;
   firstName?: string;
   lastName?: string;
+  avatarUrl?: string | null;
   role: UserRole;
   createdAt: string;
 }
@@ -100,5 +101,14 @@ export interface AuthState {
   isAuthenticated: boolean;
   login: (credentials: LoginCredentials) => Promise<boolean>;
   register: (credentials: RegisterCredentials) => Promise<boolean>;
+  updateProfile: (payload: {
+    firstName?: string;
+    lastName?: string;
+    avatarUrl?: string | null;
+  }) => Promise<User>;
+  changePassword: (payload: {
+    currentPassword: string;
+    newPassword: string;
+  }) => Promise<void>;
   logout: () => Promise<void>;
 }

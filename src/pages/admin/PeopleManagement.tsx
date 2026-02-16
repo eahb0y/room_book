@@ -10,8 +10,10 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Copy, Trash2, Users } from 'lucide-react';
+import { useI18n } from '@/i18n/useI18n';
 
 export default function PeopleManagement() {
+  const { t, intlLocale } = useI18n();
   const user = useAuthStore((state) => state.user);
   const navigate = useNavigate();
   const venues = useVenueStore((state) => state.venues);
@@ -39,7 +41,7 @@ export default function PeopleManagement() {
       setInvitations(data);
     } catch (err) {
       if (!options?.silent) {
-        const message = err instanceof Error ? err.message : 'Не удалось загрузить приглашения';
+        const message = err instanceof Error ? t(err.message) : t('Не удалось загрузить приглашения');
         setInviteLoadError(message);
         setInvitations([]);
       }
@@ -48,7 +50,7 @@ export default function PeopleManagement() {
         setInviteLoading(false);
       }
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (!user || user.role !== 'admin') {
@@ -57,18 +59,20 @@ export default function PeopleManagement() {
     }
   }, [user, navigate]);
 
+  const existingVenueId = existingVenue?.id;
+
   useEffect(() => {
-    if (!existingVenue) {
+    if (!existingVenueId) {
       setInvitations([]);
       setInviteLoadError('');
       return;
     }
-    refreshInvitations(existingVenue.id);
+    refreshInvitations(existingVenueId);
     const interval = window.setInterval(() => {
-      refreshInvitations(existingVenue.id, { silent: true });
+      refreshInvitations(existingVenueId, { silent: true });
     }, 15000);
     return () => window.clearInterval(interval);
-  }, [existingVenue?.id, refreshInvitations]);
+  }, [existingVenueId, refreshInvitations]);
 
   const handleRevokeInvite = async (inviteId: string) => {
     if (!existingVenue) return;
@@ -77,9 +81,9 @@ export default function PeopleManagement() {
     try {
       await revokeInvitation(inviteId);
       await refreshInvitations(existingVenue.id);
-      setInviteSuccess('Приглашение отозвано');
+      setInviteSuccess(t('Приглашение отозвано'));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Не удалось отозвать приглашение';
+      const message = err instanceof Error ? t(err.message) : t('Не удалось отозвать приглашение');
       setInviteError(message);
     }
   };
@@ -93,7 +97,7 @@ export default function PeopleManagement() {
     const trimmedEmail = inviteEmail.trim().toLowerCase();
 
     if (!trimmedFirstName || !trimmedLastName || !trimmedEmail) {
-      setInviteError('Имя, фамилия и email обязательны для заполнения');
+      setInviteError(t('Имя, фамилия и email обязательны для заполнения'));
       return;
     }
 
@@ -111,9 +115,9 @@ export default function PeopleManagement() {
       setInviteFirstName('');
       setInviteLastName('');
       setInviteEmail('');
-      setInviteSuccess('Инвайт создан. Пользователь может перейти по ссылке и зарегистрироваться.');
+      setInviteSuccess(t('Инвайт создан. Пользователь может перейти по ссылке и зарегистрироваться.'));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Не удалось создать приглашение';
+      const message = err instanceof Error ? t(err.message) : t('Не удалось создать приглашение');
       setInviteError(message);
     } finally {
       setInviteSubmitting(false);
@@ -129,7 +133,7 @@ export default function PeopleManagement() {
     if (!iso) return '—';
     const date = new Date(iso);
     if (Number.isNaN(date.getTime())) return '—';
-    return new Intl.DateTimeFormat('ru-RU', {
+    return new Intl.DateTimeFormat(intlLocale, {
       dateStyle: 'medium',
       timeStyle: 'short',
     }).format(date);
@@ -142,12 +146,12 @@ export default function PeopleManagement() {
       invitation.uses > 0;
     return isConnected
       ? {
-          text: 'Подключён',
+          text: t('Подключён'),
           color: 'text-emerald-300',
           bg: 'bg-emerald-950/40 border-emerald-800/40',
         }
       : {
-          text: 'Ожидает',
+          text: t('Ожидает'),
           color: 'text-amber-300',
           bg: 'bg-amber-950/30 border-amber-800/40',
         };
@@ -156,27 +160,27 @@ export default function PeopleManagement() {
   const getLinkStatus = (invitation: Invitation) => {
     if (invitation.revokedAt) {
       return {
-        text: 'Отозвано',
+        text: t('Отозвано'),
         color: 'text-red-300',
         bg: 'bg-red-950/40 border-red-900/40',
       };
     }
     if (invitation.expiresAt && new Date(invitation.expiresAt) <= new Date()) {
       return {
-        text: 'Истекло',
+        text: t('Истекло'),
         color: 'text-amber-300',
         bg: 'bg-amber-950/30 border-amber-800/40',
       };
     }
     if (invitation.maxUses !== undefined && invitation.uses >= invitation.maxUses) {
       return {
-        text: 'Использовано',
+        text: t('Использовано'),
         color: 'text-amber-300',
         bg: 'bg-amber-950/30 border-amber-800/40',
       };
     }
     return {
-      text: 'Активно',
+      text: t('Активно'),
       color: 'text-emerald-300',
       bg: 'bg-emerald-950/40 border-emerald-800/40',
     };
@@ -189,31 +193,31 @@ export default function PeopleManagement() {
     setInviteSuccess('');
     try {
       await navigator.clipboard.writeText(buildInviteLink(token));
-      setInviteSuccess('Ссылка скопирована');
+      setInviteSuccess(t('Ссылка скопирована'));
     } catch {
-      setInviteError('Не удалось скопировать ссылку');
+      setInviteError(t('Не удалось скопировать ссылку'));
     }
   };
 
   return (
     <div className="max-w-2xl mx-auto space-y-8">
       <div>
-        <h1 className="text-4xl font-semibold text-foreground tracking-tight">Люди</h1>
+        <h1 className="text-4xl font-semibold text-foreground tracking-tight">{t('Люди')}</h1>
         <p className="text-muted-foreground mt-2">
-          Управляйте приглашениями и добавляйте людей в ваше заведение
+          {t('Управляйте приглашениями и добавляйте людей в ваше заведение')}
         </p>
       </div>
 
       {!existingVenue ? (
         <Card className="border-border/40">
           <CardHeader>
-            <CardTitle className="text-lg font-body font-semibold">Сначала создайте заведение</CardTitle>
+            <CardTitle className="text-lg font-body font-semibold">{t('Сначала создайте заведение')}</CardTitle>
             <CardDescription>
-              Раздел «Люди» станет доступен после создания заведения.
+              {t('Раздел «Люди» станет доступен после создания заведения.')}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={() => navigate('/my-venue')}>Перейти в «Моё заведение»</Button>
+            <Button onClick={() => navigate('/my-venue')}>{t('Перейти в «Моё заведение»')}</Button>
           </CardContent>
         </Card>
       ) : (
@@ -246,10 +250,10 @@ export default function PeopleManagement() {
                 <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
                   <Users className="h-4 w-4 text-primary" />
                 </div>
-                <span className="font-body font-semibold">Добавить человека</span>
+                <span className="font-body font-semibold">{t('Добавить человека')}</span>
               </CardTitle>
               <CardDescription>
-                Заполните данные пользователя и создайте персональную ссылку
+                {t('Заполните данные пользователя и создайте персональную ссылку')}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -263,7 +267,7 @@ export default function PeopleManagement() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="inviteFirstName" className="text-sm text-muted-foreground">
-                      Имя *
+                      {t('Имя *')}
                     </Label>
                     <Input
                       id="inviteFirstName"
@@ -275,7 +279,7 @@ export default function PeopleManagement() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="inviteLastName" className="text-sm text-muted-foreground">
-                      Фамилия *
+                      {t('Фамилия *')}
                     </Label>
                     <Input
                       id="inviteLastName"
@@ -302,7 +306,7 @@ export default function PeopleManagement() {
 
                 <div className="flex flex-wrap gap-2 pt-1">
                   <Button type="submit" className="h-11" disabled={inviteSubmitting || inviteLoading}>
-                    {inviteSubmitting ? 'Создание…' : 'Создать ссылку'}
+                    {inviteSubmitting ? t('Создание…') : t('Создать ссылку')}
                   </Button>
                 </div>
               </form>
@@ -313,10 +317,10 @@ export default function PeopleManagement() {
             <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <CardTitle className="text-lg font-body font-semibold">
-                  Инвайты ({sortedInvitations.length})
+                  {t('Инвайты ({count})', { count: sortedInvitations.length })}
                 </CardTitle>
                 <CardDescription>
-                  Статусы подключения и доступности ссылки
+                  {t('Статусы подключения и доступности ссылки')}
                 </CardDescription>
               </div>
               <Button
@@ -326,17 +330,17 @@ export default function PeopleManagement() {
                 disabled={inviteLoading}
                 className="h-9 border-border/50 hover:border-primary/30"
               >
-                Обновить
+                {t('Обновить')}
               </Button>
             </CardHeader>
             <CardContent className="space-y-4">
               {inviteLoading && (
-                <p className="text-xs text-muted-foreground">Обновляем список…</p>
+                <p className="text-xs text-muted-foreground">{t('Обновляем список…')}</p>
               )}
 
               {sortedInvitations.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-border/50 p-6 text-sm text-muted-foreground">
-                  Пока нет инвайтов. Создайте первый.
+                  {t('Пока нет инвайтов. Создайте первый.')}
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -346,7 +350,7 @@ export default function PeopleManagement() {
                     const fullName = [invitation.inviteeFirstName, invitation.inviteeLastName]
                       .filter(Boolean)
                       .join(' ')
-                      .trim() || 'Без имени';
+                      .trim() || t('Без имени');
                     const inviteAddress = invitation.inviteeEmail || '—';
                     const inviteLink = buildInviteLink(invitation.token);
 
@@ -375,8 +379,8 @@ export default function PeopleManagement() {
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground">
-                          <div>Создано: {formatDateTime(invitation.createdAt)}</div>
-                          <div>Подключение: {formatDateTime(invitation.connectedAt)}</div>
+                          <div>{t('Создано: {value}', { value: formatDateTime(invitation.createdAt) })}</div>
+                          <div>{t('Подключение: {value}', { value: formatDateTime(invitation.connectedAt) })}</div>
                         </div>
 
                         <div className="flex flex-col sm:flex-row gap-2 items-stretch">
@@ -392,7 +396,7 @@ export default function PeopleManagement() {
                             className="h-10 border-border/50 hover:border-primary/30"
                           >
                             <Copy className="h-3.5 w-3.5 mr-1.5" />
-                            Копировать
+                            {t('Копировать')}
                           </Button>
                           <Button
                             variant="outline"
@@ -402,7 +406,7 @@ export default function PeopleManagement() {
                             disabled={inviteLoading || Boolean(invitation.revokedAt)}
                           >
                             <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                            Отозвать
+                            {t('Отозвать')}
                           </Button>
                         </div>
                       </div>
