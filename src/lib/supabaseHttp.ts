@@ -1,4 +1,4 @@
-import { getSupabasePublishableKey, getSupabaseUrl } from '@/lib/supabaseConfig';
+import { getSupabaseEnvironment, getSupabasePublishableKey, getSupabaseUrl } from '@/lib/supabaseConfig';
 import { getAuthSession } from '@/lib/supabaseSession';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -47,6 +47,7 @@ const mergeHeaders = (
 ) => {
   const headers = new Headers(initHeaders ?? undefined);
   headers.set('apikey', getSupabasePublishableKey());
+  headers.set('X-App-Env', getSupabaseEnvironment());
 
   if (accessToken) {
     headers.set('Authorization', `Bearer ${accessToken}`);

@@ -48,25 +48,28 @@ const LEGACY_PUBLISHABLE_KEY =
   normalizeEnvValue(import.meta.env.VITE_SUPABASE_ANON_KEY);
 
 const getConfiguredValues = () => {
-  const supabaseUrl = SUPABASE_ENVIRONMENT === 'dev' ? DEV_URL ?? LEGACY_URL : PROD_URL ?? LEGACY_URL;
+  const supabaseUrl =
+    SUPABASE_ENVIRONMENT === 'dev'
+      ? DEV_URL ?? LEGACY_URL ?? PROD_URL
+      : PROD_URL ?? LEGACY_URL ?? DEV_URL;
   const supabasePublishableKey =
     SUPABASE_ENVIRONMENT === 'dev'
-      ? DEV_PUBLISHABLE_KEY ?? LEGACY_PUBLISHABLE_KEY
-      : PROD_PUBLISHABLE_KEY ?? LEGACY_PUBLISHABLE_KEY;
+      ? DEV_PUBLISHABLE_KEY ?? LEGACY_PUBLISHABLE_KEY ?? PROD_PUBLISHABLE_KEY
+      : PROD_PUBLISHABLE_KEY ?? LEGACY_PUBLISHABLE_KEY ?? DEV_PUBLISHABLE_KEY;
 
   if (!supabaseUrl) {
     const expected =
       SUPABASE_ENVIRONMENT === 'dev'
-        ? 'VITE_SUPABASE_DEV_URL (preferred) or VITE_SUPABASE_URL (legacy)'
-        : 'VITE_SUPABASE_PROD_URL (preferred) or VITE_SUPABASE_URL (legacy)';
+        ? 'VITE_SUPABASE_DEV_URL (preferred), VITE_SUPABASE_URL (legacy), or VITE_SUPABASE_PROD_URL (fallback)'
+        : 'VITE_SUPABASE_PROD_URL (preferred), VITE_SUPABASE_URL (legacy), or VITE_SUPABASE_DEV_URL (fallback)';
     throw new Error(`Supabase URL is not configured for ${SUPABASE_ENVIRONMENT}. Set ${expected}.`);
   }
 
   if (!supabasePublishableKey) {
     const expected =
       SUPABASE_ENVIRONMENT === 'dev'
-        ? 'VITE_SUPABASE_DEV_PUBLISHABLE_KEY (preferred) or VITE_SUPABASE_PUBLISHABLE_KEY (legacy)'
-        : 'VITE_SUPABASE_PROD_PUBLISHABLE_KEY (preferred) or VITE_SUPABASE_PUBLISHABLE_KEY (legacy)';
+        ? 'VITE_SUPABASE_DEV_PUBLISHABLE_KEY (preferred), VITE_SUPABASE_PUBLISHABLE_KEY (legacy), or VITE_SUPABASE_PROD_PUBLISHABLE_KEY (fallback)'
+        : 'VITE_SUPABASE_PROD_PUBLISHABLE_KEY (preferred), VITE_SUPABASE_PUBLISHABLE_KEY (legacy), or VITE_SUPABASE_DEV_PUBLISHABLE_KEY (fallback)';
     throw new Error(`Supabase publishable key is not configured for ${SUPABASE_ENVIRONMENT}. Set ${expected}.`);
   }
 
@@ -82,4 +85,8 @@ export const getSupabaseUrl = () => {
 
 export const getSupabasePublishableKey = () => {
   return getConfiguredValues().supabasePublishableKey;
+};
+
+export const getSupabaseEnvironment = () => {
+  return SUPABASE_ENVIRONMENT;
 };

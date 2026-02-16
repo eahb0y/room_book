@@ -102,6 +102,87 @@ alter table public.bookings
   )
   where (status = 'active');
 
+create or replace function public.resolve_request_app_env()
+returns text
+language plpgsql
+stable
+as $$
+declare
+  request_headers jsonb := '{}'::jsonb;
+  requested_env text := '';
+begin
+  begin
+    request_headers := coalesce(nullif(current_setting('request.headers', true), '')::jsonb, '{}'::jsonb);
+  exception
+    when others then
+      request_headers := '{}'::jsonb;
+  end;
+
+  requested_env := lower(coalesce(request_headers ->> 'x-app-env', ''));
+  if requested_env in ('dev', 'prod') then
+    return requested_env;
+  end if;
+
+  return 'prod';
+end;
+$$;
+
+alter table public.profiles
+  add column if not exists app_env text not null default public.resolve_request_app_env();
+alter table public.venues
+  add column if not exists app_env text not null default public.resolve_request_app_env();
+alter table public.rooms
+  add column if not exists app_env text not null default public.resolve_request_app_env();
+alter table public.invitations
+  add column if not exists app_env text not null default public.resolve_request_app_env();
+alter table public.venue_memberships
+  add column if not exists app_env text not null default public.resolve_request_app_env();
+alter table public.bookings
+  add column if not exists app_env text not null default public.resolve_request_app_env();
+
+alter table public.profiles
+  alter column app_env set default public.resolve_request_app_env();
+alter table public.venues
+  alter column app_env set default public.resolve_request_app_env();
+alter table public.rooms
+  alter column app_env set default public.resolve_request_app_env();
+alter table public.invitations
+  alter column app_env set default public.resolve_request_app_env();
+alter table public.venue_memberships
+  alter column app_env set default public.resolve_request_app_env();
+alter table public.bookings
+  alter column app_env set default public.resolve_request_app_env();
+
+alter table public.profiles
+  drop constraint if exists profiles_app_env_check;
+alter table public.profiles
+  add constraint profiles_app_env_check check (app_env in ('dev', 'prod'));
+
+alter table public.venues
+  drop constraint if exists venues_app_env_check;
+alter table public.venues
+  add constraint venues_app_env_check check (app_env in ('dev', 'prod'));
+
+alter table public.rooms
+  drop constraint if exists rooms_app_env_check;
+alter table public.rooms
+  add constraint rooms_app_env_check check (app_env in ('dev', 'prod'));
+
+alter table public.invitations
+  drop constraint if exists invitations_app_env_check;
+alter table public.invitations
+  add constraint invitations_app_env_check check (app_env in ('dev', 'prod'));
+
+alter table public.venue_memberships
+  drop constraint if exists venue_memberships_app_env_check;
+alter table public.venue_memberships
+  add constraint venue_memberships_app_env_check check (app_env in ('dev', 'prod'));
+
+alter table public.bookings
+  drop constraint if exists bookings_app_env_check;
+alter table public.bookings
+  add constraint bookings_app_env_check check (app_env in ('dev', 'prod'));
+
 create index if not exists idx_venues_admin_id on public.venues (admin_id);
 create index if not exists idx_rooms_venue_id on public.rooms (venue_id);
 create index if not exists idx_memberships_user_id on public.venue_memberships (user_id);
