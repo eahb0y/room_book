@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useVenueStore } from '@/store/venueStore';
+import { useVenueDataGuard } from '@/hooks/useVenueDataGuard';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -77,6 +78,30 @@ const formatDateValue = (value: string, dateLocale: Locale) => {
   } catch {
     return value;
   }
+};
+
+const resolveUserName = (firstName?: string, lastName?: string) => {
+  const normalizedFirstName = firstName?.trim();
+  const normalizedLastName = lastName?.trim();
+  const fullName = [normalizedFirstName, normalizedLastName].filter((part) => Boolean(part)).join(' ').trim();
+  return fullName.length > 0 ? fullName : undefined;
+};
+
+const getBookingUserLabel = (params: {
+  userId: string;
+  userEmail?: string;
+  userFirstName?: string;
+  userLastName?: string;
+  t: (value: string, inputParams?: Record<string, string | number>) => string;
+}) => {
+  const fullName = resolveUserName(params.userFirstName, params.userLastName);
+  const email = params.userEmail?.trim();
+
+  if (fullName && email) return `${fullName} (${email})`;
+  if (fullName) return fullName;
+  if (email) return email;
+
+  return `${params.t('Пользователь')} #${params.userId.slice(0, 8)}`;
 };
 
 type BookingViewItem = {
@@ -271,6 +296,7 @@ function BookingScheduleGrid({
 export default function AdminBookings() {
   const { t, dateLocale } = useI18n();
   const { user } = useAuthStore();
+  const { isVenueDataLoading } = useVenueDataGuard(user);
   const navigate = useNavigate();
 
   const venues = useVenueStore((state) => state.venues);
@@ -311,7 +337,13 @@ export default function AdminBookings() {
           roomId: booking.roomId,
           roomName: room?.name ?? t('Комната'),
           userId: booking.userId,
-          userLabel: `${t('Пользователь')} #${booking.userId.slice(0, 8)}`,
+          userLabel: getBookingUserLabel({
+            userId: booking.userId,
+            userEmail: booking.userEmail,
+            userFirstName: booking.userFirstName,
+            userLastName: booking.userLastName,
+            t,
+          }),
           bookingDate: booking.bookingDate,
           startTime: booking.startTime,
           endTime: booking.endTime,
@@ -334,10 +366,12 @@ export default function AdminBookings() {
       return;
     }
 
+    if (isVenueDataLoading) return;
+
     if (!venue) {
       navigate('/my-venue');
     }
-  }, [navigate, user, venue]);
+  }, [isVenueDataLoading, navigate, user, venue]);
 
   const activeBookings = useMemo(() => bookings.filter((booking) => booking.viewStatus === 'active'), [bookings]);
   const historyBookings = useMemo(() => bookings.filter((booking) => booking.viewStatus !== 'active'), [bookings]);
@@ -429,6 +463,8 @@ export default function AdminBookings() {
     setSaveMessage(t('Бронирование успешно обновлено'));
     setTimeout(() => setSaveMessage(''), 3000);
   };
+
+  if (isVenueDataLoading) return null;
 
   if (!venue) {
     return (

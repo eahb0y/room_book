@@ -2,6 +2,7 @@ import { useEffect, useMemo } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useVenueStore } from '@/store/venueStore';
+import { useVenueDataGuard } from '@/hooks/useVenueDataGuard';
 import { RoomPhotoGallery } from '@/components/RoomPhotoGallery';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { DoorOpen, Users, ArrowLeft, ArrowRight, MapPin } from 'lucide-react';
@@ -14,6 +15,7 @@ export default function RoomList() {
   const { t } = useI18n();
   const { venueId } = useParams<{ venueId: string }>();
   const { user, isAuthenticated } = useAuthStore();
+  const { isVenueDataLoading } = useVenueDataGuard(user);
   const navigate = useNavigate();
 
   const venue = useVenueStore((state) =>
@@ -30,12 +32,23 @@ export default function RoomList() {
       navigate('/login');
       return;
     }
-    if (user?.role === 'admin') navigate('/app');
-    if (!venue) navigate('/app');
-    if (user && !membership) navigate('/app');
-  }, [user, isAuthenticated, venue, membership, navigate]);
+    if (user?.role === 'admin') {
+      navigate('/app');
+      return;
+    }
+    if (isVenueDataLoading) return;
+    if (!venue) {
+      navigate('/app');
+      return;
+    }
+    if (user && !membership) {
+      navigate('/app');
+    }
+  }, [isAuthenticated, isVenueDataLoading, membership, navigate, user, venue]);
 
+  if (isVenueDataLoading) return null;
   if (!venue) return null;
+  if (user && !membership) return null;
 
   return (
     <div className="space-y-8">

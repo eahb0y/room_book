@@ -17,13 +17,18 @@ export default function Invite() {
   const navigate = useNavigate();
   const { user, isAuthenticated } = useAuthStore();
   const loadUserData = useVenueStore((state) => state.loadUserData);
-  const [invitation, setInvitation] = useState<Invitation | null>(null);
-  const [inviteLoading, setInviteLoading] = useState(false);
-  const [inviteLoadError, setInviteLoadError] = useState('');
-
-  const [redeemState, setRedeemState] = useState<'idle' | 'loading' | 'error'>('idle');
-  const [error, setError] = useState('');
+  const [loadedToken, setLoadedToken] = useState<string | null>(null);
+  const [loadedInvitation, setLoadedInvitation] = useState<Invitation | null>(null);
+  const [loadedInviteError, setLoadedInviteError] = useState('');
+  const [redeemErrorState, setRedeemErrorState] = useState<{ token: string | null; message: string }>({
+    token: null,
+    message: '',
+  });
   const redeemAttemptRef = useRef<string | null>(null);
+  const invitation = token && loadedToken === token ? loadedInvitation : null;
+  const inviteLoadError = token && loadedToken === token ? loadedInviteError : '';
+  const inviteLoading = Boolean(token && isAuthenticated && loadedToken !== token);
+  const error = token && redeemErrorState.token === token ? redeemErrorState.message : '';
 
   const invitationStatus = !isAuthenticated
     ? 'pending-auth'
@@ -46,43 +51,31 @@ export default function Invite() {
         : t('Приглашение');
 
   useEffect(() => {
-    if (!token) return;
     redeemAttemptRef.current = null;
-    setRedeemState('idle');
-    setError('');
   }, [token]);
 
   useEffect(() => {
-    if (!token || !isAuthenticated) {
-      setInviteLoading(false);
-      setInviteLoadError('');
-      setInvitation(null);
-      return;
-    }
+    if (!token || !isAuthenticated) return;
     let isActive = true;
-    setInviteLoading(true);
-    setInviteLoadError('');
-    setInvitation(null);
 
     getInvitationByToken(token)
       .then((data) => {
         if (!isActive) return;
-        setInvitation(data);
+        setLoadedInvitation(data);
+        setLoadedInviteError('');
+        setLoadedToken(token);
       })
       .catch((err) => {
         if (!isActive) return;
         const rawMessage = err instanceof Error ? err.message : t('Не удалось проверить приглашение');
         const lower = rawMessage.toLowerCase();
         if (lower.includes('not found') || lower.includes('не найдено')) {
-          setInviteLoadError('');
+          setLoadedInviteError('');
         } else {
-          setInviteLoadError(t(rawMessage));
+          setLoadedInviteError(t(rawMessage));
         }
-        setInvitation(null);
-      })
-      .finally(() => {
-        if (!isActive) return;
-        setInviteLoading(false);
+        setLoadedInvitation(null);
+        setLoadedToken(token);
       });
 
     return () => {
@@ -95,29 +88,31 @@ export default function Invite() {
     if (user.role === 'admin') return;
     if (inviteLoading || inviteLoadError) return;
     if (invitationStatus !== 'valid') return;
-    if (redeemState !== 'idle') return;
 
     const redeemKey = `${token}:${user.id}`;
     if (redeemAttemptRef.current === redeemKey) return;
     redeemAttemptRef.current = redeemKey;
 
-    setRedeemState('loading');
-    redeemInvitation(token, user.id, user.email)
+    redeemInvitation(token)
       .then(async (result) => {
         if (result.success && result.venueId) {
           await loadUserData(user.id);
           navigate(`/venue/${result.venueId}`);
         } else {
-          setError(t('Не удалось применить приглашение'));
-          setRedeemState('error');
+          setRedeemErrorState({
+            token: token ?? null,
+            message: t('Не удалось применить приглашение'),
+          });
         }
       })
       .catch((err) => {
         const message = err instanceof Error ? t(err.message) : t('Не удалось применить приглашение');
-        setError(message);
-        setRedeemState('error');
+        setRedeemErrorState({
+          token: token ?? null,
+          message,
+        });
       });
-  }, [token, isAuthenticated, user, inviteLoading, inviteLoadError, invitationStatus, redeemState, loadUserData, navigate, t]);
+  }, [token, isAuthenticated, user, inviteLoading, inviteLoadError, invitationStatus, loadUserData, navigate, t]);
 
   const handleContinue = () => {
     if (!token) return;

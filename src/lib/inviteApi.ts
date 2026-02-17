@@ -21,11 +21,14 @@ interface InvitationRow {
   connected_user_id: string | null;
 }
 
-interface MembershipRow {
-  id: string;
-}
-
 type RedeemResponse = { success: boolean; venueId?: string; invitationId?: string };
+type RedeemRpcResponse = {
+  success?: boolean;
+  venueId?: string;
+  invitationId?: string;
+  venue_id?: string;
+  invitation_id?: string;
+};
 
 const normalizeEmail = (value?: string) => value?.trim().toLowerCase() ?? '';
 
@@ -70,48 +73,6 @@ const getInvitationRowByToken = async (token: string) => {
   );
 
   return rows[0];
-};
-
-const ensureMembership = async (venueId: string, userId: string, invitationId: string) => {
-  const existing = await supabaseDbRequest<MembershipRow[]>(
-    `venue_memberships?select=id&venue_id=eq.${encodeURIComponent(venueId)}&user_id=eq.${encodeURIComponent(userId)}&limit=1`,
-    { method: 'GET' },
-  );
-
-  if (existing[0]) return;
-
-  try {
-    await supabaseDbRequest<MembershipRow[]>(
-      'venue_memberships',
-      {
-        method: 'POST',
-        headers: {
-          Prefer: 'return=representation',
-        },
-        body: JSON.stringify([
-          {
-            venue_id: venueId,
-            user_id: userId,
-            role: 'member',
-            invitation_id: invitationId,
-          },
-        ]),
-      },
-    );
-  } catch (err) {
-    const message = err instanceof Error ? err.message.toLowerCase() : '';
-    if (message.includes('duplicate key')) {
-      return;
-    }
-    throw err;
-  }
-};
-
-const isInvitationValid = (invitation: InvitationRow) => {
-  if (invitation.revoked_at) return false;
-  if (invitation.expires_at && new Date(invitation.expires_at) <= new Date()) return false;
-  if (invitation.max_uses !== null && invitation.uses >= invitation.max_uses) return false;
-  return true;
 };
 
 export const listInvitations = async (venueId: string) => {
@@ -219,61 +180,33 @@ export const getInvitationByToken = async (token: string) => {
   return mapInvitation(invitation);
 };
 
-export const redeemInvitation = async (token: string, userId: string, userEmail?: string): Promise<RedeemResponse> => {
-  const invitation = await getInvitationRowByToken(token);
-  if (!invitation) {
-    throw new Error('Приглашение не найдено или удалено');
+export const redeemInvitation = async (token: string): Promise<RedeemResponse> => {
+  const normalizedToken = token.trim();
+  if (!normalizedToken) {
+    throw new Error('Не удалось применить приглашение');
   }
 
-  if (invitation.invitee_user_id && invitation.invitee_user_id !== userId) {
-    throw new Error('Приглашение предназначено для другого пользователя');
-  }
-
-  if (invitation.status === 'connected') {
-    if (invitation.connected_user_id === userId) {
-      await ensureMembership(invitation.venue_id, userId, invitation.id);
-      return {
-        success: true,
-        venueId: invitation.venue_id,
-        invitationId: invitation.id,
-      };
-    }
-    throw new Error('Приглашение уже использовано');
-  }
-
-  const normalizedInviteEmail = normalizeEmail(invitation.invitee_email ?? undefined);
-  const normalizedUserEmail = normalizeEmail(userEmail);
-
-  if (normalizedInviteEmail && normalizedUserEmail && normalizedInviteEmail !== normalizedUserEmail) {
-    throw new Error('Приглашение предназначено для другого email');
-  }
-
-  if (!isInvitationValid(invitation)) {
-    throw new Error('Приглашение недействительно');
-  }
-
-  await ensureMembership(invitation.venue_id, userId, invitation.id);
-
-  await supabaseDbRequest<InvitationRow[]>(
-    `invitations?id=eq.${encodeURIComponent(invitation.id)}`,
+  const response = await supabaseDbRequest<RedeemRpcResponse>(
+    'rpc/redeem_invitation',
     {
-      method: 'PATCH',
-      headers: {
-        Prefer: 'return=representation',
-      },
+      method: 'POST',
       body: JSON.stringify({
-        uses: invitation.uses + 1,
-        status: 'connected',
-        connected_at: new Date().toISOString(),
-        connected_user_id: userId,
-        invitee_user_id: invitation.invitee_user_id ?? userId,
+        p_token: normalizedToken,
       }),
     },
   );
 
+  const venueId = response.venueId ?? response.venue_id;
+  const invitationId = response.invitationId ?? response.invitation_id;
+  const success = response.success === true;
+
+  if (!success || !venueId || !invitationId) {
+    throw new Error('Не удалось применить приглашение');
+  }
+
   return {
-    success: true,
-    venueId: invitation.venue_id,
-    invitationId: invitation.id,
+    success,
+    venueId,
+    invitationId,
   };
 };

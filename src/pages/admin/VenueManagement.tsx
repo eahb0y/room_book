@@ -40,10 +40,12 @@ export default function VenueManagement() {
       return;
     }
 
-    if (name !== existingVenue.name) setName(existingVenue.name);
-    if (description !== existingVenue.description) setDescription(existingVenue.description);
-    if (address !== existingVenue.address) setAddress(existingVenue.address);
-  }, [user, navigate, existingVenue?.id, existingVenue?.name, existingVenue?.description, existingVenue?.address, name, description, address]);
+    setName((currentName) => (currentName === existingVenue.name ? currentName : existingVenue.name));
+    setDescription((currentDescription) =>
+      currentDescription === existingVenue.description ? currentDescription : existingVenue.description
+    );
+    setAddress((currentAddress) => (currentAddress === existingVenue.address ? currentAddress : existingVenue.address));
+  }, [user, navigate, existingVenue]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

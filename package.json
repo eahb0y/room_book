@@ -8,6 +8,7 @@
     "start": "npm run dev",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "smoke:e2e": "node scripts/smoke-e2e.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

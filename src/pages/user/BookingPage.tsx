@@ -4,6 +4,7 @@ import { addDays, format, isBefore, startOfToday } from 'date-fns';
 import { AlertCircle, ArrowLeft, Calendar as CalendarIcon, CheckCircle2, ChevronLeft, ChevronRight, Clock3, DoorOpen, Users } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useVenueStore } from '@/store/venueStore';
+import { useVenueDataGuard } from '@/hooks/useVenueDataGuard';
 import { cn } from '@/lib/utils';
 import { getRoomPhotoUrls } from '@/lib/roomPhotos';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -39,9 +40,9 @@ export default function BookingPage() {
   const { t, dateLocale } = useI18n();
   const { roomId } = useParams<{ roomId: string }>();
   const { user, isAuthenticated } = useAuthStore();
+  const { isVenueDataLoading } = useVenueDataGuard(user);
   const navigate = useNavigate();
 
-  const isVenueStoreLoading = useVenueStore((state) => state.isLoading);
   const room = useVenueStore((state) => state.rooms.find((currentRoom) => currentRoom.id === roomId));
   const venue = useVenueStore((state) =>
     room ? state.venues.find((currentVenue) => currentVenue.id === room.venueId) : undefined
@@ -76,7 +77,9 @@ export default function BookingPage() {
       return;
     }
 
-    if (!isVenueStoreLoading && roomId && !room) {
+    if (isVenueDataLoading) return;
+
+    if (roomId && !room) {
       navigate('/app');
       return;
     }
@@ -84,12 +87,12 @@ export default function BookingPage() {
     if (user && room && !membership) {
       navigate('/app');
     }
-  }, [isAuthenticated, isVenueStoreLoading, membership, navigate, room, roomId, user]);
+  }, [isAuthenticated, isVenueDataLoading, membership, navigate, room, roomId, user]);
 
   useEffect(() => {
-    if (!roomId || !user || user.role !== 'user') return;
+    if (isVenueDataLoading || !roomId || !room || !user || user.role !== 'user') return;
     void loadRoomBookings(roomId);
-  }, [loadRoomBookings, roomId, user]);
+  }, [isVenueDataLoading, loadRoomBookings, room, roomId, user]);
 
   const selectedDateBookings = useMemo(() => {
     const dateStr = format(date, 'yyyy-MM-dd');
@@ -206,7 +209,9 @@ export default function BookingPage() {
 
   const canGoToPreviousDay = !isBefore(addDays(date, -1), startOfToday());
 
+  if (isVenueDataLoading) return null;
   if (!room || !venue) return null;
+  if (user && !membership) return null;
   const roomPhotos = getRoomPhotoUrls(room);
 
   return (

@@ -72,7 +72,6 @@ const upsertProfile = async (
   profile: {
     id: string;
     email: string;
-    role: 'admin' | 'user';
     firstName?: string;
     lastName?: string;
     avatarUrl?: string | null;
@@ -90,7 +89,6 @@ const upsertProfile = async (
         {
           id: profile.id,
           email: profile.email,
-          role: profile.role,
           first_name: profile.firstName ?? null,
           last_name: profile.lastName ?? null,
           ...(profile.avatarUrl !== undefined ? { avatar_url: profile.avatarUrl } : {}),
@@ -106,7 +104,6 @@ const upsertProfile = async (
 const ensureProfile = async (input: {
   userId: string;
   email: string;
-  role: 'admin' | 'user';
   accessToken: string;
 }) => {
   const existing = await fetchProfileById(input.userId, input.accessToken);
@@ -116,7 +113,6 @@ const ensureProfile = async (input: {
     {
       id: input.userId,
       email: input.email,
-      role: input.role,
     },
     input.accessToken,
   );
@@ -143,7 +139,6 @@ export const login = async (credentials: LoginCredentials) => {
   const profile = await ensureProfile({
     userId: data.user.id,
     email: data.user.email ?? email,
-    role: 'user',
     accessToken: data.access_token,
   });
 
@@ -202,7 +197,6 @@ export const register = async (payload: RegisterCredentials) => {
     {
       id: data.user.id,
       email: data.user.email ?? email,
-      role: payload.role,
     },
     accessToken,
   );

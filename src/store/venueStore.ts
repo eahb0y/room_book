@@ -12,6 +12,7 @@ interface VenueState {
   memberships: VenueMembership[];
   isLoading: boolean;
   loadedFor: string | null;
+  settledFor: string | null;
 
   loadAdminData: (adminId: string) => Promise<void>;
   loadUserData: (userId: string) => Promise<void>;
@@ -50,9 +51,11 @@ export const useVenueStore = create<VenueState>((set, get) => ({
   memberships: [],
   isLoading: false,
   loadedFor: null,
+  settledFor: null,
 
   loadAdminData: async (adminId) => {
-    set({ isLoading: true, loadedFor: null });
+    const key = `admin:${adminId}`;
+    set({ isLoading: true, loadedFor: null, settledFor: null });
     try {
       const venues = await venueApi.listVenues({ adminId });
       const venueIds = venues.map((venue) => venue.id);
@@ -61,24 +64,25 @@ export const useVenueStore = create<VenueState>((set, get) => ({
         venueIds.map((venueId) => bookingApi.listBookings({ venueId }))
       );
       const bookings = mergeById([], bookingLists.flat());
-      set({ venues, rooms, bookings, memberships: [], isLoading: false, loadedFor: `admin:${adminId}` });
+      set({ venues, rooms, bookings, memberships: [], isLoading: false, loadedFor: key, settledFor: key });
     } catch (err) {
-      set({ isLoading: false });
+      set({ isLoading: false, settledFor: key });
       throw err;
     }
   },
 
   loadUserData: async (userId) => {
-    set({ isLoading: true, loadedFor: null });
+    const key = `user:${userId}`;
+    set({ isLoading: true, loadedFor: null, settledFor: null });
     try {
       const memberships = await membershipApi.listMemberships({ userId });
       const venues = await venueApi.listVenues({ userId });
       const venueIds = venues.map((venue) => venue.id);
       const rooms = venueIds.length ? await roomApi.listRooms({ venueIds }) : [];
       const bookings = await bookingApi.listBookings({ userId });
-      set({ memberships, venues, rooms, bookings, isLoading: false, loadedFor: `user:${userId}` });
+      set({ memberships, venues, rooms, bookings, isLoading: false, loadedFor: key, settledFor: key });
     } catch (err) {
-      set({ isLoading: false });
+      set({ isLoading: false, settledFor: key });
       throw err;
     }
   },
@@ -185,6 +189,6 @@ export const useVenueStore = create<VenueState>((set, get) => ({
   },
 
   reset: () => {
-    set({ venues: [], rooms: [], bookings: [], memberships: [], isLoading: false, loadedFor: null });
+    set({ venues: [], rooms: [], bookings: [], memberships: [], isLoading: false, loadedFor: null, settledFor: null });
   },
 }));

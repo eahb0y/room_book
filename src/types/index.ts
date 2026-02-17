@@ -73,6 +73,9 @@ export interface Booking {
   id: string;
   roomId: string;
   userId: string;
+  userEmail?: string;
+  userFirstName?: string;
+  userLastName?: string;
   bookingDate: string;
   startTime: string;
   endTime: string;
@@ -92,9 +95,7 @@ export interface LoginCredentials {
   password: string;
 }
 
-export interface RegisterCredentials extends LoginCredentials {
-  role: UserRole;
-}
+export type RegisterCredentials = LoginCredentials;
 
 export interface AuthState {
   user: User | null;

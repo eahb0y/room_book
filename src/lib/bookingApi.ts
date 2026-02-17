@@ -12,16 +12,43 @@ interface BookingRow {
   created_at: string;
 }
 
-const mapBooking = (row: BookingRow): Booking => ({
-  id: row.id,
-  roomId: row.room_id,
-  userId: row.user_id,
-  bookingDate: row.booking_date,
-  startTime: row.start_time.slice(0, 5),
-  endTime: row.end_time.slice(0, 5),
-  status: row.status,
-  createdAt: row.created_at,
-});
+interface BookingProfileRow {
+  email: string | null;
+  first_name: string | null;
+  last_name: string | null;
+}
+
+type BookingRowWithProfile = BookingRow & {
+  booker?: BookingProfileRow | BookingProfileRow[] | null;
+};
+
+const bookingSelectWithProfile = '*,booker:profiles!bookings_user_id_fkey(email,first_name,last_name)';
+
+const resolveBookerProfile = (booker: BookingRowWithProfile['booker']) => {
+  if (Array.isArray(booker)) {
+    return booker[0] ?? null;
+  }
+
+  return booker ?? null;
+};
+
+const mapBooking = (row: BookingRowWithProfile): Booking => {
+  const booker = resolveBookerProfile(row.booker);
+
+  return {
+    id: row.id,
+    roomId: row.room_id,
+    userId: row.user_id,
+    userEmail: booker?.email ?? undefined,
+    userFirstName: booker?.first_name ?? undefined,
+    userLastName: booker?.last_name ?? undefined,
+    bookingDate: row.booking_date,
+    startTime: row.start_time.slice(0, 5),
+    endTime: row.end_time.slice(0, 5),
+    status: row.status,
+    createdAt: row.created_at,
+  };
+};
 
 const isOverlapping = (startA: string, endA: string, startB: string, endB: string) =>
   startA < endB && endA > startB;
@@ -61,7 +88,7 @@ const ensureNoOverlap = async (params: {
 export const listBookings = async (params?: { userId?: string; venueId?: string; roomId?: string }) => {
   if (params?.venueId) {
     const filters = [
-      'select=*,rooms!inner(venue_id)',
+      `select=${bookingSelectWithProfile},rooms!inner(venue_id)`,
       `rooms.venue_id=eq.${encodeURIComponent(params.venueId)}`,
       'order=created_at.desc',
     ];
@@ -69,7 +96,7 @@ export const listBookings = async (params?: { userId?: string; venueId?: string;
     if (params.userId) filters.push(`user_id=eq.${encodeURIComponent(params.userId)}`);
     if (params.roomId) filters.push(`room_id=eq.${encodeURIComponent(params.roomId)}`);
 
-    const rows = await supabaseDbRequest<Array<BookingRow & { rooms: { venue_id: string } }>>(
+    const rows = await supabaseDbRequest<Array<BookingRowWithProfile & { rooms: { venue_id: string } }>>(
       `bookings?${filters.join('&')}`,
       { method: 'GET' },
     );
@@ -77,11 +104,11 @@ export const listBookings = async (params?: { userId?: string; venueId?: string;
     return rows.map(mapBooking);
   }
 
-  const filters = ['select=*', 'order=created_at.desc'];
+  const filters = [`select=${bookingSelectWithProfile}`, 'order=created_at.desc'];
   if (params?.userId) filters.push(`user_id=eq.${encodeURIComponent(params.userId)}`);
   if (params?.roomId) filters.push(`room_id=eq.${encodeURIComponent(params.roomId)}`);
 
-  const rows = await supabaseDbRequest<BookingRow[]>(`bookings?${filters.join('&')}`, {
+  const rows = await supabaseDbRequest<BookingRowWithProfile[]>(`bookings?${filters.join('&')}`, {
     method: 'GET',
   });
 
@@ -102,8 +129,8 @@ export const createBooking = async (payload: {
     endTime: payload.endTime,
   });
 
-  const rows = await supabaseDbRequest<BookingRow[]>(
-    'bookings',
+  const rows = await supabaseDbRequest<BookingRowWithProfile[]>(
+    `bookings?select=${bookingSelectWithProfile}`,
     {
       method: 'POST',
       headers: {
@@ -129,8 +156,8 @@ export const createBooking = async (payload: {
 };
 
 export const cancelBooking = async (id: string) => {
-  const rows = await supabaseDbRequest<BookingRow[]>(
-    `bookings?id=eq.${encodeURIComponent(id)}`,
+  const rows = await supabaseDbRequest<BookingRowWithProfile[]>(
+    `bookings?id=eq.${encodeURIComponent(id)}&select=${bookingSelectWithProfile}`,
     {
       method: 'PATCH',
       headers: {
@@ -158,37 +185,9 @@ export const updateBooking = async (
     status?: 'active' | 'cancelled';
   },
 ) => {
-  const nextStatus = payload.status ?? 'active';
-
-  if (nextStatus === 'active') {
-    await ensureNoOverlap({
-      roomId: payload.roomId,
-      bookingDate: payload.bookingDate,
-      startTime: payload.startTime,
-      endTime: payload.endTime,
-      excludeId: id,
-    });
+  if (payload.status !== 'cancelled') {
+    throw new Error('Разрешена только отмена бронирования');
   }
 
-  const rows = await supabaseDbRequest<BookingRow[]>(
-    `bookings?id=eq.${encodeURIComponent(id)}`,
-    {
-      method: 'PATCH',
-      headers: {
-        Prefer: 'return=representation',
-      },
-      body: JSON.stringify({
-        room_id: payload.roomId,
-        booking_date: payload.bookingDate,
-        start_time: payload.startTime,
-        end_time: payload.endTime,
-        status: nextStatus,
-      }),
-    },
-  );
-
-  const updated = rows[0];
-  if (!updated) throw new Error('Booking not found');
-
-  return mapBooking(updated);
+  return cancelBooking(id);
 };

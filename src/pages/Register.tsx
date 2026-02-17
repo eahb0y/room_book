@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { AlertCircle, UserPlus } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import type { UserRole } from '@/types';
 import { useI18n } from '@/i18n/useI18n';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 
@@ -23,7 +22,6 @@ export default function Register() {
   const register = useAuthStore((state) => state.register);
   const inviteToken = new URLSearchParams(location.search).get('invite');
   const isInviteFlow = Boolean(inviteToken);
-  const role: UserRole = isInviteFlow ? 'user' : 'admin';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +40,7 @@ export default function Register() {
     setIsLoading(true);
 
     try {
-      const success = await register({ email, password, role });
+      const success = await register({ email, password });
       if (success) {
         if (inviteToken) {
           navigate(`/invite/${inviteToken}`);
