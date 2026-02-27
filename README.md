@@ -37,6 +37,9 @@ VITE_SUPABASE_DEV_PUBLISHABLE_KEY=sb_publishable_dev_xxx
 VITE_SUPABASE_PROD_URL=https://your-prod-project-ref.supabase.co
 VITE_SUPABASE_PROD_PUBLISHABLE_KEY=sb_publishable_prod_xxx
 
+# Public URL of deployed app (for SEO canonical/OG + sitemap/robots generation)
+# VITE_SITE_URL=https://app.example.com
+
 # Optional override: dev | prod
 # VITE_APP_ENV=dev
 ```

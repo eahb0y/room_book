@@ -16,6 +16,7 @@ import RoomList from '@/pages/user/RoomList';
 import BookingPage from '@/pages/user/BookingPage';
 import MyBookings from '@/pages/user/MyBookings';
 import Profile from '@/pages/Profile';
+import SeoRouteManager from '@/components/SeoRouteManager';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -50,6 +51,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <BrowserRouter>
+      <SeoRouteManager />
       <Routes>
         {/* Public marketplace */}
         <Route path="/" element={<Marketplace />} />

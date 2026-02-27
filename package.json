@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "start": "npm run dev",
+    "seo:generate": "node scripts/generate-seo-files.mjs",
+    "prebuild": "npm run seo:generate",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "smoke:e2e": "node scripts/smoke-e2e.mjs",
