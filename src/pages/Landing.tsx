@@ -1,430 +1,317 @@
+import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import {
-  ArrowUpRight,
-  Building2,
-  CalendarDays,
-  CheckCircle2,
-  Clock,
-  DoorOpen,
-  LayoutGrid,
-  ShieldCheck,
-  Sparkles,
-  Ticket,
-  Users,
-} from 'lucide-react';
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import { ArrowRight, Building2, CalendarClock, CheckCircle2, Layers3, Search, ShieldCheck } from 'lucide-react';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
+import { useAuthStore } from '@/store/authStore';
 import { useI18n } from '@/i18n/useI18n';
+
+gsap.registerPlugin(ScrollTrigger);
+
+const categories = [
+  {
+    title: 'Коворкинги',
+    description: 'Рабочие места, переговорные и гибкие офисы по слотам.',
+  },
+  {
+    title: 'Бьюти и сервисы',
+    description: 'Кабинеты, кресла и рабочие места по времени.',
+  },
+  {
+    title: 'Студии и креатив',
+    description: 'Фото, видео, подкаст и музыкальные комнаты.',
+  },
+  {
+    title: 'Обучение',
+    description: 'Классы, аудитории, залы для мастер-классов.',
+  },
+  {
+    title: 'Здоровье и wellbeing',
+    description: 'Кабинеты специалистов и оздоровительные сервисы.',
+  },
+  {
+    title: 'Ивенты',
+    description: 'Площадки и мини-залы для событий и встреч.',
+  },
+];
+
+const businessBenefits = [
+  'Профиль бизнеса с понятной карточкой',
+  'Управление комнатами и доступными слотами',
+  'Приглашения для команды и статусы доступа',
+  'Прозрачная история бронирований и отмен',
+];
+
+const onboardingSteps = [
+  'Определите формат бизнеса и какие слоты будете продавать',
+  'Подготовьте карточку: название, адрес, описание и правила брони',
+  'Назначьте роли в команде и включите управление доступом',
+  'Проверьте категории и откройте бизнес для бронирования в каталоге',
+];
 
 export default function Landing() {
   const { t } = useI18n();
+  const { isAuthenticated, portal } = useAuthStore();
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const navRef = useRef<HTMLElement | null>(null);
+  const isOwnerPortal = portal === 'business';
+  const businessCtaLink = isAuthenticated ? (isOwnerPortal ? '/my-venue' : '/business/register') : '/business/register';
+  const businessCtaLabel = isOwnerPortal ? t('Перейти к управлению бизнесом') : t('Перейти к добавлению бизнеса');
 
-  const highlights = [
-    {
-      title: t('Роли без путаницы'),
-      description: t('Администратор управляет площадкой, участники бронируют только доступные комнаты.'),
-      icon: Users,
-    },
-    {
-      title: t('Приглашения с правилами'),
-      description: t('Токены с лимитом использований и сроком действия — доступ только по приглашению.'),
-      icon: Ticket,
-    },
-    {
-      title: t('Контроль конфликтов'),
-      description: t('Проверка пересечений не позволяет наложить брони в один слот.'),
-      icon: ShieldCheck,
-    },
-  ];
+  useEffect(() => {
+    if (!rootRef.current) return;
 
-  const features = [
-    {
-      title: t('Заведение как витрина'),
-      description: t('Название, адрес, описание — единый профиль пространства для команды и гостей.'),
-      icon: Building2,
-    },
-    {
-      title: t('Комнаты и вместимость'),
-      description: t('Добавляйте комнаты, фиксируйте вместимость, структурируйте объекты по типам.'),
-      icon: DoorOpen,
-    },
-    {
-      title: t('Бронирования по слотам'),
-      description: t('Дата, время начала и окончания — только валидные интервалы.'),
-      icon: CalendarDays,
-    },
-    {
-      title: t('Списки и статусы'),
-      description: t('У каждого участника — своя история, у админа — сводка по заведению.'),
-      icon: LayoutGrid,
-    },
-    {
-      title: t('Отмена без хаоса'),
-      description: t('Отмена фиксируется статусом и сразу отражается в расписании.'),
-      icon: Clock,
-    },
-    {
-      title: t('Тонкая настройка доступа'),
-      description: t('Приглашения, лимиты, сроки — вы сами задаёте правила входа.'),
-      icon: Sparkles,
-    },
-  ];
+    const applyNavTheme = (isDark: boolean) => {
+      if (!navRef.current) return;
+      navRef.current.classList.toggle('bg-[#F2F0E9]/88', !isDark);
+      navRef.current.classList.toggle('text-black', !isDark);
+      navRef.current.classList.toggle('border-[#2E4036]/15', !isDark);
+      navRef.current.classList.toggle('backdrop-blur-xl', !isDark);
+      navRef.current.classList.toggle('shadow-[0_10px_40px_rgba(26,26,26,0.12)]', !isDark);
+      navRef.current.classList.toggle('bg-transparent', isDark);
+      navRef.current.classList.toggle('text-white', isDark);
+      navRef.current.classList.toggle('border-transparent', isDark);
+    };
 
-  const steps = [
-    {
-      label: t('Шаг 01'),
-      title: t('Создайте заведение'),
-      description: t('Опишите пространство, добавьте адрес и общие детали.'),
-    },
-    {
-      label: t('Шаг 02'),
-      title: t('Добавьте комнаты'),
-      description: t('Сформируйте список комнат и отметьте вместимость.'),
-    },
-    {
-      label: t('Шаг 03'),
-      title: t('Разошлите приглашения'),
-      description: t('Пользователи попадают внутрь только по токену.'),
-    },
-    {
-      label: t('Шаг 04'),
-      title: t('Управляйте бронированиями'),
-      description: t('Слоты, статусы, история — всё в одном месте.'),
-    },
-  ];
+    const updateNavTheme = () => {
+      if (!navRef.current) return;
+      const navRect = navRef.current.getBoundingClientRect();
+      const probeX = Math.min(window.innerWidth - 1, Math.max(0, navRect.left + navRect.width / 2));
+      const probeY = Math.min(window.innerHeight - 1, Math.max(0, navRect.bottom + 8));
+      const target = document.elementFromPoint(probeX, probeY) as HTMLElement | null;
+      const themedParent = target?.closest('[data-nav-theme]') as HTMLElement | null;
+      const theme = themedParent?.dataset.navTheme ?? 'dark';
+      applyNavTheme(theme !== 'light');
+    };
 
-  const useCases = [
-    t('Коворкинги и гибкие офисы'),
-    t('Переговорные комнаты'),
-    t('Студии записи и подкаст-румы'),
-    t('Учебные классы и лектории'),
-    t('Пространства для ивентов'),
-  ];
+    const ctx = gsap.context(() => {
+      gsap.from('[data-hero-reveal]', {
+        y: 36,
+        opacity: 0,
+        duration: 0.8,
+        ease: 'power3.out',
+        stagger: 0.12,
+      });
 
-  const faqs = [
-    {
-      question: t('Кому подходит платформа?'),
-      answer: t(
-        'Администраторам пространств, которым нужно управлять комнатами и слотами, и командам, которым важна прозрачная система бронирований.',
-      ),
-    },
-    {
-      question: t('Как ограничивается доступ?'),
-      answer: t(
-        'Доступ выдаётся через приглашения. Для каждого токена можно задать срок действия и лимит использований.',
-      ),
-    },
-    {
-      question: t('Что происходит при отмене брони?'),
-      answer: t(
-        'Бронирование переводится в статус отменённого и сразу исчезает из активного расписания комнаты.',
-      ),
-    },
-    {
-      question: t('Как избежать пересечений?'),
-      answer: t('Система проверяет конфликтные интервалы и не даст создать пересекающиеся слоты.'),
-    },
-  ];
+      gsap.utils.toArray<HTMLElement>('[data-reveal]').forEach((node) => {
+        gsap.from(node, {
+          y: 24,
+          opacity: 0,
+          duration: 0.7,
+          ease: 'power2.out',
+          scrollTrigger: {
+            trigger: node,
+            start: 'top 82%',
+            once: true,
+          },
+        });
+      });
 
-  const demoRows = [
-    { time: '09:00 — 10:30', name: t('Переговорные комнаты'), status: t('Активно') },
-    { time: '11:00 — 12:00', name: t('Студии записи и подкаст-румы'), status: t('Ожидает') },
-    { time: '14:00 — 15:00', name: 'Studio C', status: t('Активно') },
-  ];
+      ScrollTrigger.create({
+        trigger: rootRef.current,
+        start: 'top top',
+        end: 'bottom top',
+        onUpdate: updateNavTheme,
+        onRefresh: updateNavTheme,
+      });
+    }, rootRef);
 
-  const processBullets = [
-    t('Единая панель админа'),
-    t('Доступ только по приглашениям'),
-    t('Чёткая история бронирований'),
-  ];
+    updateNavTheme();
+    window.addEventListener('resize', updateNavTheme);
+
+    return () => {
+      window.removeEventListener('resize', updateNavTheme);
+      ctx.revert();
+    };
+  }, []);
 
   return (
-    <div className="relative min-h-screen bg-background text-foreground overflow-hidden">
-      <div className="absolute inset-0">
-        <div className="absolute -top-48 left-1/2 h-[520px] w-[900px] -translate-x-1/2 rounded-full bg-[radial-gradient(circle_at_top,rgba(215,141,62,0.22),rgba(6,7,12,0))] blur-[120px]" />
-        <div className="absolute bottom-[-220px] right-[-120px] h-[420px] w-[420px] rounded-full bg-[radial-gradient(circle,rgba(215,141,62,0.18),rgba(6,7,12,0))] blur-[120px]" />
-        <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(to_right,rgba(255,255,255,0.05)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.05)_1px,transparent_1px)] [background-size:72px_72px]" />
-      </div>
+    <div
+      ref={rootRef}
+      className="relative overflow-x-hidden bg-[#F2F0E9] text-[#1A1A1A]"
+      style={{
+        fontFamily: '"Plus Jakarta Sans", "Inter", "Golos Text", system-ui, sans-serif',
+      }}
+    >
+      <div
+        className="pointer-events-none fixed inset-0 z-50 opacity-[0.05] mix-blend-overlay"
+        style={{
+          backgroundImage:
+            "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 240 240' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+        }}
+      />
 
-      <header className="relative z-10">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 pt-8">
-          <div className="flex items-center justify-between">
-            <Link to="/" className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-primary/90 flex items-center justify-center shadow-glow">
-                <CalendarDays className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <div className="font-display text-xl tracking-tight">{t('Пространство')}</div>
-                <div className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">Booking System</div>
-              </div>
-            </Link>
-            <nav className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
-              <a href="#features" className="hover:text-foreground transition-colors">{t('Преимущества')}</a>
-              <a href="#process" className="hover:text-foreground transition-colors">{t('Как работает')}</a>
-              <a href="#faq" className="hover:text-foreground transition-colors">FAQ</a>
-            </nav>
-            <div className="flex items-center gap-2">
-              <LanguageSwitcher className="hidden sm:inline-flex" />
-              <Button variant="ghost" asChild className="hidden sm:inline-flex">
-                <Link to="/login">{t('Войти')}</Link>
-              </Button>
-              <Button asChild className="gap-2">
-                <Link to="/register">{t('Создать аккаунт')}</Link>
-              </Button>
-            </div>
+      <header className="fixed left-1/2 top-4 z-40 w-[calc(100%-2rem)] max-w-6xl -translate-x-1/2">
+        <nav
+          ref={navRef}
+          className="flex items-center justify-between rounded-[2.2rem] border border-transparent bg-transparent px-5 py-3 text-sm text-white transition-all duration-500 sm:px-7"
+        >
+          <Link
+            to="/"
+            className="text-xl font-bold tracking-tight transition-colors duration-500 sm:text-2xl"
+            style={{ fontFamily: '"Outfit", "Inter", sans-serif' }}
+          >
+            TezBron
+          </Link>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <LanguageSwitcher className="hidden sm:flex" />
           </div>
-        </div>
+        </nav>
       </header>
 
-      <main className="relative z-10">
-        <section className="max-w-7xl mx-auto px-6 lg:px-8 pt-16 pb-20">
-          <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-16 items-center">
-            <div className="space-y-8 animate-fade-up">
-              <Badge variant="outline" className="border-primary/40 text-primary/90 bg-primary/10">
-                {t('Платформа управления бронированиями')}
-              </Badge>
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl leading-[1.05] font-semibold">
-                {t('Пространства, которые бронируют без хаоса и ручной координации.')}
-              </h1>
-              <p className="text-lg text-muted-foreground max-w-xl">
-                {t('Создавайте заведения, добавляйте комнаты и давайте доступ по приглашениям.')}
-                {' '}
-                {t('Система сама отсечёт пересечения и покажет актуальную загрузку.')}
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <Button size="lg" asChild className="gap-2">
-                  <Link to="/register">
-                    {t('Запустить пространство')}
-                    <ArrowUpRight className="h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button variant="outline" size="lg" asChild className="border-border/60">
-                  <a href="#features">{t('Посмотреть преимущества')}</a>
-                </Button>
-              </div>
-              <div className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                  {t('Гибкие приглашения и роли')}
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-amber-400" />
-                  {t('Контроль конфликтов слотов')}
-                </div>
-              </div>
-            </div>
+      <section data-nav-theme="dark" className="relative flex min-h-[100dvh] items-end overflow-hidden px-6 pb-16 pt-28 sm:px-10 lg:px-16">
+        <img
+          src="https://images.unsplash.com/photo-1470115636492-6d2b56f9146d?auto=format&fit=crop&w=2200&q=80"
+          alt={t('Лесной фон')}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(46,64,54,0.86)_10%,rgba(26,26,26,0.9)_58%,rgba(26,26,26,0.96)_100%)]" />
 
-            <div className="relative">
-              <div className="absolute -top-6 -right-6 h-24 w-24 rounded-full border border-primary/30 bg-primary/10 blur-sm" />
-              <div className="rounded-3xl border border-border/50 bg-card/70 shadow-[0_24px_80px_rgba(0,0,0,0.55)] backdrop-blur">
-                <div className="flex items-center justify-between border-b border-border/40 px-6 py-4">
-                  <div>
-                    <div className="text-xs text-muted-foreground uppercase tracking-[0.3em]">{t('Сегодня')}</div>
-                    <div className="text-lg font-medium">{t('Панель бронирований')}</div>
-                  </div>
-                  <Badge className="bg-emerald-500/10 text-emerald-300 border-emerald-500/40">Live</Badge>
-                </div>
-                <div className="px-6 py-5 space-y-4">
-                  {demoRows.map((item) => (
-                    <div
-                      key={`${item.time}-${item.name}`}
-                      className="flex items-center justify-between rounded-2xl border border-border/40 bg-background/60 px-4 py-3"
-                    >
-                      <div>
-                        <div className="text-sm text-muted-foreground">{item.time}</div>
-                        <div className="font-medium">{item.name}</div>
-                      </div>
-                      <span className="text-xs uppercase tracking-[0.25em] text-primary">
-                        {item.status}
-                      </span>
-                    </div>
-                  ))}
-                  <div className="rounded-2xl border border-dashed border-primary/40 bg-primary/5 px-4 py-4">
-                    <div className="text-sm text-primary">{t('Свободные слоты отображаются автоматически')}</div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {t('Пересечения блокируются ещё до подтверждения.')}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+        <div className="relative z-10 max-w-4xl text-[#F2F0E9]">
+          <h1 data-hero-reveal className="text-4xl font-extrabold leading-[0.95] tracking-[-0.03em] sm:text-6xl lg:text-7xl" style={{ fontFamily: '"Outfit", "Plus Jakarta Sans", sans-serif' }}>
+            {t('Откройте свой бизнес на платформе')} <span style={{ fontFamily: '"Cormorant Garamond", serif', fontStyle: 'italic', fontWeight: 600 }}>{t('и управляйте бронированием из одного кабинета.')}</span>
+          </h1>
+          <p data-hero-reveal className="mt-6 max-w-2xl text-base text-[#F2F0E9]/84 sm:text-lg">
+            {t('Здесь собраны правила, сценарий запуска и шаги подключения бизнеса. Этот экран открывается из профиля по кнопке «Добавить бизнес».')}
+          </p>
+          <div data-hero-reveal className="mt-8 flex flex-wrap gap-3">
+            <Link
+              to={businessCtaLink}
+              className="group rounded-full bg-[#CC5833] px-6 py-3 text-sm font-semibold text-[#F2F0E9] transition hover:bg-[#b64a2a]"
+            >
+              <span className="inline-flex items-center gap-2">
+                {businessCtaLabel} <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
+              </span>
+            </Link>
+            <Link
+              to="/"
+              className="rounded-full border border-[#F2F0E9]/28 px-6 py-3 text-sm font-semibold text-[#F2F0E9] transition hover:bg-[#F2F0E9]/12"
+            >
+              {t('Вернуться в каталог')}
+            </Link>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section className="max-w-7xl mx-auto px-6 lg:px-8 pb-16">
-          <div className="grid gap-6 lg:grid-cols-3">
-            {highlights.map((item, index) => {
-              const Icon = item.icon;
-              return (
-                <Card key={item.title} className={`card-hover border-border/50 bg-card/60 ${index < 3 ? `stagger-${index + 1}` : ''} animate-fade-up`}>
-                  <CardContent className="pt-6">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center">
-                        <Icon className="h-5 w-5 text-primary" />
-                      </div>
-                      <div className="text-lg font-semibold">{item.title}</div>
-                    </div>
-                    <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </section>
-
-        <section id="features" className="max-w-7xl mx-auto px-6 lg:px-8 py-20">
-          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-8 mb-12">
-            <div className="max-w-2xl">
-              <div className="text-xs uppercase tracking-[0.4em] text-muted-foreground">{t('Преимущества')}</div>
-              <h2 className="text-3xl sm:text-4xl font-semibold mt-3">
-                {t('Всё, что нужно для бронирований, собрано в одном интерфейсе.')}
-              </h2>
-            </div>
-            <div className="text-sm text-muted-foreground max-w-md">
-              {t('Управляйте заведениями, комнатами и доступом в едином потоке — без таблиц и ручных подтверждений.')}
-            </div>
-          </div>
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {features.map((feature, index) => {
-              const Icon = feature.icon;
-              return (
-                <div
-                  key={feature.title}
-                  className={`rounded-2xl border border-border/50 bg-card/50 p-6 card-hover animate-fade-up ${index < 6 ? `stagger-${(index % 6) + 1}` : ''}`}
-                >
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="h-10 w-10 rounded-xl bg-primary/10 border border-primary/30 flex items-center justify-center">
-                      <Icon className="h-5 w-5 text-primary" />
-                    </div>
-                    <div className="text-lg font-semibold">{feature.title}</div>
-                  </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{feature.description}</p>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-
-        <section id="process" className="max-w-7xl mx-auto px-6 lg:px-8 py-20">
-          <div className="grid lg:grid-cols-[0.9fr_1.1fr] gap-12 items-start">
-            <div className="space-y-6">
-              <div className="text-xs uppercase tracking-[0.4em] text-muted-foreground">{t('Процесс')}</div>
-              <h2 className="text-3xl sm:text-4xl font-semibold">
-                {t('Чёткий сценарий: от заведения до забронированного слота.')}
-              </h2>
-              <p className="text-muted-foreground">
-                {t('Всё продумано для админов и пользователей: нет хаоса, только прозрачный путь.')}
-              </p>
-              <div className="space-y-3">
-                {processBullets.map((item) => (
-                  <div key={item} className="flex items-center gap-2 text-sm">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                    <span>{item}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="grid gap-4">
-              {steps.map((step, index) => (
-                <div
-                  key={step.label}
-                  className={`rounded-2xl border border-border/50 bg-card/60 p-6 card-hover animate-fade-up ${index < 6 ? `stagger-${index + 1}` : ''}`}
-                >
-                  <div className="text-xs uppercase tracking-[0.4em] text-primary">{step.label}</div>
-                  <div className="text-lg font-semibold mt-3">{step.title}</div>
-                  <p className="text-sm text-muted-foreground mt-2">{step.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <section className="max-w-7xl mx-auto px-6 lg:px-8 pb-20">
-          <div className="rounded-3xl border border-border/50 bg-card/60 p-8 lg:p-12">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-10">
-              <div className="max-w-lg">
-                <div className="text-xs uppercase tracking-[0.4em] text-muted-foreground">{t('Сценарии')}</div>
-                <h3 className="text-2xl sm:text-3xl font-semibold mt-3">
-                  {t('Работает для любого пространства, где важны слоты и доступ.')}
-                </h3>
-                <p className="text-sm text-muted-foreground mt-4">
-                  {t('От переговорных до студий — единый подход к доступу, расписанию и контролю загрузки.')}
-                </p>
-              </div>
-              <div className="grid gap-3 text-sm text-muted-foreground">
-                {useCases.map((caseItem) => (
-                  <div key={caseItem} className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-primary" />
-                    <span>{caseItem}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section id="faq" className="max-w-5xl mx-auto px-6 lg:px-8 py-20">
-          <div className="text-center mb-10">
-            <div className="text-xs uppercase tracking-[0.4em] text-muted-foreground">FAQ</div>
-            <h2 className="text-3xl sm:text-4xl font-semibold mt-3">
-              {t('Ответы на ключевые вопросы')}
+      <section data-nav-theme="light" className="mx-auto max-w-6xl px-6 py-16 sm:px-10 lg:px-16">
+        <div data-reveal className="mb-8 flex items-end justify-between gap-6">
+          <div>
+            <h2 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl" style={{ fontFamily: '"Outfit", "Plus Jakarta Sans", sans-serif' }}>
+              {t('Какие бизнесы можно подключить')}
             </h2>
           </div>
-          <Card className="border-border/50 bg-card/60">
-            <CardContent className="pt-6">
-              <Accordion type="single" collapsible className="divide-y divide-border/40">
-                {faqs.map((faq) => (
-                  <AccordionItem key={faq.question} value={faq.question} className="border-none">
-                    <AccordionTrigger className="text-left text-base">
-                      {faq.question}
-                    </AccordionTrigger>
-                    <AccordionContent className="text-muted-foreground">
-                      {faq.answer}
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
-            </CardContent>
-          </Card>
-        </section>
-
-        <section className="max-w-6xl mx-auto px-6 lg:px-8 pb-24">
-          <div className="rounded-3xl border border-primary/30 bg-[linear-gradient(130deg,rgba(215,141,62,0.18),rgba(6,7,12,0.75))] p-10 lg:p-14 shadow-[0_30px_80px_rgba(0,0,0,0.55)]">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
-              <div className="max-w-xl">
-                <div className="text-xs uppercase tracking-[0.4em] text-primary">{t('Запуск')}</div>
-                <h3 className="text-3xl sm:text-4xl font-semibold mt-3">
-                  {t('Готовы показать вашим командам идеальный календарь бронирований?')}
-                </h3>
-                <p className="text-sm text-muted-foreground mt-4">
-                  {t('Начните с регистрации, создайте своё заведение и отправьте первое приглашение.')}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <Button size="lg" asChild className="gap-2">
-                  <Link to="/register">
-                    {t('Создать пространство')}
-                    <ArrowUpRight className="h-4 w-4" />
-                  </Link>
-                </Button>
-                <Button size="lg" variant="outline" asChild className="border-border/60">
-                  <Link to="/login">{t('Войти')}</Link>
-                </Button>
-              </div>
-            </div>
-          </div>
-        </section>
-      </main>
-
-      <footer className="relative z-10 border-t border-border/40">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8 py-10 text-sm text-muted-foreground flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <span>© {t('Пространство')}, {new Date().getFullYear()}</span>
-          <span>{t('Платформа бронирования комнат и пространств')}</span>
         </div>
-      </footer>
+
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {categories.map((category) => (
+            <article
+              key={category.title}
+              data-reveal
+              className="rounded-[2rem] border border-[#2E4036]/12 bg-white/70 p-6 shadow-[0_12px_40px_rgba(26,26,26,0.06)]"
+            >
+              <p className="text-lg font-semibold tracking-tight" style={{ fontFamily: '"Outfit", "Plus Jakarta Sans", sans-serif' }}>
+                {t(category.title)}
+              </p>
+              <p className="mt-2 text-sm leading-6 text-[#1A1A1A]/74">{t(category.description)}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section data-nav-theme="dark" className="bg-[#1A1A1A] px-6 py-16 text-[#F2F0E9] sm:px-10 lg:px-16">
+        <div className="mx-auto max-w-6xl">
+          <div data-reveal className="mb-10 max-w-2xl">
+            <h2 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl" style={{ fontFamily: '"Outfit", "Plus Jakarta Sans", sans-serif' }}>
+              {t('Что происходит после нажатия «Добавить бизнес»')}
+            </h2>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <article data-reveal className="rounded-[2rem] border border-[#F2F0E9]/14 bg-[#222222] p-7">
+              <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-[#2E4036]/40">
+                <Search className="h-5 w-5" />
+              </div>
+              <h3 className="text-2xl font-semibold tracking-tight">{t('Подготовка карточки')}</h3>
+              <ul className="mt-4 space-y-3 text-sm text-[#F2F0E9]/80">
+                {onboardingSteps.map((item) => (
+                  <li key={item} className="flex gap-2">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#CC5833]" />
+                    <span>{t(item)}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link to="/" className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[#CC5833]">
+                {t('Посмотреть публичный каталог')} <ArrowRight className="h-4 w-4" />
+              </Link>
+            </article>
+
+            <article data-reveal className="rounded-[2rem] border border-[#F2F0E9]/14 bg-[#222222] p-7">
+              <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-[#2E4036]/40">
+                <Building2 className="h-5 w-5" />
+              </div>
+              <h3 className="text-2xl font-semibold tracking-tight">{t('Работа в кабинете')}</h3>
+              <ul className="mt-4 space-y-3 text-sm text-[#F2F0E9]/80">
+                {businessBenefits.map((item) => (
+                  <li key={item} className="flex gap-2">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#CC5833]" />
+                    <span>{t(item)}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link to={businessCtaLink} className="mt-6 inline-flex items-center gap-2 text-sm font-semibold text-[#CC5833]">
+                {businessCtaLabel} <ArrowRight className="h-4 w-4" />
+              </Link>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section data-nav-theme="light" className="mx-auto max-w-6xl px-6 py-16 sm:px-10 lg:px-16">
+        <div className="grid gap-6 md:grid-cols-3">
+          <article data-reveal className="rounded-[2rem] border border-[#2E4036]/12 bg-white/70 p-6">
+            <CalendarClock className="h-5 w-5 text-[#CC5833]" />
+            <h3 className="mt-3 text-lg font-semibold">{t('Прозрачные слоты')}</h3>
+            <p className="mt-2 text-sm text-[#1A1A1A]/72">
+              {t('Пользователь видит только свободное время и быстро подтверждает бронирование.')}
+            </p>
+          </article>
+          <article data-reveal className="rounded-[2rem] border border-[#2E4036]/12 bg-white/70 p-6">
+            <Layers3 className="h-5 w-5 text-[#CC5833]" />
+            <h3 className="mt-3 text-lg font-semibold">{t('Управление без перегруза')}</h3>
+            <p className="mt-2 text-sm text-[#1A1A1A]/72">
+              {t('Бизнес управляет карточкой и настройками из профиля, а не с главной страницы.')}
+            </p>
+          </article>
+          <article data-reveal className="rounded-[2rem] border border-[#2E4036]/12 bg-white/70 p-6">
+            <ShieldCheck className="h-5 w-5 text-[#CC5833]" />
+            <h3 className="mt-3 text-lg font-semibold">{t('Разделение ролей')}</h3>
+            <p className="mt-2 text-sm text-[#1A1A1A]/72">
+              {t('Пользовательский вход и бизнес-вход разделены, чтобы роли не смешивались.')}
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section data-nav-theme="light" className="mx-auto max-w-6xl px-6 pb-20 sm:px-10 lg:px-16">
+        <div
+          data-nav-theme="dark"
+          data-reveal
+          className="rounded-[2.2rem] bg-[linear-gradient(120deg,#2E4036_0%,#1f2a24_65%,#1A1A1A_100%)] px-7 py-10 text-[#F2F0E9] sm:px-10 sm:py-12"
+        >
+          <h2 className="text-3xl font-bold tracking-tight sm:text-4xl" style={{ fontFamily: '"Outfit", "Plus Jakarta Sans", sans-serif' }}>
+            {t('Готовы добавить бизнес в систему?')}
+          </h2>
+          <p className="mt-3 max-w-2xl text-sm text-[#F2F0E9]/84 sm:text-base">
+            {t('Откройте бизнес-кабинет, заполните карточку и начните принимать бронирования.')}
+          </p>
+          <div className="mt-7 flex flex-wrap gap-3">
+            <Link to={businessCtaLink} className="rounded-full bg-[#CC5833] px-5 py-2.5 text-sm font-semibold text-[#F2F0E9] transition hover:bg-[#b64a2a]">
+              {businessCtaLabel}
+            </Link>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

@@ -1,16 +1,17 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import Layout from '@/components/Layout';
 import Landing from '@/pages/Landing';
+import Marketplace from '@/pages/Marketplace';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
+import BusinessLogin from '@/pages/BusinessLogin';
+import BusinessRegister from '@/pages/BusinessRegister';
 import Invite from '@/pages/Invite';
-import AdminDashboard from '@/pages/admin/AdminDashboard';
 import VenueManagement from '@/pages/admin/VenueManagement';
 import PeopleManagement from '@/pages/admin/PeopleManagement';
 import RoomManagement from '@/pages/admin/RoomManagement';
 import AdminBookings from '@/pages/admin/AdminBookings';
-import VenueList from '@/pages/user/VenueList';
 import RoomList from '@/pages/user/RoomList';
 import BookingPage from '@/pages/user/BookingPage';
 import MyBookings from '@/pages/user/MyBookings';
@@ -18,34 +19,40 @@ import Profile from '@/pages/Profile';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
+}
+
+function UserRoute({ children }: { children: React.ReactNode }) {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const location = useLocation();
+
+  if (!isAuthenticated) {
+    const nextPath = `${location.pathname}${location.search}`;
+    return <Navigate to={`/login?next=${encodeURIComponent(nextPath)}`} replace />;
+  }
+
+  return <>{children}</>;
+}
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, portal } = useAuthStore();
+  const isBusinessPortal = portal === 'business';
+  if (!isAuthenticated) return <Navigate to="/business/login" replace />;
+  if (!isBusinessPortal) return <Navigate to="/" replace />;
+  return <>{children}</>;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  return !isAuthenticated ? <>{children}</> : <Navigate to="/app" />;
-}
-
-function HomeRoute() {
-  const { user, isAuthenticated } = useAuthStore();
-  
-  if (!isAuthenticated) {
-    return <Navigate to="/login" />;
-  }
-
-  if (user?.role === 'admin') {
-    return <AdminDashboard />;
-  }
-
-  return <VenueList />;
+  return !isAuthenticated ? <>{children}</> : <Navigate to="/" replace />;
 }
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Landing */}
-        <Route path="/" element={<Landing />} />
+        {/* Public marketplace */}
+        <Route path="/" element={<Marketplace />} />
 
         {/* Public routes */}
         <Route
@@ -64,59 +71,66 @@ function App() {
             </PublicRoute>
           }
         />
-        <Route path="/invite/:token" element={<Invite />} />
-
-        {/* Protected routes */}
         <Route
-          path="/app"
+          path="/business/login"
           element={
-            <PrivateRoute>
-              <Layout>
-                <HomeRoute />
-              </Layout>
-            </PrivateRoute>
+            <PublicRoute>
+              <BusinessLogin />
+            </PublicRoute>
           }
         />
+        <Route
+          path="/business/register"
+          element={<BusinessRegister />}
+        />
+        <Route path="/invite/:token" element={<Invite />} />
+        <Route
+          path="/business/landing"
+          element={<Landing />}
+        />
+
+        {/* Protected routes */}
+        <Route path="/app" element={<Navigate to="/" replace />} />
 
         {/* Admin routes */}
         <Route
           path="/my-venue"
           element={
-            <PrivateRoute>
+            <AdminRoute>
               <Layout>
                 <VenueManagement />
               </Layout>
-            </PrivateRoute>
+            </AdminRoute>
           }
         />
         <Route
           path="/people"
           element={
-            <PrivateRoute>
+            <AdminRoute>
               <Layout>
                 <PeopleManagement />
               </Layout>
-            </PrivateRoute>
+            </AdminRoute>
           }
         />
         <Route
           path="/rooms"
           element={
-            <PrivateRoute>
+            <AdminRoute>
               <Layout>
                 <RoomManagement />
               </Layout>
-            </PrivateRoute>
+            </AdminRoute>
           }
         />
         <Route
           path="/bookings"
           element={
-            <PrivateRoute>
+            <AdminRoute>
               <Layout>
                 <AdminBookings />
               </Layout>
-            </PrivateRoute>
+            </AdminRoute>
           }
         />
 
@@ -124,31 +138,31 @@ function App() {
         <Route
           path="/venue/:venueId"
           element={
-            <PrivateRoute>
+            <UserRoute>
               <Layout>
                 <RoomList />
               </Layout>
-            </PrivateRoute>
+            </UserRoute>
           }
         />
         <Route
           path="/room/:roomId"
           element={
-            <PrivateRoute>
+            <UserRoute>
               <Layout>
                 <BookingPage />
               </Layout>
-            </PrivateRoute>
+            </UserRoute>
           }
         />
         <Route
           path="/my-bookings"
           element={
-            <PrivateRoute>
+            <UserRoute>
               <Layout>
                 <MyBookings />
               </Layout>
-            </PrivateRoute>
+            </UserRoute>
           }
         />
         <Route

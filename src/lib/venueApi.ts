@@ -19,7 +19,7 @@ const mapVenue = (row: VenueRow): Venue => ({
   createdAt: row.created_at,
 });
 
-export const listVenues = async (params?: { adminId?: string; userId?: string }) => {
+export const listVenues = async (params?: { adminId?: string; userId?: string; publicAccess?: boolean }) => {
   if (params?.adminId) {
     const rows = await supabaseDbRequest<VenueRow[]>(
       `venues?select=*&admin_id=eq.${encodeURIComponent(params.adminId)}&order=created_at.desc`,
@@ -45,7 +45,11 @@ export const listVenues = async (params?: { adminId?: string; userId?: string })
     return Array.from(deduped.values());
   }
 
-  const rows = await supabaseDbRequest<VenueRow[]>('venues?select=*&order=created_at.desc', { method: 'GET' });
+  const rows = await supabaseDbRequest<VenueRow[]>(
+    'venues?select=*&order=created_at.desc',
+    { method: 'GET' },
+    { requireAuth: !params?.publicAccess },
+  );
   return rows.map(mapVenue);
 };
 

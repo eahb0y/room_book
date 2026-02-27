@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { addDays, format, isBefore, startOfToday } from 'date-fns';
 import { AlertCircle, ArrowLeft, Calendar as CalendarIcon, CheckCircle2, ChevronLeft, ChevronRight, Clock3, DoorOpen, Users } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
@@ -40,15 +40,13 @@ export default function BookingPage() {
   const { t, dateLocale } = useI18n();
   const { roomId } = useParams<{ roomId: string }>();
   const { user, isAuthenticated } = useAuthStore();
-  const { isVenueDataLoading } = useVenueDataGuard(user);
+  const { isVenueDataLoading } = useVenueDataGuard(user, 'user');
   const navigate = useNavigate();
+  const location = useLocation();
 
   const room = useVenueStore((state) => state.rooms.find((currentRoom) => currentRoom.id === roomId));
   const venue = useVenueStore((state) =>
     room ? state.venues.find((currentVenue) => currentVenue.id === room.venueId) : undefined
-  );
-  const membership = useVenueStore((state) =>
-    room && user ? state.getMembership(room.venueId, user.id) : undefined
   );
   const allBookings = useVenueStore((state) => state.bookings);
   const bookings = useMemo(
@@ -68,29 +66,20 @@ export default function BookingPage() {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      navigate('/login');
-      return;
-    }
-
-    if (user?.role === 'admin') {
-      navigate('/app');
+      const nextPath = `${location.pathname}${location.search}`;
+      navigate(`/login?next=${encodeURIComponent(nextPath)}`, { replace: true });
       return;
     }
 
     if (isVenueDataLoading) return;
 
     if (roomId && !room) {
-      navigate('/app');
-      return;
+      navigate('/');
     }
-
-    if (user && room && !membership) {
-      navigate('/app');
-    }
-  }, [isAuthenticated, isVenueDataLoading, membership, navigate, room, roomId, user]);
+  }, [isAuthenticated, isVenueDataLoading, location.pathname, location.search, navigate, room, roomId]);
 
   useEffect(() => {
-    if (isVenueDataLoading || !roomId || !room || !user || user.role !== 'user') return;
+    if (isVenueDataLoading || !roomId || !room || !user) return;
     void loadRoomBookings(roomId);
   }, [isVenueDataLoading, loadRoomBookings, room, roomId, user]);
 
@@ -211,7 +200,6 @@ export default function BookingPage() {
 
   if (isVenueDataLoading) return null;
   if (!room || !venue) return null;
-  if (user && !membership) return null;
   const roomPhotos = getRoomPhotoUrls(room);
 
   return (
@@ -247,7 +235,7 @@ export default function BookingPage() {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2 text-sm">
-          <Link to="/app" className="text-muted-foreground transition-colors hover:text-primary">{t('Заведения')}</Link>
+          <Link to="/" className="text-muted-foreground transition-colors hover:text-primary">{t('Заведения')}</Link>
           <span className="text-muted-foreground/40">/</span>
           <Link to={`/venue/${venue.id}`} className="text-muted-foreground transition-colors hover:text-primary">{venue.name}</Link>
           <span className="text-muted-foreground/40">/</span>
@@ -255,7 +243,7 @@ export default function BookingPage() {
         </div>
         <Button
           variant="outline"
-          onClick={() => navigate(`/venue/${venue.id}`)}
+          onClick={() => navigate('/')}
           className="h-10 shrink-0 border-border/50 hover:border-primary/30"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />

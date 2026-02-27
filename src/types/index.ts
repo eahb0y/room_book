@@ -100,8 +100,13 @@ export type RegisterCredentials = LoginCredentials;
 export interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
+  portal: 'user' | 'business' | null;
   login: (credentials: LoginCredentials) => Promise<boolean>;
   register: (credentials: RegisterCredentials) => Promise<boolean>;
+  startGoogleAuth: (redirectPath?: string) => void;
+  startAppleAuth: (redirectPath?: string) => void;
+  completeGoogleAuth: (hash: string) => Promise<boolean>;
+  setPortal: (portal: 'user' | 'business') => void;
   updateProfile: (payload: {
     firstName?: string;
     lastName?: string;

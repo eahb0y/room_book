@@ -43,11 +43,12 @@ const mapRoom = (row: RoomRow): Room => {
 
 const toInFilter = (values: string[]) => values.join(',');
 
-export const listRooms = async (params?: { venueId?: string; venueIds?: string[] }) => {
+export const listRooms = async (params?: { venueId?: string; venueIds?: string[]; publicAccess?: boolean }) => {
   if (params?.venueId) {
     const rows = await supabaseDbRequest<RoomRow[]>(
       `rooms?select=*&venue_id=eq.${encodeURIComponent(params.venueId)}&order=created_at.desc`,
       { method: 'GET' },
+      { requireAuth: !params.publicAccess },
     );
 
     return rows.map(mapRoom);
@@ -57,12 +58,17 @@ export const listRooms = async (params?: { venueId?: string; venueIds?: string[]
     const rows = await supabaseDbRequest<RoomRow[]>(
       `rooms?select=*&venue_id=in.(${toInFilter(params.venueIds)})&order=created_at.desc`,
       { method: 'GET' },
+      { requireAuth: !params.publicAccess },
     );
 
     return rows.map(mapRoom);
   }
 
-  const rows = await supabaseDbRequest<RoomRow[]>('rooms?select=*&order=created_at.desc', { method: 'GET' });
+  const rows = await supabaseDbRequest<RoomRow[]>(
+    'rooms?select=*&order=created_at.desc',
+    { method: 'GET' },
+    { requireAuth: !params?.publicAccess },
+  );
   return rows.map(mapRoom);
 };
 

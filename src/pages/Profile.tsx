@@ -1,5 +1,6 @@
 import { type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Camera, CheckCircle2, Trash2 } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Camera, CheckCircle2, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -74,7 +75,8 @@ const toInitials = (firstName?: string, lastName?: string, email?: string) => {
 
 export default function Profile() {
   const { t } = useI18n();
-  const { user, updateProfile, changePassword } = useAuthStore();
+  const { user, updateProfile } = useAuthStore();
+  const navigate = useNavigate();
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -83,12 +85,6 @@ export default function Profile() {
   const [isImageProcessing, setIsImageProcessing] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [passwordSuccess, setPasswordSuccess] = useState('');
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   useEffect(() => {
     setFirstName(user?.firstName ?? '');
@@ -96,11 +92,6 @@ export default function Profile() {
     setAvatarUrl(user?.avatarUrl ?? null);
     setError('');
     setSuccess('');
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setPasswordError('');
-    setPasswordSuccess('');
   }, [user?.id, user?.firstName, user?.lastName, user?.avatarUrl]);
 
   const initials = useMemo(
@@ -109,6 +100,16 @@ export default function Profile() {
   );
 
   if (!user) return null;
+
+  const isSimpleUser = user.role === 'user';
+
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate('/');
+  };
 
   const handlePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -181,46 +182,30 @@ export default function Profile() {
     }
   };
 
-  const handlePasswordSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    setPasswordError('');
-    setPasswordSuccess('');
-    setIsChangingPassword(true);
-
-    try {
-      if (!currentPassword || !newPassword || !confirmPassword) {
-        throw new Error('Заполните все поля');
-      }
-
-      if (newPassword !== confirmPassword) {
-        throw new Error('Пароли не совпадают');
-      }
-
-      await changePassword({
-        currentPassword,
-        newPassword,
-      });
-
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      setPasswordSuccess(t('Пароль успешно обновлён'));
-    } catch (err) {
-      const message = err instanceof Error ? t(err.message) : t('Произошла ошибка при сохранении');
-      setPasswordError(message);
-    } finally {
-      setIsChangingPassword(false);
-    }
-  };
-
-  return (
+  const profileSections = (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-4xl font-semibold text-foreground tracking-tight">{t('Профиль')}</h1>
-        <p className="text-muted-foreground mt-2">{t('Редактируйте персональные данные аккаунта')}</p>
-      </div>
+      <Card id="profile-business" className="border-border/40 scroll-mt-28">
+        <CardHeader>
+          <CardTitle>{t('Бизнес-профиль')}</CardTitle>
+          <CardDescription>{t('Лендинг для добавления бизнеса открывается из профиля')}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-muted-foreground">
+            {t('Нажмите кнопку, чтобы открыть страницу с условиями и подключением бизнеса')}
+          </p>
+          <Button
+            type="button"
+            onClick={() => {
+              navigate('/business/landing');
+            }}
+            className="h-11 sm:min-w-56"
+          >
+            {t('Добавить бизнес')}
+          </Button>
+        </CardContent>
+      </Card>
 
-      <Card className="border-border/40">
+      <Card id="profile-personal" className="border-border/40 scroll-mt-28">
         <CardHeader>
           <CardTitle>{t('Личные данные')}</CardTitle>
           <CardDescription>{t('Имя, фото и контактный email')}</CardDescription>
@@ -319,75 +304,25 @@ export default function Profile() {
         </CardContent>
       </Card>
 
-      <Card className="border-border/40">
-        <CardHeader>
-          <CardTitle>{t('Безопасность аккаунта')}</CardTitle>
-          <CardDescription>{t('Смените пароль для защиты аккаунта')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handlePasswordSubmit} className="space-y-6">
-            {(passwordError || passwordSuccess) && (
-              <Alert
-                variant={passwordError ? 'destructive' : 'default'}
-                className={!passwordError ? 'border-emerald-700/40 bg-emerald-950/20' : ''}
-              >
-                {passwordError ? (
-                  <AlertCircle className="h-4 w-4" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                )}
-                <AlertDescription className={!passwordError ? 'text-emerald-300' : ''}>
-                  {passwordError || passwordSuccess}
-                </AlertDescription>
-              </Alert>
-            )}
+    </div>
+  );
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="currentPassword">{t('Текущий пароль')}</Label>
-                <Input
-                  id="currentPassword"
-                  type="password"
-                  value={currentPassword}
-                  onChange={(event) => setCurrentPassword(event.target.value)}
-                  autoComplete="current-password"
-                  className="h-11 bg-input/50 border-border/50 focus:border-primary/60 transition-colors"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="newPassword">{t('Новый пароль')}</Label>
-                <Input
-                  id="newPassword"
-                  type="password"
-                  value={newPassword}
-                  onChange={(event) => setNewPassword(event.target.value)}
-                  autoComplete="new-password"
-                  className="h-11 bg-input/50 border-border/50 focus:border-primary/60 transition-colors"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">{t('Подтвердите новый пароль')}</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  autoComplete="new-password"
-                  className="h-11 bg-input/50 border-border/50 focus:border-primary/60 transition-colors"
-                />
-              </div>
-            </div>
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-4xl font-semibold text-foreground tracking-tight">{t('Профиль')}</h1>
+          <p className="text-muted-foreground mt-2">{t('Редактируйте персональные данные аккаунта')}</p>
+        </div>
+        {isSimpleUser ? (
+          <Button type="button" variant="outline" onClick={handleBack} className="h-10 w-fit">
+            <ArrowLeft className="h-4 w-4" />
+            <span>{t('Назад')}</span>
+          </Button>
+        ) : null}
+      </div>
 
-            <p className="text-xs text-muted-foreground">{t('Пароль должен содержать минимум 6 символов')}</p>
-
-            <div className="pt-2">
-              <Button type="submit" className="h-11 min-w-44" disabled={isChangingPassword}>
-                {isChangingPassword ? t('Обновление…') : t('Обновить пароль')}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+      {profileSections}
     </div>
   );
 }

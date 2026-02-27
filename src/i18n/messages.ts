@@ -4,7 +4,7 @@ import type { AppLocale } from '@/store/localeStore';
 
 const uzTranslations: Record<string, string> = {
   'Язык интерфейса': 'Interfeys tili',
-  'Пространство': 'Makon',
+  'Пространство': 'TezBron',
   'Выйти': 'Chiqish',
   'Главная': 'Bosh sahifa',
   'Моё заведение': 'Mening maskanim',
@@ -367,6 +367,57 @@ const uzTranslations: Record<string, string> = {
   'Приглашение предназначено для другого email': 'Taklifnoma boshqa email uchun mo‘ljallangan',
   'Приглашение недействительно': 'Taklifnoma yaroqsiz',
   'Этот слот уже занят': 'Bu slot allaqachon band',
+  'Лесной фон': "O'rmon foni",
+  'Откройте свой бизнес на платформе': 'Biznesingizni platformada oching',
+  'и управляйте бронированием из одного кабинета.': 'va bronlarni bitta kabinetdan boshqaring.',
+  'Здесь собраны правила, сценарий запуска и шаги подключения бизнеса. Этот экран открывается из профиля по кнопке «Добавить бизнес».':
+    'Bu yerda qoidalar, ishga tushirish ssenariysi va biznesni ulash bosqichlari jamlangan. Ushbu ekran profildagi «Biznes qo‘shish» tugmasi orqali ochiladi.',
+  'Перейти к добавлению бизнеса': 'Biznes qo‘shishga o‘tish',
+  'Перейти к управлению бизнесом': 'Biznes boshqaruviga o‘tish',
+  'Вернуться в каталог': 'Katalogga qaytish',
+  'Какие бизнесы можно подключить': 'Qaysi bizneslarni ulash mumkin',
+  'Коворкинги': 'Kovorkinglar',
+  'Рабочие места, переговорные и гибкие офисы по слотам.':
+    'Ish joylari, muzokara xonalari va moslashuvchan ofislar slotlar bo‘yicha.',
+  'Бьюти и сервисы': 'Go‘zallik va servislar',
+  'Кабинеты, кресла и рабочие места по времени.': 'Kabinetlar, kreslolar va ish joylari vaqt bo‘yicha.',
+  'Студии и креатив': 'Studiyalar va kreativ',
+  'Фото, видео, подкаст и музыкальные комнаты.': 'Foto, video, podkast va musiqiy xonalar.',
+  'Обучение': "Ta'lim",
+  'Классы, аудитории, залы для мастер-классов.': 'Sinflar, auditoriyalar, master-klasslar uchun zallar.',
+  'Здоровье и wellbeing': 'Salomatlik va farovonlik',
+  'Кабинеты специалистов и оздоровительные сервисы.': 'Mutaxassis kabinetlari va sog‘lomlashtirish xizmatlari.',
+  'Ивенты': 'Tadbirlar',
+  'Площадки и мини-залы для событий и встреч.': 'Tadbirlar va uchrashuvlar uchun maydonlar hamda mini-zallar.',
+  'Что происходит после нажатия «Добавить бизнес»': '«Biznes qo‘shish» bosilgandan keyin nima bo‘ladi',
+  'Подготовка карточки': 'Kartochkani tayyorlash',
+  'Определите формат бизнеса и какие слоты будете продавать':
+    'Biznes formatini va qaysi slotlarni sotishingizni aniqlang',
+  'Подготовьте карточку: название, адрес, описание и правила брони':
+    'Kartochkani tayyorlang: nomi, manzili, tavsifi va bron qoidalari',
+  'Назначьте роли в команде и включите управление доступом':
+    'Jamoada rollarni belgilang va kirish boshqaruvini yoqing',
+  'Проверьте категории и откройте бизнес для бронирования в каталоге':
+    'Kategoriyalarni tekshirib, katalogda biznesni bron uchun oching',
+  'Посмотреть публичный каталог': 'Ochiq katalogni ko‘rish',
+  'Все комнаты и сервисы': 'Barcha xonalar va servislar',
+  'Работа в кабинете': 'Kabinetda ishlash',
+  'Профиль бизнеса с понятной карточкой': 'Biznes profili aniq kartochka bilan',
+  'Управление комнатами и доступными слотами': 'Xonalar va mavjud slotlarni boshqarish',
+  'Приглашения для команды и статусы доступа': 'Jamoa uchun taklifnomalar va kirish statuslari',
+  'Прозрачная история бронирований и отмен': 'Bronlar va bekor qilishlar bo‘yicha shaffof tarix',
+  'Прозрачные слоты': 'Shaffof slotlar',
+  'Пользователь видит только свободное время и быстро подтверждает бронирование.':
+    'Foydalanuvchi faqat bo‘sh vaqtni ko‘radi va bronni tez tasdiqlaydi.',
+  'Управление без перегруза': 'Ortiqcha yuklamasiz boshqaruv',
+  'Бизнес управляет карточкой и настройками из профиля, а не с главной страницы.':
+    'Biznes kartochka va sozlamalarni bosh sahifadan emas, profil ichidan boshqaradi.',
+  'Разделение ролей': 'Rollarni ajratish',
+  'Пользовательский вход и бизнес-вход разделены, чтобы роли не смешивались.':
+    'Foydalanuvchi kirishi va biznes kirishi rollar aralashmasligi uchun ajratilgan.',
+  'Готовы добавить бизнес в систему?': 'Biznesni tizimga qo‘shishga tayyormisiz?',
+  'Откройте бизнес-кабинет, заполните карточку и начните принимать бронирования.':
+    'Biznes kabinetini oching, kartochkani to‘ldiring va bronlarni qabul qilishni boshlang.',
 };
 
 const interpolate = (value: string, params?: Record<string, string | number>) => {

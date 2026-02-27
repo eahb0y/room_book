@@ -295,9 +295,10 @@ function BookingScheduleGrid({
 
 export default function AdminBookings() {
   const { t, dateLocale } = useI18n();
-  const { user } = useAuthStore();
-  const { isVenueDataLoading } = useVenueDataGuard(user);
+  const { user, portal } = useAuthStore();
+  const { isVenueDataLoading } = useVenueDataGuard(user, 'admin');
   const navigate = useNavigate();
+  const isBusinessPortal = portal === 'business';
 
   const venues = useVenueStore((state) => state.venues);
   const allRooms = useVenueStore((state) => state.rooms);
@@ -318,11 +319,15 @@ export default function AdminBookings() {
   const [saveMessage, setSaveMessage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  const venue = useMemo(() => venues.find((item) => item.adminId === user?.id), [venues, user?.id]);
+  const ownedVenues = useMemo(() => venues.filter((venue) => venue.adminId === user?.id), [venues, user?.id]);
+  const ownedVenueIds = useMemo(() => new Set(ownedVenues.map((venue) => venue.id)), [ownedVenues]);
 
   const rooms = useMemo(
-    () => allRooms.filter((room) => room.venueId === venue?.id).sort((first, second) => first.name.localeCompare(second.name)),
-    [allRooms, venue?.id],
+    () =>
+      allRooms
+        .filter((room) => ownedVenueIds.has(room.venueId))
+        .sort((first, second) => first.name.localeCompare(second.name)),
+    [allRooms, ownedVenueIds],
   );
 
   const bookings = useMemo<BookingViewItem[]>(() => {
@@ -361,17 +366,17 @@ export default function AdminBookings() {
   }, [allBookings, rooms, t]);
 
   useEffect(() => {
-    if (!user || user.role !== 'admin') {
-      navigate('/app');
+    if (!user || !isBusinessPortal) {
+      navigate('/');
       return;
     }
 
     if (isVenueDataLoading) return;
 
-    if (!venue) {
+    if (ownedVenues.length === 0) {
       navigate('/my-venue');
     }
-  }, [isVenueDataLoading, navigate, user, venue]);
+  }, [isVenueDataLoading, isBusinessPortal, navigate, ownedVenues.length, user]);
 
   const activeBookings = useMemo(() => bookings.filter((booking) => booking.viewStatus === 'active'), [bookings]);
   const historyBookings = useMemo(() => bookings.filter((booking) => booking.viewStatus !== 'active'), [bookings]);
@@ -466,7 +471,7 @@ export default function AdminBookings() {
 
   if (isVenueDataLoading) return null;
 
-  if (!venue) {
+  if (ownedVenues.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <p className="text-muted-foreground">{t('Сначала создайте заведение')}</p>
@@ -479,7 +484,9 @@ export default function AdminBookings() {
       <div>
         <h1 className="text-4xl font-semibold tracking-tight text-foreground">{t('Бронирования')}</h1>
         <p className="mt-2 text-muted-foreground">
-          {t('Все бронирования в заведении «{venue}»', { venue: venue.name })}
+          {ownedVenues.length === 1
+            ? t('Все бронирования в заведении «{venue}»', { venue: ownedVenues[0]?.name ?? '' })
+            : t('Все бронирования по вашим заведениям')}
         </p>
       </div>
 

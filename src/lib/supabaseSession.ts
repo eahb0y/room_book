@@ -5,6 +5,7 @@ export interface AuthSession {
 }
 
 const AUTH_SESSION_STORAGE_KEY = 'workspace-booking-auth-session';
+const LEGACY_AUTH_SESSION_STORAGE_KEY = AUTH_SESSION_STORAGE_KEY;
 
 const isBrowser = typeof window !== 'undefined';
 
@@ -23,7 +24,8 @@ const removeStoredSession = () => {
   if (!isBrowser) return;
 
   try {
-    window.sessionStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+    window.localStorage.removeItem(AUTH_SESSION_STORAGE_KEY);
+    window.sessionStorage.removeItem(LEGACY_AUTH_SESSION_STORAGE_KEY);
   } catch {
     // Ignore storage errors (private mode/quota) and keep in-memory fallback.
   }
@@ -38,7 +40,7 @@ const persistSession = (session: AuthSession | null) => {
   }
 
   try {
-    window.sessionStorage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify(session));
+    window.localStorage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify(session));
   } catch {
     // Ignore storage errors (private mode/quota) and keep in-memory fallback.
   }
@@ -48,13 +50,25 @@ const readStoredSession = (): AuthSession | null => {
   if (!isBrowser) return null;
 
   try {
-    const raw = window.sessionStorage.getItem(AUTH_SESSION_STORAGE_KEY);
+    const localRaw = window.localStorage.getItem(AUTH_SESSION_STORAGE_KEY);
+    const legacyRaw = window.sessionStorage.getItem(LEGACY_AUTH_SESSION_STORAGE_KEY);
+    const raw = localRaw ?? legacyRaw;
     if (!raw) return null;
 
     const parsed = JSON.parse(raw) as unknown;
     if (!isAuthSession(parsed) || parsed.expiresAt <= Date.now()) {
       removeStoredSession();
       return null;
+    }
+
+    // Migrate session from sessionStorage to localStorage for persistent login across browser restarts.
+    if (!localRaw && legacyRaw) {
+      persistSession(parsed);
+      try {
+        window.sessionStorage.removeItem(LEGACY_AUTH_SESSION_STORAGE_KEY);
+      } catch {
+        // Ignore cleanup errors.
+      }
     }
 
     return parsed;

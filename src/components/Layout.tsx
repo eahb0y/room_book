@@ -13,28 +13,33 @@ interface LayoutProps {
 }
 
 export default function Layout({ children }: LayoutProps) {
-  const { user, isAuthenticated, logout } = useAuthStore();
+  const { user, isAuthenticated, logout, portal } = useAuthStore();
   const { t } = useI18n();
   const loadAdminData = useVenueStore((state) => state.loadAdminData);
   const loadUserData = useVenueStore((state) => state.loadUserData);
   const loadedFor = useVenueStore((state) => state.loadedFor);
   const navigate = useNavigate();
   const location = useLocation();
+  const isUserJourneyPath = location.pathname === '/my-bookings' || location.pathname.startsWith('/venue/') || location.pathname.startsWith('/room/');
+  const isBusinessPortal = portal === 'business' && !isUserJourneyPath;
+  const homePath = isBusinessPortal ? '/my-venue' : '/';
+  const hideNavigation = !isBusinessPortal || location.pathname === '/profile';
 
   useEffect(() => {
     if (!isAuthenticated || !user) return;
-    const key = `${user.role}:${user.id}`;
+    const key = `${isBusinessPortal ? 'admin' : 'user'}:${user.id}`;
     if (loadedFor === key) return;
-    if (user.role === 'admin') {
+    if (isBusinessPortal) {
       loadAdminData(user.id);
     } else {
       loadUserData(user.id);
     }
-  }, [isAuthenticated, user, loadedFor, loadAdminData, loadUserData]);
+  }, [isAuthenticated, isBusinessPortal, user, loadedFor, loadAdminData, loadUserData]);
 
   const handleLogout = async () => {
+    const logoutRedirect = isBusinessPortal ? '/business/login' : '/login';
     await logout();
-    navigate('/login');
+    navigate(logoutRedirect);
   };
 
   const isActive = (path: string) => location.pathname === path;
@@ -75,10 +80,13 @@ export default function Layout({ children }: LayoutProps) {
       <header className="border-b border-border/40 bg-[hsl(240,5%,6.5%)]">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <Link to="/app" className="flex items-center gap-3 group">
-              <div className="w-9 h-9 rounded-lg bg-primary/90 flex items-center justify-center transition-all duration-300 group-hover:bg-primary group-hover:shadow-glow">
-                <CalendarDays className="h-[18px] w-[18px] text-white" />
-              </div>
+            <Link to={homePath} className="flex items-center gap-3 group">
+              <img
+                src="/favicon.svg"
+                alt=""
+                aria-hidden="true"
+                className="h-9 w-9 rounded-lg transition-all duration-300 group-hover:shadow-glow"
+              />
               <span className="font-display text-xl tracking-tight text-foreground">
                 {t('Пространство')}
               </span>
@@ -113,20 +121,15 @@ export default function Layout({ children }: LayoutProps) {
       </header>
 
       {/* Navigation */}
-      {isAuthenticated && (
+      {isAuthenticated && !hideNavigation && (
         <nav className="border-b border-border/20 bg-[hsl(240,5%,5.5%)]">
           <div className="max-w-7xl mx-auto px-6 lg:px-8">
             <div className="flex gap-1 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-              {user?.role === 'admin' ? (
+              {isBusinessPortal ? (
                 <>
-                  <Link to="/app" className={navLink('/app')}>
+                  <Link to="/my-venue" className={navLink('/my-venue')}>
                     <Home className="h-4 w-4" />
                     <span>{t('Главная')}</span>
-                    <span className={activeBar('/app')} />
-                  </Link>
-                  <Link to="/my-venue" className={navLink('/my-venue')}>
-                    <Building2 className="h-4 w-4" />
-                    <span>{t('Моё заведение')}</span>
                     <span className={activeBar('/my-venue')} />
                   </Link>
                   <Link to="/people" className={navLink('/people')}>
@@ -152,10 +155,10 @@ export default function Layout({ children }: LayoutProps) {
                 </>
               ) : (
                 <>
-                  <Link to="/app" className={navLink('/app')}>
+                  <Link to="/" className={navLink('/')}>
                     <Building2 className="h-4 w-4" />
-                    <span>{t('Заведения')}</span>
-                    <span className={activeBar('/app')} />
+                    <span>{t('Маркетплейс')}</span>
+                    <span className={activeBar('/')} />
                   </Link>
                   <Link to="/my-bookings" className={navLink('/my-bookings')}>
                     <CalendarDays className="h-4 w-4" />

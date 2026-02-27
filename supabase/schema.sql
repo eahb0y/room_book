@@ -447,13 +447,11 @@ with check (auth.uid() = id);
 
 drop policy if exists venues_select_admin_or_member on public.venues;
 drop policy if exists venues_select_access on public.venues;
-create policy venues_select_admin_or_member
+drop policy if exists venues_select_public on public.venues;
+create policy venues_select_public
 on public.venues
 for select
-using (
-  admin_id = auth.uid()
-  or public.is_venue_member(id)
-);
+using (true);
 
 drop policy if exists venues_insert_admin on public.venues;
 create policy venues_insert_admin
@@ -477,25 +475,11 @@ using (admin_id = auth.uid());
 -- rooms
 
 drop policy if exists rooms_select_admin_or_member on public.rooms;
-create policy rooms_select_admin_or_member
+drop policy if exists rooms_select_public on public.rooms;
+create policy rooms_select_public
 on public.rooms
 for select
-using (
-  exists (
-    select 1
-    from public.venues v
-    where v.id = rooms.venue_id
-      and (
-        v.admin_id = auth.uid()
-        or exists (
-          select 1
-          from public.venue_memberships vm
-          where vm.venue_id = v.id
-            and vm.user_id = auth.uid()
-        )
-      )
-  )
-);
+using (true);
 
 drop policy if exists rooms_insert_admin on public.rooms;
 create policy rooms_insert_admin
@@ -638,7 +622,8 @@ using (
 );
 
 drop policy if exists bookings_insert_member on public.bookings;
-create policy bookings_insert_member
+drop policy if exists bookings_insert_authenticated on public.bookings;
+create policy bookings_insert_authenticated
 on public.bookings
 for insert
 with check (
@@ -646,9 +631,7 @@ with check (
   and exists (
     select 1
     from public.rooms r
-    join public.venue_memberships vm on vm.venue_id = r.venue_id
     where r.id = bookings.room_id
-      and vm.user_id = auth.uid()
   )
 );
 
@@ -746,3 +729,8 @@ grant select, insert on public.bookings to authenticated;
 grant update (status) on public.bookings to authenticated;
 grant select, insert on public.invitations to authenticated;
 grant update (expires_at, max_uses, revoked_at) on public.invitations to authenticated;
+
+grant usage on schema public to anon;
+revoke all on all tables in schema public from anon;
+grant select on public.venues to anon;
+grant select on public.rooms to anon;

@@ -15,7 +15,9 @@ import { useI18n } from '@/i18n/useI18n';
 export default function PeopleManagement() {
   const { t, intlLocale } = useI18n();
   const user = useAuthStore((state) => state.user);
+  const portal = useAuthStore((state) => state.portal);
   const navigate = useNavigate();
+  const isBusinessPortal = portal === 'business';
   const venues = useVenueStore((state) => state.venues);
   const existingVenue = useMemo(
     () => venues.find((venue) => venue.adminId === user?.id),
@@ -53,11 +55,11 @@ export default function PeopleManagement() {
   }, [t]);
 
   useEffect(() => {
-    if (!user || user.role !== 'admin') {
-      navigate('/app');
+    if (!user || !isBusinessPortal) {
+      navigate('/');
       return;
     }
-  }, [user, navigate]);
+  }, [isBusinessPortal, user, navigate]);
 
   const existingVenueId = existingVenue?.id;
 

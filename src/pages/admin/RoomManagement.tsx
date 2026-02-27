@@ -74,16 +74,19 @@ const estimateDataUrlBytes = (dataUrl: string) => {
 
 export default function RoomManagement() {
   const { t } = useI18n();
-  const { user } = useAuthStore();
+  const { user, portal } = useAuthStore();
   const navigate = useNavigate();
+  const isBusinessPortal = portal === 'business';
   const venues = useVenueStore((state) => state.venues);
   const allRooms = useVenueStore((state) => state.rooms);
   const createRoom = useVenueStore((state) => state.createRoom);
   const updateRoom = useVenueStore((state) => state.updateRoom);
   const deleteRoom = useVenueStore((state) => state.deleteRoom);
 
-  const venue = useMemo(() => venues.find((v) => v.adminId === user?.id), [venues, user?.id]);
-  const rooms = useMemo(() => allRooms.filter((r) => r.venueId === venue?.id), [allRooms, venue?.id]);
+  const ownedVenues = useMemo(() => venues.filter((venue) => venue.adminId === user?.id), [venues, user?.id]);
+  const ownedVenueIds = useMemo(() => new Set(ownedVenues.map((venue) => venue.id)), [ownedVenues]);
+  const rooms = useMemo(() => allRooms.filter((room) => ownedVenueIds.has(room.venueId)), [allRooms, ownedVenueIds]);
+  const defaultVenueId = ownedVenues[0]?.id;
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
@@ -96,11 +99,11 @@ export default function RoomManagement() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user || user.role !== 'admin') {
-      navigate('/app');
+    if (!user || !isBusinessPortal) {
+      navigate('/');
       return;
     }
-  }, [user, navigate]);
+  }, [isBusinessPortal, user, navigate]);
 
   useEffect(() => {
     setSelectedPhotoIndex((prev) => {
@@ -233,7 +236,7 @@ export default function RoomManagement() {
       return;
     }
 
-    if (!venue) return;
+    if (!defaultVenueId) return;
 
     const roomName = name.trim();
 
@@ -249,7 +252,7 @@ export default function RoomManagement() {
         await createRoom({
           name: roomName,
           capacity: capacityNum,
-          venueId: venue.id,
+          venueId: defaultVenueId,
           photoUrls,
           photoUrl: photoUrls[0] ?? null,
         });
@@ -267,7 +270,7 @@ export default function RoomManagement() {
 
   const selectedPhoto = photoUrls[selectedPhotoIndex] ?? photoUrls[0] ?? null;
 
-  if (!venue) {
+  if (ownedVenues.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <div className="w-16 h-16 rounded-2xl bg-secondary/50 flex items-center justify-center mb-5">
