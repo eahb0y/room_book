@@ -5,7 +5,7 @@ import { useVenueStore } from '@/store/venueStore';
 import { useVenueDataGuard } from '@/hooks/useVenueDataGuard';
 import { RoomPhotoGallery } from '@/components/RoomPhotoGallery';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { DoorOpen, Users, ArrowLeft, ArrowRight, MapPin } from 'lucide-react';
+import { DoorOpen, Users, ArrowLeft, ArrowRight, MapPin, Globe, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { getRoomPhotoUrls } from '@/lib/roomPhotos';
@@ -22,8 +22,23 @@ export default function RoomList() {
   const venue = useVenueStore((state) =>
     state.venues.find((v) => v.id === venueId)
   );
+  const memberships = useVenueStore((state) => state.memberships);
   const allRooms = useVenueStore((state) => state.rooms);
-  const rooms = useMemo(() => allRooms.filter((r) => r.venueId === venueId), [allRooms, venueId]);
+  const hasResidentAccess = useMemo(() => {
+    if (!user || !venue) return false;
+    if (user.role === 'admin') return true;
+    if (venue.adminId === user.id) return true;
+    return memberships.some((membership) => membership.venueId === venue.id && membership.userId === user.id);
+  }, [memberships, user, venue]);
+  const rooms = useMemo(
+    () =>
+      allRooms.filter(
+        (room) =>
+          room.venueId === venueId &&
+          (room.accessType === 'public' || hasResidentAccess),
+      ),
+    [allRooms, hasResidentAccess, venueId],
+  );
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -112,6 +127,16 @@ export default function RoomList() {
                     <Badge variant="secondary" className="flex items-center gap-1.5 w-fit text-xs">
                       <Users className="h-3 w-3" />
                       <span>{t('до {count} человек', { count: room.capacity })}</span>
+                    </Badge>
+                    <Badge variant="outline" className="mt-2 flex items-center gap-1.5 w-fit text-xs border-border/60">
+                      {room.accessType === 'public' ? (
+                        <Globe className="h-3 w-3" />
+                      ) : (
+                        <ShieldCheck className="h-3 w-3" />
+                      )}
+                      <span>
+                        {room.accessType === 'public' ? t('Публичная') : t('Только резиденты')}
+                      </span>
                     </Badge>
                   </CardDescription>
                 </CardHeader>

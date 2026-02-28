@@ -8,9 +8,10 @@ import Register from '@/pages/Register';
 import BusinessLogin from '@/pages/BusinessLogin';
 import BusinessRegister from '@/pages/BusinessRegister';
 import Invite from '@/pages/Invite';
-import VenueManagement from '@/pages/admin/VenueManagement';
+import AdminDashboard from '@/pages/admin/AdminDashboard';
 import PeopleManagement from '@/pages/admin/PeopleManagement';
 import RoomManagement from '@/pages/admin/RoomManagement';
+import ServicesManagement from '@/pages/admin/ServicesManagement';
 import AdminBookings from '@/pages/admin/AdminBookings';
 import RoomList from '@/pages/user/RoomList';
 import BookingPage from '@/pages/user/BookingPage';
@@ -36,16 +37,19 @@ function UserRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, portal } = useAuthStore();
-  const isBusinessPortal = portal === 'business';
+  const { isAuthenticated, portal, user } = useAuthStore();
+  const isBusinessPortal = portal === 'business' || user?.role === 'admin';
   if (!isAuthenticated) return <Navigate to="/business/login" replace />;
   if (!isBusinessPortal) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  return !isAuthenticated ? <>{children}</> : <Navigate to="/" replace />;
+  const { isAuthenticated, portal, user } = useAuthStore();
+  if (!isAuthenticated) return <>{children}</>;
+
+  const defaultPath = portal === 'business' || user?.role === 'admin' ? '/my-venue' : '/';
+  return <Navigate to={defaultPath} replace />;
 }
 
 function App() {
@@ -75,11 +79,7 @@ function App() {
         />
         <Route
           path="/business/login"
-          element={
-            <PublicRoute>
-              <BusinessLogin />
-            </PublicRoute>
-          }
+          element={<BusinessLogin />}
         />
         <Route
           path="/business/register"
@@ -100,7 +100,7 @@ function App() {
           element={
             <AdminRoute>
               <Layout>
-                <VenueManagement />
+                <AdminDashboard />
               </Layout>
             </AdminRoute>
           }
@@ -121,6 +121,16 @@ function App() {
             <AdminRoute>
               <Layout>
                 <RoomManagement />
+              </Layout>
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/services"
+          element={
+            <AdminRoute>
+              <Layout>
+                <ServicesManagement />
               </Layout>
             </AdminRoute>
           }

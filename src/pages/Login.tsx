@@ -19,7 +19,6 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const login = useAuthStore((state) => state.login);
-  const setPortal = useAuthStore((state) => state.setPortal);
   const startGoogleAuth = useAuthStore((state) => state.startGoogleAuth);
   const completeGoogleAuth = useAuthStore((state) => state.completeGoogleAuth);
   const searchParams = new URLSearchParams(location.search);
@@ -31,7 +30,13 @@ export default function Login() {
   if (nextPath) registerParams.set('next', nextPath);
   const registerPath = registerParams.toString() ? `/register?${registerParams.toString()}` : '/register';
   const isInviteFlow = Boolean(inviteToken);
-  const resolvePostAuthPath = () => (inviteToken ? `/invite/${inviteToken}` : nextPath ?? '/');
+  const resolveDefaultPostAuthPath = () => {
+    const { portal, user } = useAuthStore.getState();
+    if (portal === 'business' || user?.role === 'admin') return '/my-venue';
+    return '/';
+  };
+
+  const resolvePostAuthPath = () => (inviteToken ? `/invite/${inviteToken}` : nextPath ?? resolveDefaultPostAuthPath());
 
   useEffect(() => {
     const hasOAuthPayload = location.hash.includes('access_token') || location.hash.includes('error=');
@@ -45,7 +50,6 @@ export default function Login() {
       try {
         const success = await completeGoogleAuth(location.hash);
         if (!success) return;
-        setPortal('user');
         navigate(resolvePostAuthPath());
       } catch (err) {
         const message = err instanceof Error ? t(err.message) : t('Произошла ошибка при входе');
@@ -59,7 +63,7 @@ export default function Login() {
     return () => {
       isActive = false;
     };
-  }, [completeGoogleAuth, inviteToken, location.hash, location.pathname, location.search, navigate, nextPath, setPortal, t]);
+  }, [completeGoogleAuth, inviteToken, location.hash, location.pathname, location.search, navigate, nextPath, t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,7 +73,6 @@ export default function Login() {
     try {
       const success = await login({ email, password });
       if (success) {
-        setPortal('user');
         navigate(resolvePostAuthPath());
       } else {
         setError(t('Неверный email или пароль'));

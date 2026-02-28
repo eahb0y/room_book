@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, DoorOpen, Edit2, Plus, Star, Trash2, Users } from 'lucide-react';
+import { AlertCircle, Clock3, DoorOpen, Edit2, Globe, ListPlus, MapPin, Plus, ShieldCheck, Star, Trash2, Users, X } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useVenueStore } from '@/store/venueStore';
 import { RoomPhotoGallery } from '@/components/RoomPhotoGallery';
@@ -17,6 +17,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { getRoomPhotoUrls } from '@/lib/roomPhotos';
 import { cn } from '@/lib/utils';
 import type { Room } from '@/types';
@@ -26,6 +28,24 @@ const MAX_ROOM_PHOTO_SIDE = 1400;
 const MAX_ROOM_PHOTO_BYTES = 1_500_000;
 const ROOM_PHOTO_QUALITY = 0.82;
 const MAX_ROOM_PHOTOS = 8;
+const TIME_STEP_MINUTES = 15;
+const MINUTES_IN_DAY = 24 * 60;
+const DEFAULT_AVAILABLE_FROM = '00:00';
+const DEFAULT_AVAILABLE_TO = '24:00';
+const DEFAULT_MIN_BOOKING_MINUTES = 30;
+const DEFAULT_MAX_BOOKING_MINUTES = 240;
+const DEFAULT_ROOM_SERVICE_OPTIONS = [
+  'Wi-Fi',
+  'Проектор',
+  'Экран',
+  'Флипчарт',
+  'Кондиционер',
+  'Кофе/чай',
+  'Парковка',
+  'Видеосвязь',
+  'Ресепшен',
+  'Вода',
+];
 
 const readFileAsDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {
@@ -72,11 +92,32 @@ const estimateDataUrlBytes = (dataUrl: string) => {
   return Math.ceil((base64.length * 3) / 4);
 };
 
+const normalizeService = (value: string) => value.trim().replace(/\s+/g, ' ');
+
+const toTime = (totalMinutes: number) => {
+  if (totalMinutes >= MINUTES_IN_DAY) return '24:00';
+  const safeMinutes = Math.max(0, totalMinutes);
+  const hour = Math.floor(safeMinutes / 60).toString().padStart(2, '0');
+  const minute = (safeMinutes % 60).toString().padStart(2, '0');
+  return `${hour}:${minute}`;
+};
+
+const toMinutes = (time: string) => {
+  if (time === '24:00') return MINUTES_IN_DAY;
+  const [hour, minute] = time.split(':');
+  return parseInt(hour, 10) * 60 + parseInt(minute, 10);
+};
+
+const TIME_OPTIONS = Array.from(
+  { length: MINUTES_IN_DAY / TIME_STEP_MINUTES + 1 },
+  (_, index) => toTime(index * TIME_STEP_MINUTES),
+);
+
 export default function RoomManagement() {
   const { t } = useI18n();
   const { user, portal } = useAuthStore();
   const navigate = useNavigate();
-  const isBusinessPortal = portal === 'business';
+  const isBusinessPortal = portal === 'business' || user?.role === 'admin';
   const venues = useVenueStore((state) => state.venues);
   const allRooms = useVenueStore((state) => state.rooms);
   const createRoom = useVenueStore((state) => state.createRoom);
@@ -91,7 +132,16 @@ export default function RoomManagement() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
   const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [locationLabel, setLocationLabel] = useState('');
+  const [accessType, setAccessType] = useState<Room['accessType']>('public');
+  const [availableFrom, setAvailableFrom] = useState(DEFAULT_AVAILABLE_FROM);
+  const [availableTo, setAvailableTo] = useState(DEFAULT_AVAILABLE_TO);
+  const [minBookingMinutes, setMinBookingMinutes] = useState(DEFAULT_MIN_BOOKING_MINUTES.toString());
+  const [maxBookingMinutes, setMaxBookingMinutes] = useState(DEFAULT_MAX_BOOKING_MINUTES.toString());
   const [capacity, setCapacity] = useState('');
+  const [services, setServices] = useState<string[]>([]);
+  const [customService, setCustomService] = useState('');
   const [photoUrls, setPhotoUrls] = useState<string[]>([]);
   const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
   const [isImageProcessing, setIsImageProcessing] = useState(false);
@@ -116,14 +166,31 @@ export default function RoomManagement() {
     if (room) {
       setEditingRoom(room);
       setName(room.name);
+      setDescription(room.description ?? '');
+      setLocationLabel(room.location ?? '');
+      setAccessType(room.accessType ?? 'public');
+      setAvailableFrom(room.availableFrom ?? DEFAULT_AVAILABLE_FROM);
+      setAvailableTo(room.availableTo ?? DEFAULT_AVAILABLE_TO);
+      setMinBookingMinutes((room.minBookingMinutes ?? DEFAULT_MIN_BOOKING_MINUTES).toString());
+      setMaxBookingMinutes((room.maxBookingMinutes ?? DEFAULT_MAX_BOOKING_MINUTES).toString());
       setCapacity(room.capacity.toString());
+      setServices(room.services ?? []);
       setPhotoUrls(getRoomPhotoUrls(room));
     } else {
       setEditingRoom(null);
       setName('');
+      setDescription('');
+      setLocationLabel('');
+      setAccessType('public');
+      setAvailableFrom(DEFAULT_AVAILABLE_FROM);
+      setAvailableTo(DEFAULT_AVAILABLE_TO);
+      setMinBookingMinutes(DEFAULT_MIN_BOOKING_MINUTES.toString());
+      setMaxBookingMinutes(DEFAULT_MAX_BOOKING_MINUTES.toString());
       setCapacity('');
+      setServices([]);
       setPhotoUrls([]);
     }
+    setCustomService('');
     setSelectedPhotoIndex(0);
     setError('');
     setIsDialogOpen(true);
@@ -133,11 +200,46 @@ export default function RoomManagement() {
     setIsDialogOpen(false);
     setEditingRoom(null);
     setName('');
+    setDescription('');
+    setLocationLabel('');
+    setAccessType('public');
+    setAvailableFrom(DEFAULT_AVAILABLE_FROM);
+    setAvailableTo(DEFAULT_AVAILABLE_TO);
+    setMinBookingMinutes(DEFAULT_MIN_BOOKING_MINUTES.toString());
+    setMaxBookingMinutes(DEFAULT_MAX_BOOKING_MINUTES.toString());
     setCapacity('');
+    setServices([]);
+    setCustomService('');
     setPhotoUrls([]);
     setSelectedPhotoIndex(0);
     setIsImageProcessing(false);
     setError('');
+  };
+
+  const toggleService = (serviceOption: string) => {
+    const normalized = normalizeService(serviceOption);
+    if (!normalized) return;
+
+    setServices((prev) =>
+      prev.includes(normalized)
+        ? prev.filter((value) => value !== normalized)
+        : [...prev, normalized],
+    );
+  };
+
+  const addCustomService = () => {
+    const normalized = normalizeService(customService);
+    if (!normalized) return;
+    if (services.includes(normalized)) {
+      setCustomService('');
+      return;
+    }
+    setServices((prev) => [...prev, normalized]);
+    setCustomService('');
+  };
+
+  const removeService = (serviceOption: string) => {
+    setServices((prev) => prev.filter((value) => value !== serviceOption));
   };
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -230,28 +332,102 @@ export default function RoomManagement() {
       return;
     }
 
+    if (!description.trim()) {
+      setError(t('Описание комнаты обязательно'));
+      return;
+    }
+
+    if (!locationLabel.trim()) {
+      setError(t('Укажите location комнаты'));
+      return;
+    }
+
     const capacityNum = parseInt(capacity, 10);
     if (isNaN(capacityNum) || capacityNum < 1) {
       setError(t('Вместимость должна быть числом больше 0'));
       return;
     }
 
+    const availableFromMinutes = toMinutes(availableFrom);
+    const availableToMinutes = toMinutes(availableTo);
+    if (!Number.isFinite(availableFromMinutes) || !Number.isFinite(availableToMinutes)) {
+      setError(t('Укажите корректное время доступности комнаты'));
+      return;
+    }
+
+    if (availableFromMinutes >= availableToMinutes) {
+      setError(t('Время окончания доступности должно быть позже времени начала'));
+      return;
+    }
+
+    const minBookingMinutesNum = parseInt(minBookingMinutes, 10);
+    const maxBookingMinutesNum = parseInt(maxBookingMinutes, 10);
+    if (isNaN(minBookingMinutesNum) || minBookingMinutesNum < TIME_STEP_MINUTES || minBookingMinutesNum % TIME_STEP_MINUTES !== 0) {
+      setError(t('Минимальная длительность должна быть кратна {step} минутам', { step: TIME_STEP_MINUTES }));
+      return;
+    }
+
+    if (isNaN(maxBookingMinutesNum) || maxBookingMinutesNum < TIME_STEP_MINUTES || maxBookingMinutesNum % TIME_STEP_MINUTES !== 0) {
+      setError(t('Максимальная длительность должна быть кратна {step} минутам', { step: TIME_STEP_MINUTES }));
+      return;
+    }
+
+    if (maxBookingMinutesNum < minBookingMinutesNum) {
+      setError(t('Максимальная длительность не может быть меньше минимальной'));
+      return;
+    }
+
+    const availabilityWindowMinutes = availableToMinutes - availableFromMinutes;
+    if (minBookingMinutesNum > availabilityWindowMinutes) {
+      setError(t('Минимальная длительность не помещается в окно доступности комнаты'));
+      return;
+    }
+
+    if (maxBookingMinutesNum > availabilityWindowMinutes) {
+      setError(t('Максимальная длительность не может превышать окно доступности комнаты'));
+      return;
+    }
+
+    const normalizedServices = services.map(normalizeService).filter(Boolean);
+    if (normalizedServices.length === 0) {
+      setError(t('Выберите хотя бы одну услугу для комнаты'));
+      return;
+    }
+
     if (!defaultVenueId) return;
 
     const roomName = name.trim();
+    const roomDescription = description.trim();
+    const roomLocation = locationLabel.trim();
 
     try {
       if (editingRoom) {
         await updateRoom(editingRoom.id, {
           name: roomName,
+          description: roomDescription,
+          location: roomLocation,
+          accessType,
+          availableFrom,
+          availableTo,
+          minBookingMinutes: minBookingMinutesNum,
+          maxBookingMinutes: maxBookingMinutesNum,
           capacity: capacityNum,
+          services: normalizedServices,
           photoUrls,
           photoUrl: photoUrls[0] ?? null,
         });
       } else {
         await createRoom({
           name: roomName,
+          description: roomDescription,
+          location: roomLocation,
+          accessType,
+          availableFrom,
+          availableTo,
+          minBookingMinutes: minBookingMinutesNum,
+          maxBookingMinutes: maxBookingMinutesNum,
           capacity: capacityNum,
+          services: normalizedServices,
           venueId: defaultVenueId,
           photoUrls,
           photoUrl: photoUrls[0] ?? null,
@@ -277,7 +453,7 @@ export default function RoomManagement() {
           <Building2Icon className="h-7 w-7 text-muted-foreground/50" />
         </div>
         <p className="text-muted-foreground mb-4">{t('Сначала создайте заведение')}</p>
-        <Button onClick={() => navigate('/my-venue')}>{t('Создать заведение')}</Button>
+        <Button onClick={() => navigate('/profile')}>{t('Создать заведение')}</Button>
       </div>
     );
   }
@@ -330,10 +506,62 @@ export default function RoomManagement() {
                     </div>
                     <span className="font-body font-semibold truncate">{room.name}</span>
                   </CardTitle>
-                  <CardDescription className="flex items-center gap-2 pl-[42px]">
-                    <Users className="h-3.5 w-3.5" />
-                    <span>{t('Вместимость: {count} человек', { count: room.capacity })}</span>
-                  </CardDescription>
+                  <div className="space-y-1.5 pl-[42px]">
+                    <CardDescription className="flex items-center gap-2">
+                      <Users className="h-3.5 w-3.5" />
+                      <span>{t('Вместимость: {count} человек', { count: room.capacity })}</span>
+                    </CardDescription>
+                    {room.location ? (
+                      <CardDescription className="flex items-center gap-2">
+                        <MapPin className="h-3.5 w-3.5" />
+                        <span>{room.location}</span>
+                      </CardDescription>
+                    ) : null}
+                    <CardDescription className="flex items-center gap-2">
+                      {room.accessType === 'public' ? (
+                        <Globe className="h-3.5 w-3.5" />
+                      ) : (
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                      )}
+                      <span>
+                        {room.accessType === 'public'
+                          ? t('Доступ: Публичная')
+                          : t('Доступ: Только резиденты')}
+                      </span>
+                    </CardDescription>
+                    <CardDescription className="flex items-center gap-2">
+                      <Clock3 className="h-3.5 w-3.5" />
+                      <span>
+                        {t('Доступно: {from} — {to}', { from: room.availableFrom, to: room.availableTo })}
+                      </span>
+                    </CardDescription>
+                    <CardDescription className="flex items-center gap-2">
+                      <Clock3 className="h-3.5 w-3.5" />
+                      <span>
+                        {t('Бронь: от {min} до {max} мин', { min: room.minBookingMinutes, max: room.maxBookingMinutes })}
+                      </span>
+                    </CardDescription>
+                    {room.description ? (
+                      <p className="line-clamp-2 text-xs text-muted-foreground/90">{room.description}</p>
+                    ) : null}
+                    {room.services.length > 0 ? (
+                      <div className="flex flex-wrap gap-1 pt-1">
+                        {room.services.slice(0, 3).map((service) => (
+                          <span
+                            key={`${room.id}-${service}`}
+                            className="rounded-full border border-border/45 bg-input/30 px-2 py-0.5 text-[11px] text-muted-foreground"
+                          >
+                            {service}
+                          </span>
+                        ))}
+                        {room.services.length > 3 ? (
+                          <span className="rounded-full border border-border/45 bg-input/20 px-2 py-0.5 text-[11px] text-muted-foreground">
+                            +{room.services.length - 3}
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="flex gap-2">
@@ -363,7 +591,7 @@ export default function RoomManagement() {
       )}
 
       <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto border-border/50">
+        <DialogContent className="max-h-[94vh] overflow-y-auto border-border/50 sm:max-w-4xl lg:max-w-5xl">
           <DialogHeader>
             <DialogTitle>
               {editingRoom ? t('Редактировать комнату') : t('Добавить комнату')}
@@ -391,6 +619,130 @@ export default function RoomManagement() {
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="description" className="text-sm text-muted-foreground">{t('Описание *')}</Label>
+                <Textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={3}
+                  placeholder={t('Опишите комнату и формат использования')}
+                  className="bg-input/50 border-border/50 focus:border-primary/60 transition-colors resize-none"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="location" className="text-sm text-muted-foreground">{t('Location *')}</Label>
+                <Input
+                  id="location"
+                  placeholder={t('Например: 2 этаж, блок B')}
+                  value={locationLabel}
+                  onChange={(e) => setLocationLabel(e.target.value)}
+                  className="h-11 bg-input/50 border-border/50 focus:border-primary/60 transition-colors"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">{t('Тип доступности комнаты *')}</Label>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setAccessType('public')}
+                    className={cn(
+                      'h-auto min-h-11 justify-start border-border/50 py-2.5 whitespace-normal text-left',
+                      accessType === 'public' ? 'border-primary/60 bg-primary/15 text-primary' : '',
+                    )}
+                  >
+                    <Globe className="mr-2 h-4 w-4 shrink-0" />
+                    <span className="min-w-0 break-words leading-snug">
+                      {t('Публичная (доступна всем)')}
+                    </span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setAccessType('residents_only')}
+                    className={cn(
+                      'h-auto min-h-11 justify-start border-border/50 py-2.5 whitespace-normal text-left',
+                      accessType === 'residents_only' ? 'border-primary/60 bg-primary/15 text-primary' : '',
+                    )}
+                  >
+                    <ShieldCheck className="mr-2 h-4 w-4 shrink-0" />
+                    <span className="min-w-0 break-words leading-snug">
+                      {t('Закрытая (только резиденты)')}
+                    </span>
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground/70">
+                  {accessType === 'public'
+                    ? t('Комнату увидят и смогут бронировать все авторизованные пользователи.')
+                    : t('Комнату увидят и смогут бронировать только резиденты вашего бизнеса.')}
+                </p>
+              </div>
+              <div className="space-y-3">
+                <Label className="text-sm text-muted-foreground">{t('Доступность комнаты по времени *')}</Label>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground/80">{t('Доступно с')}</p>
+                    <Select value={availableFrom} onValueChange={setAvailableFrom}>
+                      <SelectTrigger className="h-11 border-border/50 bg-input/50">
+                        <SelectValue placeholder={t('Выберите время')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIME_OPTIONS.slice(0, -1).map((time) => (
+                          <SelectItem key={`from-${time}`} value={time}>
+                            {time}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground/80">{t('Доступно до')}</p>
+                    <Select value={availableTo} onValueChange={setAvailableTo}>
+                      <SelectTrigger className="h-11 border-border/50 bg-input/50">
+                        <SelectValue placeholder={t('Выберите время')} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TIME_OPTIONS.slice(1).map((time) => (
+                          <SelectItem key={`to-${time}`} value={time}>
+                            {time}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <Label className="text-sm text-muted-foreground">{t('Ограничения длительности брони *')}</Label>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground/80">{t('Минимум (минут)')}</p>
+                    <Input
+                      type="number"
+                      min={TIME_STEP_MINUTES}
+                      step={TIME_STEP_MINUTES}
+                      value={minBookingMinutes}
+                      onChange={(e) => setMinBookingMinutes(e.target.value)}
+                      className="h-11 bg-input/50 border-border/50 focus:border-primary/60 transition-colors"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground/80">{t('Максимум (минут)')}</p>
+                    <Input
+                      type="number"
+                      min={TIME_STEP_MINUTES}
+                      step={TIME_STEP_MINUTES}
+                      value={maxBookingMinutes}
+                      onChange={(e) => setMaxBookingMinutes(e.target.value)}
+                      className="h-11 bg-input/50 border-border/50 focus:border-primary/60 transition-colors"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground/70">
+                  {t('Рекомендуемый шаг: {step} минут', { step: TIME_STEP_MINUTES })}
+                </p>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="capacity" className="text-sm text-muted-foreground">{t('Вместимость (человек) *')}</Label>
                 <Input
                   id="capacity"
@@ -401,6 +753,62 @@ export default function RoomManagement() {
                   onChange={(e) => setCapacity(e.target.value)}
                   className="h-11 bg-input/50 border-border/50 focus:border-primary/60 transition-colors"
                 />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">{t('Что предоставляет бизнес в этой комнате *')}</Label>
+                <div className="flex flex-wrap gap-2">
+                  {DEFAULT_ROOM_SERVICE_OPTIONS.map((serviceOption) => {
+                    const isSelected = services.includes(serviceOption);
+                    return (
+                      <Button
+                        key={serviceOption}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toggleService(serviceOption)}
+                        className={cn(
+                          'h-8 border-border/50 px-3 text-xs',
+                          isSelected ? 'border-primary/60 bg-primary/15 text-primary' : 'text-muted-foreground',
+                        )}
+                      >
+                        {serviceOption}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Input
+                    value={customService}
+                    onChange={(e) => setCustomService(e.target.value)}
+                    placeholder={t('Добавить свою услугу')}
+                    className="h-10 bg-input/50 border-border/50 focus:border-primary/60 transition-colors"
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault();
+                        addCustomService();
+                      }
+                    }}
+                  />
+                  <Button type="button" variant="outline" className="h-10 border-border/50" onClick={addCustomService}>
+                    <ListPlus className="mr-2 h-4 w-4" />
+                    {t('Добавить')}
+                  </Button>
+                </div>
+                {services.length > 0 ? (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {services.map((serviceOption) => (
+                      <button
+                        key={serviceOption}
+                        type="button"
+                        onClick={() => removeService(serviceOption)}
+                        className="inline-flex items-center gap-1 rounded-full border border-primary/35 bg-primary/10 px-2.5 py-1 text-xs text-primary transition hover:bg-primary/20"
+                      >
+                        <span>{serviceOption}</span>
+                        <X className="h-3 w-3" />
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="photo" className="text-sm text-muted-foreground">

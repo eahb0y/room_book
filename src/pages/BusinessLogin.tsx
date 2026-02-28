@@ -2,8 +2,6 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { AlertCircle, ShieldCheck } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
-import { listVenues } from '@/lib/venueApi';
-import { isBusinessEmail } from '@/lib/emailRules';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,16 +10,12 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useI18n } from '@/i18n/useI18n';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 
-const normalizeName = (value: string) => value.trim().toLowerCase();
-
 export default function BusinessLogin() {
   const { t } = useI18n();
   const login = useAuthStore((state) => state.login);
-  const logout = useAuthStore((state) => state.logout);
   const setPortal = useAuthStore((state) => state.setPortal);
   const navigate = useNavigate();
 
-  const [businessName, setBusinessName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -30,16 +24,6 @@ export default function BusinessLogin() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError('');
-
-    if (!businessName.trim()) {
-      setError(t('Укажите название бизнеса'));
-      return;
-    }
-
-    if (!isBusinessEmail(email)) {
-      setError(t('Для входа в бизнес-кабинет используйте корпоративный email'));
-      return;
-    }
 
     setIsLoading(true);
 
@@ -53,24 +37,6 @@ export default function BusinessLogin() {
       const loggedUser = useAuthStore.getState().user;
       if (!loggedUser) {
         setError(t('Не удалось выполнить вход'));
-        return;
-      }
-
-      const ownedVenues = await listVenues({ adminId: loggedUser.id });
-      const hasOwnerAccess = loggedUser.role === 'admin' || ownedVenues.length > 0;
-      if (!hasOwnerAccess) {
-        await logout();
-        setError(t('У этого аккаунта нет доступа к кабинету владельца'));
-        return;
-      }
-
-      const hasMatch =
-        ownedVenues.length === 0 ||
-        ownedVenues.some((venue) => normalizeName(venue.name) === normalizeName(businessName));
-
-      if (!hasMatch) {
-        await logout();
-        setError(t('Название бизнеса не совпадает с вашим аккаунтом'));
         return;
       }
 
@@ -119,22 +85,8 @@ export default function BusinessLogin() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="businessName" className="text-sm text-muted-foreground">
-                  {t('Название бизнеса')}
-                </Label>
-                <Input
-                  id="businessName"
-                  value={businessName}
-                  onChange={(event) => setBusinessName(event.target.value)}
-                  placeholder={t('Например: Nura Spaces')}
-                  required
-                  className="h-11 border-border/50 bg-input/50 focus:border-primary/60"
-                />
-              </div>
-
-              <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm text-muted-foreground">
-                  {t('Корпоративный email')}
+                  {t('Email')}
                 </Label>
                 <Input
                   id="email"
@@ -165,7 +117,7 @@ export default function BusinessLogin() {
               <div className="rounded-xl border border-emerald-800/40 bg-emerald-950/20 px-3 py-2 text-xs text-emerald-200">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="h-3.5 w-3.5" />
-                  <span>{t('Проверяем, что email относится к бизнес-домену')}</span>
+                  <span>{t('Вход выполняется по email и паролю')}</span>
                 </div>
               </div>
             </CardContent>
@@ -174,12 +126,6 @@ export default function BusinessLogin() {
               <Button type="submit" className="h-11 w-full font-medium tracking-wide" disabled={isLoading}>
                 {isLoading ? t('Вход...') : t('Войти в кабинет')}
               </Button>
-              <p className="text-center text-sm text-muted-foreground">
-                {t('Нужен пользовательский вход?')}{' '}
-                <Link to="/login" className="text-primary transition-colors hover:text-primary/80">
-                  {t('Перейти к обычному входу')}
-                </Link>
-              </p>
               <p className="text-center text-sm text-muted-foreground">
                 {t('Нет бизнес-аккаунта?')}{' '}
                 <Link to="/business/register" className="text-primary transition-colors hover:text-primary/80">

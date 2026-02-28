@@ -97,16 +97,21 @@ const readPersistedAuthState = (): Pick<AuthState, 'user' | 'isAuthenticated' | 
       return { user: null, isAuthenticated: false, portal: null };
     }
 
+    const rolePortal = resolvePortalByRole(parsed.user);
+    const requestedPortal = isPortal(parsed.portal) ? parsed.portal : null;
+    const portal = parsed.user.role === 'admin' ? 'business' : requestedPortal ?? rolePortal;
+
     if (!localRaw && legacyRaw) {
-      persistAuthState({ user: parsed.user, isAuthenticated: true, portal: isPortal(parsed.portal) ? parsed.portal : null });
+      persistAuthState({ user: parsed.user, isAuthenticated: true, portal });
       try {
         window.sessionStorage.removeItem(LEGACY_AUTH_STATE_STORAGE_KEY);
       } catch {
         // Ignore cleanup errors.
       }
+    } else if (localRaw && portal !== requestedPortal) {
+      persistAuthState({ user: parsed.user, isAuthenticated: true, portal });
     }
 
-    const portal = isPortal(parsed.portal) ? parsed.portal : resolvePortalByRole(parsed.user);
     return { user: parsed.user, isAuthenticated: true, portal };
   } catch {
     removePersistedAuthState();
@@ -175,8 +180,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setPortal: (portal) => {
     const currentUser = get().user;
     const isAuthenticated = get().isAuthenticated;
-    set({ portal });
-    persistAuthState({ user: currentUser, isAuthenticated, portal });
+    const resolvedPortal = currentUser?.role === 'admin' ? 'business' : portal;
+    set({ portal: resolvedPortal });
+    persistAuthState({ user: currentUser, isAuthenticated, portal: resolvedPortal });
   },
 
   updateProfile: async (payload) => {

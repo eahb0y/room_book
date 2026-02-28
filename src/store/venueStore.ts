@@ -31,7 +31,7 @@ interface VenueState {
   cancelBooking: (id: string) => Promise<void>;
   updateBooking: (
     id: string,
-    booking: Pick<Booking, 'roomId' | 'bookingDate' | 'startTime' | 'endTime' | 'status'>,
+    booking: Pick<Booking, 'userId' | 'description' | 'bookingDate' | 'startTime' | 'endTime' | 'status'>,
   ) => Promise<{ success: boolean; error?: string }>;
 
   reset: () => void;
@@ -121,7 +121,15 @@ export const useVenueStore = create<VenueState>((set, get) => ({
   createRoom: async (roomData) => {
     const room = await roomApi.createRoom({
       name: roomData.name,
+      description: roomData.description,
+      location: roomData.location,
+      accessType: roomData.accessType,
+      availableFrom: roomData.availableFrom,
+      availableTo: roomData.availableTo,
+      minBookingMinutes: roomData.minBookingMinutes,
+      maxBookingMinutes: roomData.maxBookingMinutes,
       capacity: roomData.capacity,
+      services: roomData.services,
       venueId: roomData.venueId,
       photoUrls: roomData.photoUrls,
       photoUrl: roomData.photoUrl,
@@ -133,7 +141,15 @@ export const useVenueStore = create<VenueState>((set, get) => ({
   updateRoom: async (id, roomData) => {
     const room = await roomApi.updateRoom(id, {
       name: roomData.name,
+      description: roomData.description,
+      location: roomData.location,
+      accessType: roomData.accessType,
+      availableFrom: roomData.availableFrom,
+      availableTo: roomData.availableTo,
+      minBookingMinutes: roomData.minBookingMinutes,
+      maxBookingMinutes: roomData.maxBookingMinutes,
       capacity: roomData.capacity,
+      services: roomData.services,
       photoUrls: roomData.photoUrls,
       photoUrl: roomData.photoUrl,
     });
@@ -158,6 +174,7 @@ export const useVenueStore = create<VenueState>((set, get) => ({
       const booking = await bookingApi.createBooking({
         roomId: bookingData.roomId,
         userId: bookingData.userId,
+        description: bookingData.description,
         bookingDate: bookingData.bookingDate,
         startTime: bookingData.startTime,
         endTime: bookingData.endTime,
@@ -178,7 +195,8 @@ export const useVenueStore = create<VenueState>((set, get) => ({
   updateBooking: async (id, bookingData) => {
     try {
       const booking = await bookingApi.updateBooking(id, {
-        roomId: bookingData.roomId,
+        userId: bookingData.userId,
+        description: bookingData.description,
         bookingDate: bookingData.bookingDate,
         startTime: bookingData.startTime,
         endTime: bookingData.endTime,

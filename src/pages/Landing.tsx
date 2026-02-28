@@ -52,10 +52,10 @@ const onboardingSteps = [
 
 export default function Landing() {
   const { t } = useI18n();
-  const { isAuthenticated, portal } = useAuthStore();
+  const { isAuthenticated, portal, user } = useAuthStore();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const navRef = useRef<HTMLElement | null>(null);
-  const isOwnerPortal = portal === 'business';
+  const isOwnerPortal = portal === 'business' || user?.role === 'admin';
   const businessCtaLink = isAuthenticated ? (isOwnerPortal ? '/my-venue' : '/business/register') : '/business/register';
   const businessCtaLabel = isOwnerPortal ? t('Перейти к управлению бизнесом') : t('Перейти к добавлению бизнеса');
 

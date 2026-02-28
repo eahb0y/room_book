@@ -71,6 +71,39 @@ const resolveAccessToken = (accessToken?: string, requireAuth = true) => {
 
 const normalizePath = (path: string) => (path.startsWith('/') ? path : `/${path}`);
 
+const buildSupabaseNetworkError = (url: string, endpointType: 'auth' | 'database') => {
+  const endpointLabel = endpointType === 'auth' ? 'authentication' : 'database';
+  const host = (() => {
+    try {
+      return new URL(url).host;
+    } catch {
+      return 'Supabase';
+    }
+  })();
+
+  return `Network error: unable to reach Supabase ${endpointLabel} endpoint (${host}). Check internet connection, ad blocker, VPN/firewall, and Supabase URL configuration.`;
+};
+
+const performSupabaseFetch = async (
+  url: string,
+  init: RequestInit,
+  endpointType: 'auth' | 'database',
+) => {
+  try {
+    return await fetch(url, init);
+  } catch (err) {
+    const message = err instanceof Error ? err.message.toLowerCase() : '';
+    const isNetworkError =
+      err instanceof TypeError || message.includes('failed to fetch') || message.includes('networkerror');
+
+    if (isNetworkError) {
+      throw new Error(buildSupabaseNetworkError(url, endpointType));
+    }
+
+    throw err;
+  }
+};
+
 export const supabaseAuthRequest = async <T>(
   path: string,
   init?: RequestInit,
@@ -79,10 +112,11 @@ export const supabaseAuthRequest = async <T>(
   const normalizedPath = normalizePath(path);
   const token = resolveAccessToken(options?.accessToken, options?.requireAuth ?? false);
   const withJson = init?.body !== undefined;
-  const res = await fetch(`${getSupabaseUrl()}/auth/v1${normalizedPath}`, {
+  const url = `${getSupabaseUrl()}/auth/v1${normalizedPath}`;
+  const res = await performSupabaseFetch(url, {
     ...init,
     headers: mergeHeaders(init?.headers, token, withJson),
-  });
+  }, 'auth');
 
   const payload = await parsePayload(res);
   if (!res.ok) {
@@ -100,10 +134,11 @@ export const supabaseDbRequest = async <T>(
   const normalizedPath = normalizePath(path);
   const token = resolveAccessToken(options?.accessToken, options?.requireAuth ?? true);
   const withJson = init?.body !== undefined;
-  const res = await fetch(`${getSupabaseUrl()}/rest/v1${normalizedPath}`, {
+  const url = `${getSupabaseUrl()}/rest/v1${normalizedPath}`;
+  const res = await performSupabaseFetch(url, {
     ...init,
     headers: mergeHeaders(init?.headers, token, withJson),
-  });
+  }, 'database');
 
   const payload = await parsePayload(res);
   if (!res.ok) {

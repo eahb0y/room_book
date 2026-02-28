@@ -5,6 +5,7 @@ interface BookingRow {
   id: string;
   room_id: string;
   user_id: string;
+  description?: string | null;
   booking_date: string;
   start_time: string;
   end_time: string;
@@ -42,6 +43,7 @@ const mapBooking = (row: BookingRowWithProfile): Booking => {
     userEmail: booker?.email ?? undefined,
     userFirstName: booker?.first_name ?? undefined,
     userLastName: booker?.last_name ?? undefined,
+    description: row.description?.trim() ? row.description : undefined,
     bookingDate: row.booking_date,
     startTime: row.start_time.slice(0, 5),
     endTime: row.end_time.slice(0, 5),
@@ -118,6 +120,7 @@ export const listBookings = async (params?: { userId?: string; venueId?: string;
 export const createBooking = async (payload: {
   roomId: string;
   userId: string;
+  description?: string;
   bookingDate: string;
   startTime: string;
   endTime: string;
@@ -140,6 +143,7 @@ export const createBooking = async (payload: {
         {
           room_id: payload.roomId,
           user_id: payload.userId,
+          description: payload.description?.trim() || '',
           booking_date: payload.bookingDate,
           start_time: payload.startTime,
           end_time: payload.endTime,
@@ -175,19 +179,62 @@ export const cancelBooking = async (id: string) => {
   return mapBooking(updated);
 };
 
+const getBookingById = async (id: string) => {
+  const rows = await supabaseDbRequest<BookingRowWithProfile[]>(
+    `bookings?id=eq.${encodeURIComponent(id)}&select=${bookingSelectWithProfile}&limit=1`,
+    { method: 'GET' },
+  );
+
+  const booking = rows[0];
+  if (!booking) throw new Error('Booking not found');
+  return booking;
+};
+
 export const updateBooking = async (
   id: string,
   payload: {
-    roomId: string;
+    userId: string;
+    description?: string;
     bookingDate: string;
     startTime: string;
     endTime: string;
     status?: 'active' | 'cancelled';
   },
 ) => {
-  if (payload.status !== 'cancelled') {
-    throw new Error('Разрешена только отмена бронирования');
+  const current = await getBookingById(id);
+
+  if (payload.status === 'cancelled') {
+    return cancelBooking(id);
   }
 
-  return cancelBooking(id);
+  await ensureNoOverlap({
+    roomId: current.room_id,
+    bookingDate: payload.bookingDate,
+    startTime: payload.startTime,
+    endTime: payload.endTime,
+    excludeId: id,
+  });
+
+  const rows = await supabaseDbRequest<BookingRowWithProfile[]>(
+    `bookings?id=eq.${encodeURIComponent(id)}&select=${bookingSelectWithProfile}`,
+    {
+      method: 'PATCH',
+      headers: {
+        Prefer: 'return=representation',
+      },
+      body: JSON.stringify({
+        user_id: payload.userId,
+        description: payload.description?.trim() || '',
+        booking_date: payload.bookingDate,
+        start_time: payload.startTime,
+        end_time: payload.endTime,
+        status: payload.status ?? current.status ?? 'active',
+      }),
+    },
+  );
+
+  const updated = rows[0];
+  if (!updated) throw new Error('Booking not found');
+
+  return mapBooking(updated);
 };

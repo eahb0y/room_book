@@ -10,4 +10,4 @@ Disallow: /my-bookings
 Disallow: /profile
 Disallow: /invite/
 
-Sitemap: https://tezbron.com/sitemap.xml
+Sitemap: https://example.com/sitemap.xml

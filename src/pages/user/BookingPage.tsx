@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { addDays, format, isBefore, startOfToday } from 'date-fns';
-import { AlertCircle, ArrowLeft, Calendar as CalendarIcon, CheckCircle2, ChevronLeft, ChevronRight, Clock3, DoorOpen, Users } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Calendar as CalendarIcon, CheckCircle2, ChevronLeft, ChevronRight, Clock3, DoorOpen, ShieldCheck, Users } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useVenueStore } from '@/store/venueStore';
 import { useVenueDataGuard } from '@/hooks/useVenueDataGuard';
@@ -24,6 +24,7 @@ const SLOT_START_MINUTES = Array.from({ length: MINUTES_IN_DAY / SLOT_STEP_MINUT
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 
 const toMinutes = (time: string) => {
+  if (time === '24:00') return MINUTES_IN_DAY;
   const [hour, minute] = time.split(':');
   return parseInt(hour, 10) * 60 + parseInt(minute, 10);
 };
@@ -34,6 +35,14 @@ const toTime = (totalMinutes: number) => {
   const hour = Math.floor(safeMinutes / 60).toString().padStart(2, '0');
   const minute = (safeMinutes % 60).toString().padStart(2, '0');
   return `${hour}:${minute}`;
+};
+
+const toDurationLabel = (minutes: number) => {
+  const hours = Math.floor(minutes / 60);
+  const restMinutes = minutes % 60;
+  if (hours > 0 && restMinutes > 0) return `${hours}ч ${restMinutes}м`;
+  if (hours > 0) return `${hours}ч`;
+  return `${restMinutes}м`;
 };
 
 export default function BookingPage() {
@@ -48,6 +57,7 @@ export default function BookingPage() {
   const venue = useVenueStore((state) =>
     room ? state.venues.find((currentVenue) => currentVenue.id === room.venueId) : undefined
   );
+  const memberships = useVenueStore((state) => state.memberships);
   const allBookings = useVenueStore((state) => state.bookings);
   const bookings = useMemo(
     () => allBookings.filter((booking) => booking.roomId === roomId && booking.status === 'active'),
@@ -63,6 +73,19 @@ export default function BookingPage() {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  const hasResidentAccess = useMemo(() => {
+    if (!user || !room || !venue) return false;
+    if (user.role === 'admin') return true;
+    if (venue.adminId === user.id) return true;
+    return memberships.some((membership) => membership.venueId === room.venueId && membership.userId === user.id);
+  }, [memberships, room, user, venue]);
+
+  const isResidentsOnlyRoom = room?.accessType === 'residents_only';
+  const availabilityStartMinutes = room ? toMinutes(room.availableFrom) : 0;
+  const availabilityEndMinutes = room ? toMinutes(room.availableTo) : MINUTES_IN_DAY;
+  const roomMinBookingMinutes = room ? Math.max(SLOT_STEP_MINUTES, room.minBookingMinutes) : SLOT_STEP_MINUTES;
+  const roomMaxBookingMinutes = room ? Math.max(roomMinBookingMinutes, room.maxBookingMinutes) : MINUTES_IN_DAY;
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -101,24 +124,36 @@ export default function BookingPage() {
     )
   ), [busyRanges]);
 
+  const isOutsideAvailability = useCallback((slotStartMinute: number) => (
+    slotStartMinute < availabilityStartMinutes || slotStartMinute >= availabilityEndMinutes
+  ), [availabilityEndMinutes, availabilityStartMinutes]);
+
   const getAvailableEndMinutes = useCallback((startMinute: number) => {
+    if (startMinute < availabilityStartMinutes || startMinute >= availabilityEndMinutes) {
+      return [];
+    }
+
     const nextBusyStart = busyRanges
       .filter((range) => range.start > startMinute)
       .reduce((nearest, range) => Math.min(nearest, range.start), MINUTES_IN_DAY);
 
     const values: number[] = [];
-    for (let minute = startMinute + SLOT_STEP_MINUTES; minute <= nextBusyStart; minute += SLOT_STEP_MINUTES) {
+    const rangeEnd = Math.min(nextBusyStart, availabilityEndMinutes, startMinute + roomMaxBookingMinutes);
+    const rangeStart = startMinute + roomMinBookingMinutes;
+
+    for (let minute = rangeStart; minute <= rangeEnd; minute += SLOT_STEP_MINUTES) {
       values.push(minute);
     }
     return values;
-  }, [busyRanges]);
+  }, [availabilityEndMinutes, availabilityStartMinutes, busyRanges, roomMaxBookingMinutes, roomMinBookingMinutes]);
 
   const availableStartTimes = useMemo(() => (
     SLOT_START_MINUTES
+      .filter((minute) => !isOutsideAvailability(minute))
       .filter((minute) => !isSlotBusy(minute))
       .filter((minute) => getAvailableEndMinutes(minute).length > 0)
       .map((minute) => toTime(minute))
-  ), [getAvailableEndMinutes, isSlotBusy]);
+  ), [getAvailableEndMinutes, isOutsideAvailability, isSlotBusy]);
 
   const availableEndTimes = useMemo(() => {
     if (!dialogStartTime) return [];
@@ -155,6 +190,11 @@ export default function BookingPage() {
     setError('');
     setSuccessMessage('');
 
+    if (isResidentsOnlyRoom && !hasResidentAccess) {
+      setError(t('Эта комната доступна только резидентам данного бизнеса'));
+      return;
+    }
+
     if (!dialogStartTime || !dialogEndTime) {
       setError(t('Укажите начало и окончание бронирования'));
       return;
@@ -162,6 +202,30 @@ export default function BookingPage() {
 
     if (dialogStartTime >= dialogEndTime) {
       setError(t('Время окончания должно быть позже времени начала'));
+      return;
+    }
+
+    const startMinute = toMinutes(dialogStartTime);
+    const endMinute = toMinutes(dialogEndTime);
+    if (startMinute < availabilityStartMinutes || endMinute > availabilityEndMinutes) {
+      setError(
+        t('Комната доступна только с {from} до {to}', { from: room?.availableFrom ?? '00:00', to: room?.availableTo ?? '24:00' }),
+      );
+      return;
+    }
+
+    const durationMinutes = endMinute - startMinute;
+    if (durationMinutes < roomMinBookingMinutes) {
+      setError(
+        t('Минимальная длительность брони: {duration}', { duration: toDurationLabel(roomMinBookingMinutes) }),
+      );
+      return;
+    }
+
+    if (durationMinutes > roomMaxBookingMinutes) {
+      setError(
+        t('Максимальная длительность брони: {duration}', { duration: toDurationLabel(roomMaxBookingMinutes) }),
+      );
       return;
     }
 
@@ -229,6 +293,18 @@ export default function BookingPage() {
               <Users className="h-4 w-4" />
               <span>{t('до {count} человек', { count: room.capacity })}</span>
             </p>
+            <p className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4" />
+              <span>{room.accessType === 'public' ? t('Публичная') : t('Только для резидентов')}</span>
+            </p>
+            <p className="flex items-center gap-2">
+              <Clock3 className="h-4 w-4" />
+              <span>{t('Доступно: {from} — {to}', { from: room.availableFrom, to: room.availableTo })}</span>
+            </p>
+            <p className="flex items-center gap-2">
+              <Clock3 className="h-4 w-4" />
+              <span>{t('Бронь: {min} - {max}', { min: toDurationLabel(roomMinBookingMinutes), max: toDurationLabel(roomMaxBookingMinutes) })}</span>
+            </p>
           </div>
         </div>
       </div>
@@ -251,13 +327,28 @@ export default function BookingPage() {
         </Button>
       </div>
 
+      {isResidentsOnlyRoom && !hasResidentAccess ? (
+        <Alert variant="destructive" className="animate-scale-in">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{t('Эта комната доступна только резидентам данного бизнеса')}</AlertDescription>
+        </Alert>
+      ) : null}
+
       <Card className="border-border/40 animate-fade-up">
         <CardHeader className="gap-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <CardTitle className="text-lg font-semibold font-body">{t('Выберите день')}</CardTitle>
               <CardDescription className="mt-1">
-                {t('Нажмите на свободный 15‑минутный слот, затем задайте начало и конец бронирования')}
+                {t(
+                  'Нажмите на свободный 15‑минутный слот, затем задайте начало и конец бронирования. Доступно с {from} до {to}, длительность от {min} до {max}.',
+                  {
+                    from: room.availableFrom,
+                    to: room.availableTo,
+                    min: toDurationLabel(roomMinBookingMinutes),
+                    max: toDurationLabel(roomMaxBookingMinutes),
+                  },
+                )}
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
@@ -360,6 +451,11 @@ export default function BookingPage() {
               <AlertDescription className="text-emerald-300">{successMessage}</AlertDescription>
             </Alert>
           )}
+          {isResidentsOnlyRoom && !hasResidentAccess ? (
+            <div className="rounded-xl border border-red-900/35 bg-red-950/20 px-4 py-3 text-sm text-red-200">
+              {t('Бронирование недоступно: запросите доступ резидента у владельца бизнеса.')}
+            </div>
+          ) : null}
 
           <ScrollArea className="h-[680px] rounded-xl border border-border/40 bg-muted/10 p-3 pr-2">
             <div className="space-y-1.5">
@@ -371,22 +467,33 @@ export default function BookingPage() {
                     <div className="flex flex-col gap-1.5">
                       {quarterSlots.map((minute) => {
                         const busy = isSlotBusy(minute);
+                        const outsideAvailability = isOutsideAvailability(minute);
+                        const noAllowedDuration = !outsideAvailability && getAvailableEndMinutes(minute).length === 0;
+                        const disabledByRules = outsideAvailability || noAllowedDuration;
                         return (
                           <button
                             key={minute}
                             type="button"
-                            disabled={busy}
+                            disabled={busy || disabledByRules || (isResidentsOnlyRoom && !hasResidentAccess)}
                             onClick={() => openSlotDialog(minute)}
                             className={cn(
                               'w-full rounded-md border px-2 py-2 text-left transition-all',
                               busy
                                 ? 'cursor-not-allowed border-red-900/45 bg-red-950/35 text-red-200'
-                                : 'border-border/60 bg-background/65 text-foreground hover:border-primary/45 hover:bg-primary/10'
+                                : disabledByRules
+                                  ? 'cursor-not-allowed border-border/50 bg-muted/30 text-muted-foreground/60'
+                                : isResidentsOnlyRoom && !hasResidentAccess
+                                  ? 'cursor-not-allowed border-border/50 bg-muted/30 text-muted-foreground/60'
+                                  : 'border-border/60 bg-background/65 text-foreground hover:border-primary/45 hover:bg-primary/10'
                             )}
                           >
                             <p className="font-mono text-xs">{toTime(minute)}</p>
                             <p className="mt-1 text-[10px] uppercase tracking-wide opacity-80">
-                              {busy ? t('занято') : t('свободно')}
+                              {busy
+                                ? t('занято')
+                                : disabledByRules
+                                  ? t('недоступно')
+                                  : t('свободно')}
                             </p>
                           </button>
                         );
@@ -420,7 +527,7 @@ export default function BookingPage() {
       </Card>
 
       <Dialog
-        open={isDialogOpen}
+        open={isDialogOpen && !(isResidentsOnlyRoom && !hasResidentAccess)}
         onOpenChange={(open) => {
           setIsDialogOpen(open);
           if (!open) {
@@ -433,7 +540,11 @@ export default function BookingPage() {
           <DialogHeader>
             <DialogTitle>{t('Новое бронирование')}</DialogTitle>
             <DialogDescription>
-              {format(date, "d MMMM yyyy, EEEE", { locale: dateLocale })}
+              {t('{date}. Доступно с {from} до {to}.', {
+                date: format(date, "d MMMM yyyy, EEEE", { locale: dateLocale }),
+                from: room.availableFrom,
+                to: room.availableTo,
+              })}
             </DialogDescription>
           </DialogHeader>
 
