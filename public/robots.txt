@@ -1,0 +1,13 @@
+User-agent: *
+Allow: /
+Disallow: /my-venue
+Disallow: /people
+Disallow: /rooms
+Disallow: /bookings
+Disallow: /venue/
+Disallow: /room/
+Disallow: /my-bookings
+Disallow: /profile
+Disallow: /invite/
+
+Sitemap: https://example.com/sitemap.xml

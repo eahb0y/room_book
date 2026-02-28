@@ -1,4 +1,5 @@
 import type { LoginCredentials, RegisterCredentials, User } from '@/types';
+import { getSupabaseUrl } from '@/lib/supabaseConfig';
 import { supabaseAuthRequest, supabaseDbRequest } from '@/lib/supabaseHttp';
 import { clearAuthSession, getAuthSession, setAuthSession } from '@/lib/supabaseSession';
 
@@ -26,6 +27,11 @@ interface SignupResponse {
   } | null;
 }
 
+interface AuthUserResponse {
+  id: string;
+  email?: string;
+}
+
 interface ProfileRow {
   id: string;
   email: string;
@@ -36,7 +42,17 @@ interface ProfileRow {
   created_at: string;
 }
 
+export type OAuthProvider = 'google' | 'apple';
+
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
+
+const decodeOAuthError = (value: string) => {
+  try {
+    return decodeURIComponent(value.replace(/\+/g, ' '));
+  } catch {
+    return value;
+  }
+};
 
 const mapProfileToUser = (profile: ProfileRow): User => ({
   id: profile.id,
@@ -72,6 +88,7 @@ const upsertProfile = async (
   profile: {
     id: string;
     email: string;
+    role?: 'admin' | 'user';
     firstName?: string;
     lastName?: string;
     avatarUrl?: string | null;
@@ -89,6 +106,7 @@ const upsertProfile = async (
         {
           id: profile.id,
           email: profile.email,
+          ...(profile.role ? { role: profile.role } : {}),
           first_name: profile.firstName ?? null,
           last_name: profile.lastName ?? null,
           ...(profile.avatarUrl !== undefined ? { avatar_url: profile.avatarUrl } : {}),
@@ -113,6 +131,7 @@ const ensureProfile = async (input: {
     {
       id: input.userId,
       email: input.email,
+      role: 'user',
     },
     input.accessToken,
   );
@@ -140,6 +159,75 @@ export const login = async (credentials: LoginCredentials) => {
     userId: data.user.id,
     email: data.user.email ?? email,
     accessToken: data.access_token,
+  });
+
+  return mapProfileToUser(profile);
+};
+
+export const getOAuthAuthorizeUrl = (provider: OAuthProvider, redirectTo: string) => {
+  const url = new URL(`${getSupabaseUrl()}/auth/v1/authorize`);
+  url.searchParams.set('provider', provider);
+  url.searchParams.set('redirect_to', redirectTo);
+  if (provider === 'google') {
+    url.searchParams.set('prompt', 'select_account');
+  }
+  return url.toString();
+};
+
+export const getGoogleAuthorizeUrl = (redirectTo: string) => {
+  return getOAuthAuthorizeUrl('google', redirectTo);
+};
+
+export const getAppleAuthorizeUrl = (redirectTo: string) => {
+  return getOAuthAuthorizeUrl('apple', redirectTo);
+};
+
+export const completeGoogleAuthFromHash = async (hash: string) => {
+  const normalizedHash = hash.startsWith('#') ? hash.slice(1) : hash;
+  if (!normalizedHash) return null;
+
+  const params = new URLSearchParams(normalizedHash);
+  const oauthError = params.get('error_description') ?? params.get('error');
+  if (oauthError) {
+    throw new Error(decodeOAuthError(oauthError));
+  }
+
+  const accessToken = params.get('access_token');
+  const refreshToken = params.get('refresh_token');
+  const expiresInValue = params.get('expires_in');
+
+  if (!accessToken && !refreshToken && !expiresInValue) {
+    return null;
+  }
+
+  const expiresIn = Number(expiresInValue);
+  if (!accessToken || !refreshToken || !Number.isFinite(expiresIn) || expiresIn <= 0) {
+    throw new Error('Не удалось завершить вход через OAuth');
+  }
+
+  setAuthSession(
+    toSession({
+      accessToken,
+      refreshToken,
+      expiresIn,
+    }),
+  );
+
+  const authUser = await supabaseAuthRequest<AuthUserResponse>(
+    '/user',
+    { method: 'GET' },
+    { accessToken, requireAuth: true },
+  );
+
+  const userEmail = authUser.email?.trim().toLowerCase();
+  if (!userEmail) {
+    throw new Error('Не удалось получить email пользователя');
+  }
+
+  const profile = await ensureProfile({
+    userId: authUser.id,
+    email: userEmail,
+    accessToken,
   });
 
   return mapProfileToUser(profile);
@@ -193,13 +281,11 @@ export const register = async (payload: RegisterCredentials) => {
     }),
   );
 
-  const profile = await upsertProfile(
-    {
-      id: data.user.id,
-      email: data.user.email ?? email,
-    },
+  const profile = await ensureProfile({
+    userId: data.user.id,
+    email: data.user.email ?? email,
     accessToken,
-  );
+  });
 
   return mapProfileToUser(profile);
 };

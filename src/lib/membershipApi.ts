@@ -60,3 +60,12 @@ export const createMembership = async (payload: {
 
   return mapMembership(created);
 };
+
+export const deleteMembership = async (id: string) => {
+  await supabaseDbRequest<unknown>(
+    `venue_memberships?id=eq.${encodeURIComponent(id)}`,
+    {
+      method: 'DELETE',
+    },
+  );
+};

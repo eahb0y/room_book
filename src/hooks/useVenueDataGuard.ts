@@ -1,12 +1,13 @@
 import { useVenueStore } from '@/store/venueStore';
 import type { User } from '@/types';
 
-export const useVenueDataGuard = (user: User | null) => {
+export const useVenueDataGuard = (user: User | null, scope?: 'admin' | 'user') => {
   const isVenueStoreLoading = useVenueStore((state) => state.isLoading);
   const loadedFor = useVenueStore((state) => state.loadedFor);
   const settledFor = useVenueStore((state) => state.settledFor);
 
-  const expectedLoadedFor = user ? `${user.role}:${user.id}` : null;
+  const resolvedScope = scope ?? user?.role ?? null;
+  const expectedLoadedFor = user && resolvedScope ? `${resolvedScope}:${user.id}` : null;
   const isScopeSettled = expectedLoadedFor !== null && settledFor === expectedLoadedFor;
   const isVenueDataLoading = expectedLoadedFor !== null && (isVenueStoreLoading || !isScopeSettled);
   const isVenueDataReady = expectedLoadedFor !== null && loadedFor === expectedLoadedFor && isScopeSettled && !isVenueStoreLoading;

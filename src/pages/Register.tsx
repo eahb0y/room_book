@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { AlertCircle, UserPlus } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useI18n } from '@/i18n/useI18n';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
@@ -20,8 +20,47 @@ export default function Register() {
   const navigate = useNavigate();
   const location = useLocation();
   const register = useAuthStore((state) => state.register);
-  const inviteToken = new URLSearchParams(location.search).get('invite');
+  const setPortal = useAuthStore((state) => state.setPortal);
+  const startGoogleAuth = useAuthStore((state) => state.startGoogleAuth);
+  const completeGoogleAuth = useAuthStore((state) => state.completeGoogleAuth);
+  const searchParams = new URLSearchParams(location.search);
+  const inviteToken = searchParams.get('invite');
+  const nextPathParam = searchParams.get('next');
+  const nextPath = nextPathParam && nextPathParam.startsWith('/') && !nextPathParam.startsWith('//') ? nextPathParam : null;
+  const loginParams = new URLSearchParams();
+  if (inviteToken) loginParams.set('invite', inviteToken);
+  if (nextPath) loginParams.set('next', nextPath);
+  const loginPath = loginParams.toString() ? `/login?${loginParams.toString()}` : '/login';
   const isInviteFlow = Boolean(inviteToken);
+  const resolvePostAuthPath = () => (inviteToken ? `/invite/${inviteToken}` : nextPath ?? '/');
+
+  useEffect(() => {
+    const hasOAuthPayload = location.hash.includes('access_token') || location.hash.includes('error=');
+    if (!hasOAuthPayload) return;
+
+    let isActive = true;
+    setError('');
+    setIsLoading(true);
+
+    void (async () => {
+      try {
+        const success = await completeGoogleAuth(location.hash);
+        if (!success) return;
+        setPortal('user');
+        navigate(resolvePostAuthPath());
+      } catch (err) {
+        const message = err instanceof Error ? t(err.message) : t('Произошла ошибка при регистрации');
+        if (isActive) setError(message);
+      } finally {
+        window.history.replaceState(null, '', `${location.pathname}${location.search}`);
+        if (isActive) setIsLoading(false);
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [completeGoogleAuth, inviteToken, location.hash, location.pathname, location.search, navigate, nextPath, setPortal, t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,11 +81,8 @@ export default function Register() {
     try {
       const success = await register({ email, password });
       if (success) {
-        if (inviteToken) {
-          navigate(`/invite/${inviteToken}`);
-        } else {
-          navigate('/app');
-        }
+        setPortal('user');
+        navigate(resolvePostAuthPath());
       } else {
         setError(t('Пользователь с таким email уже существует'));
       }
@@ -71,22 +107,41 @@ export default function Register() {
       <div className="w-full max-w-md relative z-10 animate-fade-up">
         {/* Heading */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary/90 mb-5 shadow-glow">
-            <UserPlus className="h-6 w-6 text-white" />
-          </div>
+          <img
+            src="/favicon.svg"
+            alt=""
+            aria-hidden="true"
+            className="mx-auto mb-5 h-12 w-12 rounded-xl shadow-glow"
+          />
           <h1 className="text-3xl font-semibold text-foreground mb-2">
-            {isInviteFlow ? t('Регистрация по приглашению') : t('Регистрация бизнеса')}
+            {isInviteFlow ? t('Регистрация по приглашению') : t('Создание пользовательского аккаунта')}
           </h1>
           <p className="text-muted-foreground text-sm">
             {isInviteFlow
               ? t('Создайте аккаунт, чтобы принять приглашение')
-              : t('Создайте бизнес-аккаунт для работы с платформой')}
+              : t('Создайте аккаунт, чтобы бронировать места в маркетплейсе')}
           </p>
         </div>
 
         <Card className="border-border/40 shadow-xl shadow-black/20">
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-5 pt-6">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 w-full border-border/60 bg-secondary/40"
+                onClick={() => startGoogleAuth(`/register${location.search}`)}
+                disabled={isLoading}
+              >
+                {t('Продолжить с Google')}
+              </Button>
+
+              <div className="flex items-center gap-3 text-xs uppercase tracking-[0.14em] text-muted-foreground/70">
+                <span className="h-px flex-1 bg-border/60" />
+                <span>{t('или через email')}</span>
+                <span className="h-px flex-1 bg-border/60" />
+              </div>
+
               {error && (
                 <Alert variant="destructive" className="animate-scale-in">
                   <AlertCircle className="h-4 w-4" />
@@ -137,7 +192,7 @@ export default function Register() {
               <p className="text-sm text-center text-muted-foreground">
                 {t('Уже есть аккаунт?')}{' '}
                 <Link
-                  to={inviteToken ? `/login?invite=${inviteToken}` : '/login'}
+                  to={loginPath}
                   className="text-primary hover:text-primary/80 transition-colors"
                 >
                   {t('Войти')}

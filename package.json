@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "start": "npm run dev",
+    "seo:generate": "node scripts/generate-seo-files.mjs",
+    "prebuild": "npm run seo:generate",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "smoke:e2e": "node scripts/smoke-e2e.mjs",
@@ -45,6 +47,7 @@
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.6.0",
+    "gsap": "^3.14.2",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.562.0",
     "next-themes": "^0.4.6",

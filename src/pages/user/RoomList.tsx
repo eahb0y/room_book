@@ -1,11 +1,11 @@
 import { useEffect, useMemo } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useVenueStore } from '@/store/venueStore';
 import { useVenueDataGuard } from '@/hooks/useVenueDataGuard';
 import { RoomPhotoGallery } from '@/components/RoomPhotoGallery';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { DoorOpen, Users, ArrowLeft, ArrowRight, MapPin } from 'lucide-react';
+import { DoorOpen, Users, ArrowLeft, ArrowRight, MapPin, Globe, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { getRoomPhotoUrls } from '@/lib/roomPhotos';
@@ -15,46 +15,53 @@ export default function RoomList() {
   const { t } = useI18n();
   const { venueId } = useParams<{ venueId: string }>();
   const { user, isAuthenticated } = useAuthStore();
-  const { isVenueDataLoading } = useVenueDataGuard(user);
+  const { isVenueDataLoading } = useVenueDataGuard(user, 'user');
   const navigate = useNavigate();
+  const location = useLocation();
 
   const venue = useVenueStore((state) =>
     state.venues.find((v) => v.id === venueId)
   );
-  const membership = useVenueStore((state) =>
-    venueId && user ? state.getMembership(venueId, user.id) : undefined
-  );
+  const memberships = useVenueStore((state) => state.memberships);
   const allRooms = useVenueStore((state) => state.rooms);
-  const rooms = useMemo(() => allRooms.filter((r) => r.venueId === venueId), [allRooms, venueId]);
+  const hasResidentAccess = useMemo(() => {
+    if (!user || !venue) return false;
+    if (user.role === 'admin') return true;
+    if (venue.adminId === user.id) return true;
+    return memberships.some((membership) => membership.venueId === venue.id && membership.userId === user.id);
+  }, [memberships, user, venue]);
+  const rooms = useMemo(
+    () =>
+      allRooms.filter(
+        (room) =>
+          room.venueId === venueId &&
+          (room.accessType === 'public' || hasResidentAccess),
+      ),
+    [allRooms, hasResidentAccess, venueId],
+  );
 
   useEffect(() => {
     if (!isAuthenticated) {
-      navigate('/login');
+      const nextPath = `${location.pathname}${location.search}`;
+      navigate(`/login?next=${encodeURIComponent(nextPath)}`, { replace: true });
       return;
     }
-    if (user?.role === 'admin') {
-      navigate('/app');
-      return;
-    }
+
     if (isVenueDataLoading) return;
+
     if (!venue) {
-      navigate('/app');
-      return;
+      navigate('/');
     }
-    if (user && !membership) {
-      navigate('/app');
-    }
-  }, [isAuthenticated, isVenueDataLoading, membership, navigate, user, venue]);
+  }, [isAuthenticated, isVenueDataLoading, location.pathname, location.search, navigate, venue]);
 
   if (isVenueDataLoading) return null;
   if (!venue) return null;
-  if (user && !membership) return null;
 
   return (
     <div className="space-y-8">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm">
-        <Link to="/app" className="text-muted-foreground hover:text-primary transition-colors">{t('Заведения')}</Link>
+        <Link to="/" className="text-muted-foreground hover:text-primary transition-colors">{t('Заведения')}</Link>
         <span className="text-muted-foreground/40">/</span>
         <span className="text-foreground/80">{venue.name}</span>
       </div>
@@ -81,7 +88,7 @@ export default function RoomList() {
           </div>
           <span className="font-body">{t('Доступные комнаты')}</span>
         </h2>
-        <Button variant="outline" onClick={() => navigate('/app')} className="border-border/50 hover:border-primary/30">
+        <Button variant="outline" onClick={() => navigate('/')} className="border-border/50 hover:border-primary/30">
           <ArrowLeft className="h-4 w-4 mr-2" />
           {t('Назад')}
         </Button>
@@ -120,6 +127,16 @@ export default function RoomList() {
                     <Badge variant="secondary" className="flex items-center gap-1.5 w-fit text-xs">
                       <Users className="h-3 w-3" />
                       <span>{t('до {count} человек', { count: room.capacity })}</span>
+                    </Badge>
+                    <Badge variant="outline" className="mt-2 flex items-center gap-1.5 w-fit text-xs border-border/60">
+                      {room.accessType === 'public' ? (
+                        <Globe className="h-3 w-3" />
+                      ) : (
+                        <ShieldCheck className="h-3 w-3" />
+                      )}
+                      <span>
+                        {room.accessType === 'public' ? t('Публичная') : t('Только резиденты')}
+                      </span>
                     </Badge>
                   </CardDescription>
                 </CardHeader>

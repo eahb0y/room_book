@@ -1,52 +1,109 @@
 import { useEffect, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Building2, DoorOpen, CalendarDays, ArrowRight } from 'lucide-react';
+import { Building2, DoorOpen, CalendarDays, CheckCircle2, CircleSlash, Clock3 } from 'lucide-react';
 import { useVenueStore } from '@/store/venueStore';
-import { Button } from '@/components/ui/button';
 import { useI18n } from '@/i18n/useI18n';
 import { getBookingViewStatus } from '@/lib/bookingStatus';
 
 export default function AdminDashboard() {
   const { t } = useI18n();
-  const { user } = useAuthStore();
+  const { user, portal } = useAuthStore();
   const navigate = useNavigate();
+  const isBusinessPortal = portal === 'business' || user?.role === 'admin';
   const venues = useVenueStore((state) => state.venues);
   const allRooms = useVenueStore((state) => state.rooms);
   const allBookings = useVenueStore((state) => state.bookings);
 
-  const venue = useMemo(() => venues.find((v) => v.adminId === user?.id), [venues, user?.id]);
-  const rooms = useMemo(() => allRooms.filter((r) => r.venueId === venue?.id), [allRooms, venue?.id]);
-  const venueRoomIds = useMemo(() => rooms.map((r) => r.id), [rooms]);
-  const bookings = useMemo(() => allBookings.filter((b) => venueRoomIds.includes(b.roomId)), [allBookings, venueRoomIds]);
+  const ownedVenues = useMemo(() => venues.filter((v) => v.adminId === user?.id), [venues, user?.id]);
+  const ownedVenueIds = useMemo(() => new Set(ownedVenues.map((venue) => venue.id)), [ownedVenues]);
+  const rooms = useMemo(() => allRooms.filter((room) => ownedVenueIds.has(room.venueId)), [allRooms, ownedVenueIds]);
+  const venueRoomIds = useMemo(() => new Set(rooms.map((room) => room.id)), [rooms]);
+  const bookings = useMemo(() => allBookings.filter((booking) => venueRoomIds.has(booking.roomId)), [allBookings, venueRoomIds]);
+  const primaryVenue = ownedVenues[0];
 
   useEffect(() => {
-    if (!user || user.role !== 'admin') {
-      navigate('/app');
+    if (!user || !isBusinessPortal) {
+      navigate('/');
     }
-  }, [user, navigate]);
+  }, [isBusinessPortal, user, navigate]);
 
-  const activeBookings = bookings.filter((b) => getBookingViewStatus(b) === 'active');
+  const todayDate = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = `${now.getMonth() + 1}`.padStart(2, '0');
+    const day = `${now.getDate()}`.padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }, []);
+
+  const activeBookings = useMemo(() => bookings.filter((booking) => getBookingViewStatus(booking) === 'active'), [bookings]);
+  const completedBookings = useMemo(() => bookings.filter((booking) => getBookingViewStatus(booking) === 'completed'), [bookings]);
+  const cancelledBookings = useMemo(() => bookings.filter((booking) => getBookingViewStatus(booking) === 'cancelled'), [bookings]);
+  const todayBookings = useMemo(() => bookings.filter((booking) => booking.bookingDate === todayDate), [bookings, todayDate]);
+  const occupiedRoomsNow = useMemo(() => new Set(activeBookings.map((booking) => booking.roomId)).size, [activeBookings]);
+  const occupancyPercent = rooms.length > 0 ? Math.round((occupiedRoomsNow / rooms.length) * 100) : 0;
+  const uniqueClients = useMemo(() => new Set(bookings.map((booking) => booking.userId)).size, [bookings]);
+
+  const latestBookingCreatedAt = useMemo(() => {
+    if (bookings.length === 0) return null;
+    return bookings.reduce<string | null>((latest, booking) => {
+      if (!latest) return booking.createdAt;
+      return booking.createdAt > latest ? booking.createdAt : latest;
+    }, null);
+  }, [bookings]);
+
+  const formatDateTime = (value: string | null) => {
+    if (!value) return t('Нет данных');
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return t('Нет данных');
+    return new Intl.DateTimeFormat('ru-RU', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(date);
+  };
 
   const stats = [
     {
-      label: t('Заведение'),
-      value: venue ? venue.name : t('Не создано'),
-      sub: venue ? venue.address : t('Добавьте своё заведение'),
+      label: t('Заведений'),
+      value: ownedVenues.length,
+      sub:
+        ownedVenues.length === 0
+          ? t('Добавьте своё заведение')
+          : ownedVenues.length === 1
+            ? primaryVenue?.address ?? ''
+            : t('Управляйте всеми своими заведениями'),
       icon: Building2,
     },
     {
       label: t('Комнат'),
       value: rooms.length,
-      sub: t('Переговорных комнат'),
+      sub: t('Занято сейчас: {count}', { count: occupiedRoomsNow }),
       icon: DoorOpen,
     },
     {
-      label: t('Бронирования'),
+      label: t('Активные брони'),
       value: activeBookings.length,
-      sub: t('Активных сейчас'),
+      sub: t('Прямо сейчас'),
+      icon: Clock3,
+    },
+    {
+      label: t('Брони сегодня'),
+      value: todayBookings.length,
+      sub: t('Всего броней: {count}', { count: bookings.length }),
       icon: CalendarDays,
+    },
+    {
+      label: t('Завершённые'),
+      value: completedBookings.length,
+      sub: t('История выполненных броней'),
+      icon: CheckCircle2,
+    },
+    {
+      label: t('Отменённые'),
+      value: cancelledBookings.length,
+      sub: t('Отмены по вашим комнатам'),
+      icon: CircleSlash,
     },
   ];
 
@@ -63,7 +120,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
         {stats.map((stat, i) => (
           <Card key={stat.label} className={`card-hover border-t-2 border-t-primary/20 stagger-${i + 1} animate-fade-up`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -86,44 +143,36 @@ export default function AdminDashboard() {
         ))}
       </div>
 
-      {/* Quick actions */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <Card className="card-hover group stagger-4 animate-fade-up">
-          <CardHeader>
-            <CardTitle className="text-lg">{t('Управление заведением')}</CardTitle>
-            <CardDescription>
-              {venue
-                ? t('Редактируйте информацию о вашем заведении')
-                : t('Создайте своё заведение для начала работы')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild className="group/btn">
-              <Link to="/my-venue" className="flex items-center gap-2">
-                <span>{venue ? t('Редактировать') : t('Создать заведение')}</span>
-                <ArrowRight className="h-4 w-4 transition-transform group-hover/btn:translate-x-0.5" />
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card className="card-hover group stagger-5 animate-fade-up">
-          <CardHeader>
-            <CardTitle className="text-lg">{t('Управление комнатами')}</CardTitle>
-            <CardDescription>
-              {t('Добавляйте и управляйте переговорными комнатами')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button asChild className="group/btn">
-              <Link to="/rooms" className="flex items-center gap-2">
-                <span>{t('Управление комнатами')}</span>
-                <ArrowRight className="h-4 w-4 transition-transform group-hover/btn:translate-x-0.5" />
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      <Card className="border-border/40 animate-fade-up">
+        <CardHeader>
+          <CardTitle>{t('Статус бизнеса')}</CardTitle>
+          <CardDescription>{t('Оперативная сводка по текущему состоянию')}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+            <div className="rounded-xl border border-border/40 bg-input/20 p-4">
+              <p className="text-muted-foreground">{t('Основное заведение')}</p>
+              <p className="mt-1 font-medium text-foreground">
+                {primaryVenue?.name ?? t('Не создано')}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border/40 bg-input/20 p-4">
+              <p className="text-muted-foreground">{t('Загрузка комнат')}</p>
+              <p className="mt-1 font-medium text-foreground">
+                {rooms.length === 0 ? t('Нет комнат') : `${occupiedRoomsNow}/${rooms.length} (${occupancyPercent}%)`}
+              </p>
+            </div>
+            <div className="rounded-xl border border-border/40 bg-input/20 p-4">
+              <p className="text-muted-foreground">{t('Клиентов всего')}</p>
+              <p className="mt-1 font-medium text-foreground">{uniqueClients}</p>
+            </div>
+            <div className="rounded-xl border border-border/40 bg-input/20 p-4">
+              <p className="text-muted-foreground">{t('Последнее бронирование')}</p>
+              <p className="mt-1 font-medium text-foreground">{formatDateTime(latestBookingCreatedAt)}</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

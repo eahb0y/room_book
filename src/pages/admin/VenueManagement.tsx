@@ -10,10 +10,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Building2, MapPin, FileText, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useI18n } from '@/i18n/useI18n';
+import { isBusinessEmail } from '@/lib/emailRules';
 
 export default function VenueManagement() {
   const { t } = useI18n();
   const user = useAuthStore((state) => state.user);
+  const setPortal = useAuthStore((state) => state.setPortal);
   const navigate = useNavigate();
   const venues = useVenueStore((state) => state.venues);
   const createVenue = useVenueStore((state) => state.createVenue);
@@ -31,8 +33,8 @@ export default function VenueManagement() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    if (!user || user.role !== 'admin') {
-      navigate('/app');
+    if (!user) {
+      navigate('/');
       return;
     }
 
@@ -57,6 +59,11 @@ export default function VenueManagement() {
       return;
     }
 
+    if (!user || !isBusinessEmail(user.email)) {
+      setError(t('Для управления бизнесом используйте корпоративный email'));
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -67,6 +74,7 @@ export default function VenueManagement() {
         await createVenue({ name, description, address, adminId: user!.id });
         setSuccess(t('Заведение успешно создано'));
       }
+      setPortal('business');
     } catch {
       setError(t('Произошла ошибка при сохранении'));
     } finally {
@@ -163,7 +171,7 @@ export default function VenueManagement() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => navigate('/app')}
+                onClick={() => navigate('/my-venue')}
                 className="h-11 border-border/50 hover:border-primary/30"
               >
                 {t('Отмена')}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useVenueStore } from '@/store/venueStore';
 import { Card, CardContent } from '@/components/ui/card';
@@ -23,6 +23,7 @@ export default function MyBookings() {
   const { t, dateLocale } = useI18n();
   const { user, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
   const cancelBooking = useVenueStore((state) => state.cancelBooking);
 
   const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null);
@@ -47,9 +48,11 @@ export default function MyBookings() {
   }, [user, allBookings, allRooms, allVenues]);
 
   useEffect(() => {
-    if (!isAuthenticated) { navigate('/login'); return; }
-    if (user?.role === 'admin') navigate('/app');
-  }, [user, isAuthenticated, navigate]);
+    if (!isAuthenticated) {
+      const nextPath = `${location.pathname}${location.search}`;
+      navigate(`/login?next=${encodeURIComponent(nextPath)}`, { replace: true });
+    }
+  }, [isAuthenticated, location.pathname, location.search, navigate]);
 
   const handleCancel = async (bookingId: string) => {
     await cancelBooking(bookingId);
@@ -68,8 +71,6 @@ export default function MyBookings() {
 
   const activeBookings = bookings.filter((b) => b.viewStatus === 'active');
   const pastBookings = bookings.filter((b) => b.viewStatus !== 'active');
-
-  if (user?.role === 'admin') return null;
 
   return (
     <div className="space-y-8">
@@ -103,7 +104,7 @@ export default function MyBookings() {
             <CardContent className="flex flex-col items-center justify-center py-12">
               <CalendarDays className="h-10 w-10 text-muted-foreground/30 mb-4" />
               <p className="text-muted-foreground mb-4 text-sm">{t('У вас нет активных бронирований')}</p>
-              <Button onClick={() => navigate('/app')} variant="outline" className="border-border/50 hover:border-primary/30">
+              <Button onClick={() => navigate('/')} variant="outline" className="border-border/50 hover:border-primary/30">
                 {t('Найти комнату')}
               </Button>
             </CardContent>

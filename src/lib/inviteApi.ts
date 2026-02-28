@@ -30,7 +30,10 @@ type RedeemRpcResponse = {
   invitation_id?: string;
 };
 
-const normalizeEmail = (value?: string) => value?.trim().toLowerCase() ?? '';
+const normalizeEmail = (value?: string) => {
+  const normalized = value?.trim().toLowerCase();
+  return normalized && normalized.length > 0 ? normalized : null;
+};
 
 const mapInvitation = (row: InvitationRow): Invitation => ({
   id: row.id,
@@ -88,12 +91,12 @@ export const createInvitation = async (payload: {
   venueId: string;
   venueName: string;
   createdByUserId: string;
-  inviteeFirstName: string;
-  inviteeLastName: string;
-  inviteeEmail: string;
+  inviteeFirstName?: string;
+  inviteeLastName?: string;
+  inviteeEmail?: string;
   inviteeUserId?: string;
   expiresAt?: string;
-  maxUses?: number;
+  maxUses?: number | null;
 }) => {
   const rows = await supabaseDbRequest<InvitationRow[]>(
     'invitations',
@@ -109,11 +112,11 @@ export const createInvitation = async (payload: {
           token: generateToken(40),
           created_by_user_id: payload.createdByUserId,
           invitee_user_id: payload.inviteeUserId ?? null,
-          invitee_first_name: payload.inviteeFirstName,
-          invitee_last_name: payload.inviteeLastName,
+          invitee_first_name: payload.inviteeFirstName?.trim() || null,
+          invitee_last_name: payload.inviteeLastName?.trim() || null,
           invitee_email: normalizeEmail(payload.inviteeEmail),
           expires_at: payload.expiresAt ?? null,
-          max_uses: payload.maxUses ?? 1,
+          max_uses: payload.maxUses === undefined ? 1 : payload.maxUses,
           uses: 0,
           status: 'pending',
         },
