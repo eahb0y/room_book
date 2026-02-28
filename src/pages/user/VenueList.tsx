@@ -1,6 +1,5 @@
-import { useEffect, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuthStore } from '@/store/authStore';
+import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useVenueStore } from '@/store/venueStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Building2, MapPin, ArrowRight, DoorOpen } from 'lucide-react';
@@ -9,40 +8,19 @@ import { useI18n } from '@/i18n/useI18n';
 
 export default function VenueList() {
   const { t } = useI18n();
-  const { user, isAuthenticated } = useAuthStore();
-  const navigate = useNavigate();
-  const memberships = useVenueStore((state) => state.memberships);
   const allVenues = useVenueStore((state) => state.venues);
   const venues = useMemo(() => {
-    if (!user) return [];
-    const venueIds = memberships
-      .filter((m) => m.userId === user.id)
-      .map((m) => m.venueId);
-    return allVenues.filter((v) => venueIds.includes(v.id));
-  }, [user, memberships, allVenues]);
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      navigate('/login');
-      return;
-    }
-    if (user?.role === 'admin') {
-      navigate('/app');
-    }
-  }, [user, isAuthenticated, navigate]);
-
-  if (user?.role === 'admin') {
-    return null;
-  }
+    return [...allVenues].sort((first, second) => second.createdAt.localeCompare(first.createdAt));
+  }, [allVenues]);
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-4xl font-semibold text-foreground tracking-tight">
-          {t('Доступные заведения')}
+          {t('Маркетплейс')}
         </h1>
         <p className="text-muted-foreground mt-2">
-          {t('Выберите заведение для просмотра доступных комнат')}
+          {t('Выберите заведение и перейдите к бронированию комнат')}
         </p>
       </div>
 
@@ -54,7 +32,7 @@ export default function VenueList() {
             </div>
             <p className="text-muted-foreground mb-1">{t('Пока нет доступных заведений')}</p>
             <p className="text-sm text-muted-foreground/70">
-              {t('Загляните позже или обратитесь к администратору')}
+              {t('Новые площадки появятся здесь автоматически')}
             </p>
           </CardContent>
         </Card>

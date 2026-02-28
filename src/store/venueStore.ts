@@ -31,7 +31,7 @@ interface VenueState {
   cancelBooking: (id: string) => Promise<void>;
   updateBooking: (
     id: string,
-    booking: Pick<Booking, 'roomId' | 'bookingDate' | 'startTime' | 'endTime' | 'status'>,
+    booking: Pick<Booking, 'userId' | 'description' | 'bookingDate' | 'startTime' | 'endTime' | 'status'>,
   ) => Promise<{ success: boolean; error?: string }>;
 
   reset: () => void;
@@ -60,10 +60,13 @@ export const useVenueStore = create<VenueState>((set, get) => ({
       const venues = await venueApi.listVenues({ adminId });
       const venueIds = venues.map((venue) => venue.id);
       const rooms = venueIds.length ? await roomApi.listRooms({ venueIds }) : [];
-      const bookingLists = await Promise.all(
-        venueIds.map((venueId) => bookingApi.listBookings({ venueId }))
+      const bookingResults = await Promise.allSettled(
+        venueIds.map((venueId) => bookingApi.listBookings({ venueId })),
       );
-      const bookings = mergeById([], bookingLists.flat());
+      const bookings = mergeById(
+        [],
+        bookingResults.flatMap((result) => (result.status === 'fulfilled' ? result.value : [])),
+      );
       set({ venues, rooms, bookings, memberships: [], isLoading: false, loadedFor: key, settledFor: key });
     } catch (err) {
       set({ isLoading: false, settledFor: key });
@@ -75,11 +78,12 @@ export const useVenueStore = create<VenueState>((set, get) => ({
     const key = `user:${userId}`;
     set({ isLoading: true, loadedFor: null, settledFor: null });
     try {
-      const memberships = await membershipApi.listMemberships({ userId });
-      const venues = await venueApi.listVenues({ userId });
-      const venueIds = venues.map((venue) => venue.id);
-      const rooms = venueIds.length ? await roomApi.listRooms({ venueIds }) : [];
-      const bookings = await bookingApi.listBookings({ userId });
+      const [memberships, venues, rooms, bookings] = await Promise.all([
+        membershipApi.listMemberships({ userId }),
+        venueApi.listVenues({ publicAccess: true }),
+        roomApi.listRooms({ publicAccess: true }),
+        bookingApi.listBookings({ userId }),
+      ]);
       set({ memberships, venues, rooms, bookings, isLoading: false, loadedFor: key, settledFor: key });
     } catch (err) {
       set({ isLoading: false, settledFor: key });
@@ -117,7 +121,15 @@ export const useVenueStore = create<VenueState>((set, get) => ({
   createRoom: async (roomData) => {
     const room = await roomApi.createRoom({
       name: roomData.name,
+      description: roomData.description,
+      location: roomData.location,
+      accessType: roomData.accessType,
+      availableFrom: roomData.availableFrom,
+      availableTo: roomData.availableTo,
+      minBookingMinutes: roomData.minBookingMinutes,
+      maxBookingMinutes: roomData.maxBookingMinutes,
       capacity: roomData.capacity,
+      services: roomData.services,
       venueId: roomData.venueId,
       photoUrls: roomData.photoUrls,
       photoUrl: roomData.photoUrl,
@@ -129,7 +141,15 @@ export const useVenueStore = create<VenueState>((set, get) => ({
   updateRoom: async (id, roomData) => {
     const room = await roomApi.updateRoom(id, {
       name: roomData.name,
+      description: roomData.description,
+      location: roomData.location,
+      accessType: roomData.accessType,
+      availableFrom: roomData.availableFrom,
+      availableTo: roomData.availableTo,
+      minBookingMinutes: roomData.minBookingMinutes,
+      maxBookingMinutes: roomData.maxBookingMinutes,
       capacity: roomData.capacity,
+      services: roomData.services,
       photoUrls: roomData.photoUrls,
       photoUrl: roomData.photoUrl,
     });
@@ -154,6 +174,7 @@ export const useVenueStore = create<VenueState>((set, get) => ({
       const booking = await bookingApi.createBooking({
         roomId: bookingData.roomId,
         userId: bookingData.userId,
+        description: bookingData.description,
         bookingDate: bookingData.bookingDate,
         startTime: bookingData.startTime,
         endTime: bookingData.endTime,
@@ -174,7 +195,8 @@ export const useVenueStore = create<VenueState>((set, get) => ({
   updateBooking: async (id, bookingData) => {
     try {
       const booking = await bookingApi.updateBooking(id, {
-        roomId: bookingData.roomId,
+        userId: bookingData.userId,
+        description: bookingData.description,
         bookingDate: bookingData.bookingDate,
         startTime: bookingData.startTime,
         endTime: bookingData.endTime,

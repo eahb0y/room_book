@@ -60,9 +60,45 @@ export interface Room {
   id: string;
   venueId: string;
   name: string;
+  description: string;
+  location: string;
+  accessType: 'public' | 'residents_only';
+  availableFrom: string;
+  availableTo: string;
+  minBookingMinutes: number;
+  maxBookingMinutes: number;
   capacity: number;
+  services: string[];
   photoUrl?: string | null;
   photoUrls?: string[];
+  createdAt: string;
+}
+
+export interface BusinessServiceProvider {
+  id: string;
+  name: string;
+  location: string;
+  workFrom?: string | null;
+  workTo?: string | null;
+  durationMinutes: number;
+  price: number;
+  photoUrl?: string | null;
+}
+
+export interface BusinessServiceCategory {
+  id: string;
+  venueId: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface BusinessService {
+  id: string;
+  venueId: string;
+  categoryId?: string | null;
+  name: string;
+  providers: BusinessServiceProvider[];
+  photoUrl?: string | null;
   createdAt: string;
 }
 
@@ -76,6 +112,7 @@ export interface Booking {
   userEmail?: string;
   userFirstName?: string;
   userLastName?: string;
+  description?: string;
   bookingDate: string;
   startTime: string;
   endTime: string;
@@ -100,8 +137,13 @@ export type RegisterCredentials = LoginCredentials;
 export interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
+  portal: 'user' | 'business' | null;
   login: (credentials: LoginCredentials) => Promise<boolean>;
   register: (credentials: RegisterCredentials) => Promise<boolean>;
+  startGoogleAuth: (redirectPath?: string) => void;
+  startAppleAuth: (redirectPath?: string) => void;
+  completeGoogleAuth: (hash: string) => Promise<boolean>;
+  setPortal: (portal: 'user' | 'business') => void;
   updateProfile: (payload: {
     firstName?: string;
     lastName?: string;

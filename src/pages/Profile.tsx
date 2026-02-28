@@ -1,12 +1,15 @@
 import { type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from 'react';
-import { AlertCircle, Camera, CheckCircle2, Trash2 } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Camera, CheckCircle2, Trash2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
+import { useVenueStore } from '@/store/venueStore';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { useI18n } from '@/i18n/useI18n';
 
 const MAX_PROFILE_PHOTO_SIDE = 900;
@@ -74,7 +77,11 @@ const toInitials = (firstName?: string, lastName?: string, email?: string) => {
 
 export default function Profile() {
   const { t } = useI18n();
-  const { user, updateProfile, changePassword } = useAuthStore();
+  const { user, portal, updateProfile } = useAuthStore();
+  const venues = useVenueStore((state) => state.venues);
+  const createVenue = useVenueStore((state) => state.createVenue);
+  const updateVenue = useVenueStore((state) => state.updateVenue);
+  const navigate = useNavigate();
 
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
@@ -83,12 +90,12 @@ export default function Profile() {
   const [isImageProcessing, setIsImageProcessing] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [passwordSuccess, setPasswordSuccess] = useState('');
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [venueName, setVenueName] = useState('');
+  const [venueAddress, setVenueAddress] = useState('');
+  const [venueDescription, setVenueDescription] = useState('');
+  const [isVenueSaving, setIsVenueSaving] = useState(false);
+  const [venueError, setVenueError] = useState('');
+  const [venueSuccess, setVenueSuccess] = useState('');
 
   useEffect(() => {
     setFirstName(user?.firstName ?? '');
@@ -96,11 +103,6 @@ export default function Profile() {
     setAvatarUrl(user?.avatarUrl ?? null);
     setError('');
     setSuccess('');
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setPasswordError('');
-    setPasswordSuccess('');
   }, [user?.id, user?.firstName, user?.lastName, user?.avatarUrl]);
 
   const initials = useMemo(
@@ -108,7 +110,30 @@ export default function Profile() {
     [firstName, lastName, user?.email],
   );
 
+  const userId = user?.id ?? '';
+  const isBusinessPortal = portal === 'business' || user?.role === 'admin';
+  const isSimpleUser = !isBusinessPortal;
+  const ownedVenues = useMemo(() => venues.filter((venue) => venue.adminId === userId), [venues, userId]);
+  const existingVenue = useMemo(() => ownedVenues[0] ?? null, [ownedVenues]);
+
+  useEffect(() => {
+    if (!isBusinessPortal) return;
+    setVenueName(existingVenue?.name ?? '');
+    setVenueAddress(existingVenue?.address ?? '');
+    setVenueDescription(existingVenue?.description ?? '');
+    setVenueError('');
+    setVenueSuccess('');
+  }, [existingVenue?.id, existingVenue?.name, existingVenue?.address, existingVenue?.description, isBusinessPortal]);
+
   if (!user) return null;
+
+  const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate(isBusinessPortal ? '/my-venue' : '/');
+  };
 
   const handlePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -181,213 +206,259 @@ export default function Profile() {
     }
   };
 
-  const handlePasswordSubmit = async (event: FormEvent) => {
+  const handleBusinessVenueSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    setPasswordError('');
-    setPasswordSuccess('');
-    setIsChangingPassword(true);
+    setVenueError('');
+    setVenueSuccess('');
 
+    const normalizedName = venueName.trim();
+    const normalizedAddress = venueAddress.trim();
+    const normalizedDescription = venueDescription.trim();
+
+    if (!normalizedName || !normalizedAddress) {
+      setVenueError(t('Название и адрес обязательны для заполнения'));
+      return;
+    }
+
+    if (!user) return;
+
+    setIsVenueSaving(true);
     try {
-      if (!currentPassword || !newPassword || !confirmPassword) {
-        throw new Error('Заполните все поля');
+      if (existingVenue) {
+        await updateVenue(existingVenue.id, {
+          name: normalizedName,
+          address: normalizedAddress,
+          description: normalizedDescription,
+        });
+        setVenueSuccess(t('Данные заведения обновлены'));
+      } else {
+        await createVenue({
+          adminId: user.id,
+          name: normalizedName,
+          address: normalizedAddress,
+          description: normalizedDescription,
+        });
+        setVenueSuccess(t('Заведение создано'));
       }
-
-      if (newPassword !== confirmPassword) {
-        throw new Error('Пароли не совпадают');
-      }
-
-      await changePassword({
-        currentPassword,
-        newPassword,
-      });
-
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      setPasswordSuccess(t('Пароль успешно обновлён'));
     } catch (err) {
       const message = err instanceof Error ? t(err.message) : t('Произошла ошибка при сохранении');
-      setPasswordError(message);
+      setVenueError(message);
     } finally {
-      setIsChangingPassword(false);
+      setIsVenueSaving(false);
     }
   };
 
-  return (
+  const profileSections = (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-4xl font-semibold text-foreground tracking-tight">{t('Профиль')}</h1>
-        <p className="text-muted-foreground mt-2">{t('Редактируйте персональные данные аккаунта')}</p>
-      </div>
-
-      <Card className="border-border/40">
+      <Card id="profile-business" className="border-border/40 scroll-mt-28">
         <CardHeader>
-          <CardTitle>{t('Личные данные')}</CardTitle>
-          <CardDescription>{t('Имя, фото и контактный email')}</CardDescription>
+          <CardTitle>{isBusinessPortal ? t('Данные заведения') : t('Бизнес-профиль')}</CardTitle>
+          <CardDescription>
+            {isBusinessPortal
+              ? t('Редактируйте название, адрес и описание вашего заведения')
+              : t('Лендинг для добавления бизнеса открывается из профиля')}
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {(error || success) && (
-              <Alert
-                variant={error ? 'destructive' : 'default'}
-                className={!error ? 'border-emerald-700/40 bg-emerald-950/20' : ''}
-              >
-                {error ? <AlertCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4 text-emerald-400" />}
-                <AlertDescription className={!error ? 'text-emerald-300' : ''}>
-                  {error || success}
-                </AlertDescription>
-              </Alert>
-            )}
-
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-              <Avatar className="h-24 w-24 border border-border/50">
-                {avatarUrl ? <AvatarImage src={avatarUrl} alt={t('Фото профиля')} /> : null}
-                <AvatarFallback className="text-xl">{initials}</AvatarFallback>
-              </Avatar>
-
-              <div className="flex flex-wrap gap-2">
-                <Label
-                  htmlFor="profilePhoto"
-                  className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-md border border-border/50 px-4 text-sm text-foreground hover:bg-secondary/50"
+        {isBusinessPortal ? (
+          <CardContent>
+            <form onSubmit={handleBusinessVenueSubmit} className="space-y-5">
+              {(venueError || venueSuccess) && (
+                <Alert
+                  variant={venueError ? 'destructive' : 'default'}
+                  className={!venueError ? 'border-emerald-700/40 bg-emerald-950/20' : ''}
                 >
-                  <Camera className="h-4 w-4" />
-                  <span>{t('Загрузить фото')}</span>
-                </Label>
-                <input
-                  id="profilePhoto"
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handlePhotoChange}
-                  disabled={isImageProcessing || isSaving}
+                  {venueError ? <AlertCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4 text-emerald-400" />}
+                  <AlertDescription className={!venueError ? 'text-emerald-300' : ''}>
+                    {venueError || venueSuccess}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="venueName">{t('Название заведения')}</Label>
+                <Input
+                  id="venueName"
+                  value={venueName}
+                  onChange={(event) => setVenueName(event.target.value)}
+                  placeholder={t('Например: Nura Spaces')}
+                  required
+                  className="h-11 bg-input/50 border-border/50 focus:border-primary/60 transition-colors"
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setAvatarUrl(null)}
-                  disabled={!avatarUrl || isImageProcessing || isSaving}
-                >
-                  <Trash2 className="h-4 w-4" />
-                  <span>{t('Удалить фото')}</span>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="venueAddress">{t('Адрес')}</Label>
+                <Input
+                  id="venueAddress"
+                  value={venueAddress}
+                  onChange={(event) => setVenueAddress(event.target.value)}
+                  placeholder={t('Например: ул. Ленина, 1')}
+                  required
+                  className="h-11 bg-input/50 border-border/50 focus:border-primary/60 transition-colors"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="venueDescription">{t('Описание')}</Label>
+                <Textarea
+                  id="venueDescription"
+                  value={venueDescription}
+                  onChange={(event) => setVenueDescription(event.target.value)}
+                  rows={4}
+                  placeholder={t('Коротко опишите ваше заведение')}
+                  className="bg-input/50 border-border/50 focus:border-primary/60 transition-colors resize-none"
+                />
+              </div>
+
+              <div className="pt-1">
+                <Button type="submit" className="h-11 min-w-44" disabled={isVenueSaving}>
+                  {isVenueSaving ? t('Сохранение…') : existingVenue ? t('Обновить заведение') : t('Создать заведение')}
                 </Button>
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="firstName">{t('Имя')}</Label>
-                <Input
-                  id="firstName"
-                  value={firstName}
-                  onChange={(event) => setFirstName(event.target.value)}
-                  maxLength={100}
-                  placeholder={t('Имя')}
-                  className="h-11 bg-input/50 border-border/50 focus:border-primary/60 transition-colors"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="lastName">{t('Фамилия')}</Label>
-                <Input
-                  id="lastName"
-                  value={lastName}
-                  onChange={(event) => setLastName(event.target.value)}
-                  maxLength={100}
-                  placeholder={t('Фамилия')}
-                  className="h-11 bg-input/50 border-border/50 focus:border-primary/60 transition-colors"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email">{t('Email')}</Label>
-              <Input
-                id="email"
-                value={user.email}
-                readOnly
-                disabled
-                className="h-11 bg-input/30 border-border/50 text-muted-foreground"
-              />
-              <p className="text-xs text-muted-foreground">{t('Email нельзя изменить')}</p>
-            </div>
-
-            <div className="pt-2">
-              <Button type="submit" className="h-11 min-w-44" disabled={isSaving || isImageProcessing}>
-                {isSaving ? t('Сохранение…') : t('Сохранить')}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
+            </form>
+          </CardContent>
+        ) : (
+          <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-muted-foreground">
+              {t('Нажмите кнопку, чтобы открыть страницу с условиями и подключением бизнеса')}
+            </p>
+            <Button
+              type="button"
+              onClick={() => {
+                navigate('/business/landing');
+              }}
+              className="h-11 sm:min-w-56"
+            >
+              {t('Добавить бизнес')}
+            </Button>
+          </CardContent>
+        )}
       </Card>
 
-      <Card className="border-border/40">
-        <CardHeader>
-          <CardTitle>{t('Безопасность аккаунта')}</CardTitle>
-          <CardDescription>{t('Смените пароль для защиты аккаунта')}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handlePasswordSubmit} className="space-y-6">
-            {(passwordError || passwordSuccess) && (
-              <Alert
-                variant={passwordError ? 'destructive' : 'default'}
-                className={!passwordError ? 'border-emerald-700/40 bg-emerald-950/20' : ''}
-              >
-                {passwordError ? (
-                  <AlertCircle className="h-4 w-4" />
-                ) : (
-                  <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                )}
-                <AlertDescription className={!passwordError ? 'text-emerald-300' : ''}>
-                  {passwordError || passwordSuccess}
-                </AlertDescription>
-              </Alert>
-            )}
+      {!isBusinessPortal && (
+        <Card id="profile-personal" className="border-border/40 scroll-mt-28">
+          <CardHeader>
+            <CardTitle>{t('Личные данные')}</CardTitle>
+            <CardDescription>{t('Имя, фото и контактный email')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {(error || success) && (
+                <Alert
+                  variant={error ? 'destructive' : 'default'}
+                  className={!error ? 'border-emerald-700/40 bg-emerald-950/20' : ''}
+                >
+                  {error ? <AlertCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4 text-emerald-400" />}
+                  <AlertDescription className={!error ? 'text-emerald-300' : ''}>
+                    {error || success}
+                  </AlertDescription>
+                </Alert>
+              )}
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="space-y-2 sm:col-span-2">
-                <Label htmlFor="currentPassword">{t('Текущий пароль')}</Label>
-                <Input
-                  id="currentPassword"
-                  type="password"
-                  value={currentPassword}
-                  onChange={(event) => setCurrentPassword(event.target.value)}
-                  autoComplete="current-password"
-                  className="h-11 bg-input/50 border-border/50 focus:border-primary/60 transition-colors"
-                />
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                <Avatar className="h-24 w-24 border border-border/50">
+                  {avatarUrl ? <AvatarImage src={avatarUrl} alt={t('Фото профиля')} /> : null}
+                  <AvatarFallback className="text-xl">{initials}</AvatarFallback>
+                </Avatar>
+
+                <div className="flex flex-wrap gap-2">
+                  <Label
+                    htmlFor="profilePhoto"
+                    className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-md border border-border/50 px-4 text-sm text-foreground hover:bg-secondary/50"
+                  >
+                    <Camera className="h-4 w-4" />
+                    <span>{t('Загрузить фото')}</span>
+                  </Label>
+                  <input
+                    id="profilePhoto"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handlePhotoChange}
+                    disabled={isImageProcessing || isSaving}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setAvatarUrl(null)}
+                    disabled={!avatarUrl || isImageProcessing || isSaving}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span>{t('Удалить фото')}</span>
+                  </Button>
+                </div>
               </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">{t('Имя')}</Label>
+                  <Input
+                    id="firstName"
+                    value={firstName}
+                    onChange={(event) => setFirstName(event.target.value)}
+                    maxLength={100}
+                    placeholder={t('Имя')}
+                    className="h-11 bg-input/50 border-border/50 focus:border-primary/60 transition-colors"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">{t('Фамилия')}</Label>
+                  <Input
+                    id="lastName"
+                    value={lastName}
+                    onChange={(event) => setLastName(event.target.value)}
+                    maxLength={100}
+                    placeholder={t('Фамилия')}
+                    className="h-11 bg-input/50 border-border/50 focus:border-primary/60 transition-colors"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
-                <Label htmlFor="newPassword">{t('Новый пароль')}</Label>
+                <Label htmlFor="email">{t('Email')}</Label>
                 <Input
-                  id="newPassword"
-                  type="password"
-                  value={newPassword}
-                  onChange={(event) => setNewPassword(event.target.value)}
-                  autoComplete="new-password"
-                  className="h-11 bg-input/50 border-border/50 focus:border-primary/60 transition-colors"
+                  id="email"
+                  value={user.email}
+                  readOnly
+                  disabled
+                  className="h-11 bg-input/30 border-border/50 text-muted-foreground"
                 />
+                <p className="text-xs text-muted-foreground">{t('Email нельзя изменить')}</p>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">{t('Подтвердите новый пароль')}</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(event) => setConfirmPassword(event.target.value)}
-                  autoComplete="new-password"
-                  className="h-11 bg-input/50 border-border/50 focus:border-primary/60 transition-colors"
-                />
+
+              <div className="pt-2">
+                <Button type="submit" className="h-11 min-w-44" disabled={isSaving || isImageProcessing}>
+                  {isSaving ? t('Сохранение…') : t('Сохранить')}
+                </Button>
               </div>
-            </div>
+            </form>
+          </CardContent>
+        </Card>
+      )}
 
-            <p className="text-xs text-muted-foreground">{t('Пароль должен содержать минимум 6 символов')}</p>
+    </div>
+  );
 
-            <div className="pt-2">
-              <Button type="submit" className="h-11 min-w-44" disabled={isChangingPassword}>
-                {isChangingPassword ? t('Обновление…') : t('Обновить пароль')}
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+  return (
+    <div className="space-y-8">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-4xl font-semibold text-foreground tracking-tight">{t('Профиль')}</h1>
+          <p className="text-muted-foreground mt-2">
+            {isBusinessPortal
+              ? t('Редактируйте данные вашего заведения')
+              : t('Редактируйте персональные данные аккаунта')}
+          </p>
+        </div>
+        {isSimpleUser ? (
+          <Button type="button" variant="outline" onClick={handleBack} className="h-10 w-fit">
+            <ArrowLeft className="h-4 w-4" />
+            <span>{t('Назад')}</span>
+          </Button>
+        ) : null}
+      </div>
+
+      {profileSections}
     </div>
   );
 }

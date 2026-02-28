@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { AlertCircle, CalendarDays } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useI18n } from '@/i18n/useI18n';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
@@ -19,8 +19,51 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const login = useAuthStore((state) => state.login);
-  const inviteToken = new URLSearchParams(location.search).get('invite');
+  const startGoogleAuth = useAuthStore((state) => state.startGoogleAuth);
+  const completeGoogleAuth = useAuthStore((state) => state.completeGoogleAuth);
+  const searchParams = new URLSearchParams(location.search);
+  const inviteToken = searchParams.get('invite');
+  const nextPathParam = searchParams.get('next');
+  const nextPath = nextPathParam && nextPathParam.startsWith('/') && !nextPathParam.startsWith('//') ? nextPathParam : null;
+  const registerParams = new URLSearchParams();
+  if (inviteToken) registerParams.set('invite', inviteToken);
+  if (nextPath) registerParams.set('next', nextPath);
+  const registerPath = registerParams.toString() ? `/register?${registerParams.toString()}` : '/register';
   const isInviteFlow = Boolean(inviteToken);
+  const resolveDefaultPostAuthPath = () => {
+    const { portal, user } = useAuthStore.getState();
+    if (portal === 'business' || user?.role === 'admin') return '/my-venue';
+    return '/';
+  };
+
+  const resolvePostAuthPath = () => (inviteToken ? `/invite/${inviteToken}` : nextPath ?? resolveDefaultPostAuthPath());
+
+  useEffect(() => {
+    const hasOAuthPayload = location.hash.includes('access_token') || location.hash.includes('error=');
+    if (!hasOAuthPayload) return;
+
+    let isActive = true;
+    setError('');
+    setIsLoading(true);
+
+    void (async () => {
+      try {
+        const success = await completeGoogleAuth(location.hash);
+        if (!success) return;
+        navigate(resolvePostAuthPath());
+      } catch (err) {
+        const message = err instanceof Error ? t(err.message) : t('Произошла ошибка при входе');
+        if (isActive) setError(message);
+      } finally {
+        window.history.replaceState(null, '', `${location.pathname}${location.search}`);
+        if (isActive) setIsLoading(false);
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [completeGoogleAuth, inviteToken, location.hash, location.pathname, location.search, navigate, nextPath, t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,11 +73,7 @@ export default function Login() {
     try {
       const success = await login({ email, password });
       if (success) {
-        if (inviteToken) {
-          navigate(`/invite/${inviteToken}`);
-        } else {
-          navigate('/app');
-        }
+        navigate(resolvePostAuthPath());
       } else {
         setError(t('Неверный email или пароль'));
       }
@@ -59,20 +98,39 @@ export default function Login() {
       <div className="w-full max-w-md relative z-10 animate-fade-up">
         {/* Heading above card */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary/90 mb-5 shadow-glow">
-            <CalendarDays className="h-6 w-6 text-white" />
-          </div>
+          <img
+            src="/favicon.svg"
+            alt=""
+            aria-hidden="true"
+            className="mx-auto mb-5 h-12 w-12 rounded-xl shadow-glow"
+          />
           <h1 className="text-3xl font-semibold text-foreground mb-2">
-            {t('Вход в систему')}
+            {t('Вход пользователя')}
           </h1>
           <p className="text-muted-foreground text-sm">
-            {t('Введите данные для доступа к платформе')}
+            {t('Войдите, чтобы бронировать места и управлять своими бронями')}
           </p>
         </div>
 
         <Card className="border-border/40 shadow-xl shadow-black/20">
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-5 pt-6">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-11 w-full border-border/60 bg-secondary/40"
+                onClick={() => startGoogleAuth(`/login${location.search}`)}
+                disabled={isLoading}
+              >
+                {t('Продолжить с Google')}
+              </Button>
+
+              <div className="flex items-center gap-3 text-xs uppercase tracking-[0.14em] text-muted-foreground/70">
+                <span className="h-px flex-1 bg-border/60" />
+                <span>{t('или через email')}</span>
+                <span className="h-px flex-1 bg-border/60" />
+              </div>
+
               {error && (
                 <Alert variant="destructive" className="animate-scale-in">
                   <AlertCircle className="h-4 w-4" />
@@ -111,14 +169,14 @@ export default function Login() {
               {isInviteFlow ? (
                 <p className="text-sm text-center text-muted-foreground">
                   {t('Нет аккаунта?')}{' '}
-                  <Link to={`/register?invite=${inviteToken}`} className="text-primary hover:text-primary/80 transition-colors">
+                  <Link to={registerPath} className="text-primary hover:text-primary/80 transition-colors">
                     {t('Зарегистрироваться')}
                   </Link>
                 </p>
               ) : (
                 <p className="text-sm text-center text-muted-foreground">
                   {t('Нет аккаунта?')}{' '}
-                  <Link to="/register" className="text-primary hover:text-primary/80 transition-colors">
+                  <Link to={registerPath} className="text-primary hover:text-primary/80 transition-colors">
                     {t('Зарегистрироваться')}
                   </Link>
                 </p>

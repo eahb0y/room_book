@@ -26,10 +26,23 @@ create table if not exists public.rooms (
   id uuid primary key default gen_random_uuid(),
   venue_id uuid not null references public.venues (id) on delete cascade,
   name text not null,
+  description text not null default '',
+  location text not null default '',
+  access_type text not null default 'public' check (access_type in ('public', 'residents_only')),
+  available_from time not null default '00:00',
+  available_to time not null default '24:00',
+  min_booking_minutes integer not null default 15 check (min_booking_minutes > 0 and min_booking_minutes <= 1440),
+  max_booking_minutes integer not null default 240 check (
+    max_booking_minutes > 0
+    and max_booking_minutes <= 1440
+    and max_booking_minutes >= min_booking_minutes
+  ),
   capacity integer not null check (capacity > 0),
+  services text[] not null default '{}',
   photo_url text,
   photo_urls text[] not null default '{}',
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  check (available_from < available_to)
 );
 
 alter table public.rooms
@@ -37,6 +50,54 @@ alter table public.rooms
 
 alter table public.rooms
   add column if not exists photo_urls text[] not null default '{}';
+
+alter table public.rooms
+  add column if not exists description text not null default '';
+
+alter table public.rooms
+  add column if not exists location text not null default '';
+
+alter table public.rooms
+  add column if not exists services text[] not null default '{}';
+
+alter table public.rooms
+  add column if not exists access_type text not null default 'public';
+
+alter table public.rooms
+  add column if not exists available_from time not null default '00:00';
+
+alter table public.rooms
+  add column if not exists available_to time not null default '24:00';
+
+alter table public.rooms
+  add column if not exists min_booking_minutes integer not null default 15;
+
+alter table public.rooms
+  add column if not exists max_booking_minutes integer not null default 240;
+
+alter table public.rooms
+  drop constraint if exists rooms_access_type_check;
+alter table public.rooms
+  add constraint rooms_access_type_check check (access_type in ('public', 'residents_only'));
+
+alter table public.rooms
+  drop constraint if exists rooms_available_range_check;
+alter table public.rooms
+  add constraint rooms_available_range_check check (available_from < available_to);
+
+alter table public.rooms
+  drop constraint if exists rooms_min_booking_minutes_check;
+alter table public.rooms
+  add constraint rooms_min_booking_minutes_check check (min_booking_minutes > 0 and min_booking_minutes <= 1440);
+
+alter table public.rooms
+  drop constraint if exists rooms_max_booking_minutes_check;
+alter table public.rooms
+  add constraint rooms_max_booking_minutes_check check (
+    max_booking_minutes > 0
+    and max_booking_minutes <= 1440
+    and max_booking_minutes >= min_booking_minutes
+  );
 
 alter table public.profiles
   add column if not exists avatar_url text;
@@ -80,10 +141,32 @@ create table if not exists public.venue_memberships (
   unique (venue_id, user_id)
 );
 
+create table if not exists public.business_service_categories (
+  id uuid primary key default gen_random_uuid(),
+  venue_id uuid not null references public.venues (id) on delete cascade,
+  name text not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.business_services (
+  id uuid primary key default gen_random_uuid(),
+  venue_id uuid not null references public.venues (id) on delete cascade,
+  category_id uuid references public.business_service_categories (id) on delete set null,
+  name text not null,
+  providers jsonb not null default '[]'::jsonb,
+  photo_url text,
+  created_at timestamptz not null default now(),
+  constraint business_services_providers_is_array check (jsonb_typeof(providers) = 'array')
+);
+
+alter table public.business_services
+  add column if not exists category_id uuid references public.business_service_categories (id) on delete set null;
+
 create table if not exists public.bookings (
   id uuid primary key default gen_random_uuid(),
   room_id uuid not null references public.rooms (id) on delete cascade,
   user_id uuid not null references public.profiles (id) on delete cascade,
+  description text not null default '',
   booking_date date not null,
   start_time time not null,
   end_time time not null,
@@ -93,6 +176,9 @@ create table if not exists public.bookings (
   end_at timestamp generated always as (booking_date::timestamp + end_time) stored,
   check (start_time < end_time)
 );
+
+alter table public.bookings
+  add column if not exists description text not null default '';
 
 alter table public.bookings
   drop constraint if exists bookings_no_overlap;
@@ -128,6 +214,10 @@ alter table public.invitations
   add column if not exists app_env text not null default public.resolve_request_app_env();
 alter table public.venue_memberships
   add column if not exists app_env text not null default public.resolve_request_app_env();
+alter table public.business_service_categories
+  add column if not exists app_env text not null default public.resolve_request_app_env();
+alter table public.business_services
+  add column if not exists app_env text not null default public.resolve_request_app_env();
 alter table public.bookings
   add column if not exists app_env text not null default public.resolve_request_app_env();
 
@@ -140,6 +230,10 @@ alter table public.rooms
 alter table public.invitations
   alter column app_env set default public.resolve_request_app_env();
 alter table public.venue_memberships
+  alter column app_env set default public.resolve_request_app_env();
+alter table public.business_service_categories
+  alter column app_env set default public.resolve_request_app_env();
+alter table public.business_services
   alter column app_env set default public.resolve_request_app_env();
 alter table public.bookings
   alter column app_env set default public.resolve_request_app_env();
@@ -169,6 +263,16 @@ alter table public.venue_memberships
 alter table public.venue_memberships
   add constraint venue_memberships_app_env_check check (app_env in ('dev', 'prod'));
 
+alter table public.business_service_categories
+  drop constraint if exists business_service_categories_app_env_check;
+alter table public.business_service_categories
+  add constraint business_service_categories_app_env_check check (app_env in ('dev', 'prod'));
+
+alter table public.business_services
+  drop constraint if exists business_services_app_env_check;
+alter table public.business_services
+  add constraint business_services_app_env_check check (app_env in ('dev', 'prod'));
+
 alter table public.bookings
   drop constraint if exists bookings_app_env_check;
 alter table public.bookings
@@ -178,6 +282,9 @@ create index if not exists idx_venues_admin_id on public.venues (admin_id);
 create index if not exists idx_rooms_venue_id on public.rooms (venue_id);
 create index if not exists idx_memberships_user_id on public.venue_memberships (user_id);
 create index if not exists idx_memberships_venue_id on public.venue_memberships (venue_id);
+create index if not exists idx_business_service_categories_venue_id on public.business_service_categories (venue_id);
+create unique index if not exists idx_business_service_categories_unique_name on public.business_service_categories (venue_id, lower(name));
+create index if not exists idx_business_services_venue_id on public.business_services (venue_id);
 create index if not exists idx_bookings_room_id on public.bookings (room_id);
 create index if not exists idx_bookings_user_id on public.bookings (user_id);
 create index if not exists idx_invitations_venue_id on public.invitations (venue_id);
@@ -211,7 +318,7 @@ before update on public.profiles
 for each row
 execute function public.prevent_profile_email_update();
 
-create or replace function public.enforce_booking_cancel_only_update()
+create or replace function public.enforce_booking_mutable_fields_update()
 returns trigger
 language plpgsql
 security definer
@@ -219,24 +326,35 @@ set search_path = public
 as $$
 begin
   if new.room_id is distinct from old.room_id
-    or new.user_id is distinct from old.user_id
-    or new.booking_date is distinct from old.booking_date
-    or new.start_time is distinct from old.start_time
-    or new.end_time is distinct from old.end_time
     or new.created_at is distinct from old.created_at
     or new.app_env is distinct from old.app_env then
-    raise exception 'Only booking cancellation is allowed';
+    raise exception 'Booking room is immutable';
   end if;
 
-  if new.status is distinct from old.status then
-    if old.status = 'active' and new.status = 'cancelled' then
-      return new;
+  if new.user_id is distinct from old.user_id then
+    if not exists (
+      select 1
+      from public.rooms r
+      join public.venues v on v.id = r.venue_id
+      where r.id = old.room_id
+        and v.admin_id = auth.uid()
+    ) then
+      raise exception 'Booking user can be changed only by venue admin';
     end if;
-    raise exception 'Only booking cancellation is allowed';
   end if;
 
-  if new.status <> 'cancelled' then
-    raise exception 'Only booking cancellation is allowed';
+  if new.booking_date is null
+    or new.start_time is null
+    or new.end_time is null then
+    raise exception 'Booking date and time are required';
+  end if;
+
+  if new.start_time >= new.end_time then
+    raise exception 'Booking end time must be later than start time';
+  end if;
+
+  if new.status not in ('active', 'cancelled') then
+    raise exception 'Invalid booking status';
   end if;
 
   return new;
@@ -244,10 +362,11 @@ end;
 $$;
 
 drop trigger if exists trg_enforce_booking_cancel_only_update on public.bookings;
-create trigger trg_enforce_booking_cancel_only_update
+drop trigger if exists trg_enforce_booking_mutable_fields_update on public.bookings;
+create trigger trg_enforce_booking_mutable_fields_update
 before update on public.bookings
 for each row
-execute function public.enforce_booking_cancel_only_update();
+execute function public.enforce_booking_mutable_fields_update();
 
 alter table public.profiles enable row level security;
 alter table public.venues enable row level security;
@@ -255,6 +374,8 @@ alter table public.rooms enable row level security;
 alter table public.venue_memberships enable row level security;
 alter table public.bookings enable row level security;
 alter table public.invitations enable row level security;
+alter table public.business_service_categories enable row level security;
+alter table public.business_services enable row level security;
 
 create or replace function public.is_venue_member(target_venue_id uuid)
 returns boolean
@@ -447,13 +568,11 @@ with check (auth.uid() = id);
 
 drop policy if exists venues_select_admin_or_member on public.venues;
 drop policy if exists venues_select_access on public.venues;
-create policy venues_select_admin_or_member
+drop policy if exists venues_select_public on public.venues;
+create policy venues_select_public
 on public.venues
 for select
-using (
-  admin_id = auth.uid()
-  or public.is_venue_member(id)
-);
+using (true);
 
 drop policy if exists venues_insert_admin on public.venues;
 create policy venues_insert_admin
@@ -477,23 +596,28 @@ using (admin_id = auth.uid());
 -- rooms
 
 drop policy if exists rooms_select_admin_or_member on public.rooms;
-create policy rooms_select_admin_or_member
+drop policy if exists rooms_select_public on public.rooms;
+create policy rooms_select_public
 on public.rooms
 for select
 using (
-  exists (
-    select 1
-    from public.venues v
-    where v.id = rooms.venue_id
-      and (
-        v.admin_id = auth.uid()
-        or exists (
-          select 1
-          from public.venue_memberships vm
-          where vm.venue_id = v.id
-            and vm.user_id = auth.uid()
-        )
+  access_type = 'public'
+  or (
+    auth.uid() is not null
+    and (
+      exists (
+        select 1
+        from public.venues v
+        where v.id = rooms.venue_id
+          and v.admin_id = auth.uid()
       )
+      or exists (
+        select 1
+        from public.venue_memberships vm
+        where vm.venue_id = rooms.venue_id
+          and vm.user_id = auth.uid()
+      )
+    )
   )
 );
 
@@ -638,17 +762,41 @@ using (
 );
 
 drop policy if exists bookings_insert_member on public.bookings;
-create policy bookings_insert_member
+drop policy if exists bookings_insert_authenticated on public.bookings;
+create policy bookings_insert_authenticated
 on public.bookings
 for insert
 with check (
-  user_id = auth.uid()
-  and exists (
+  exists (
     select 1
     from public.rooms r
-    join public.venue_memberships vm on vm.venue_id = r.venue_id
     where r.id = bookings.room_id
-      and vm.user_id = auth.uid()
+      and (
+        (
+          user_id = auth.uid()
+          and (
+            r.access_type = 'public'
+            or exists (
+              select 1
+              from public.venues v
+              where v.id = r.venue_id
+                and v.admin_id = auth.uid()
+            )
+            or exists (
+              select 1
+              from public.venue_memberships vm
+              where vm.venue_id = r.venue_id
+                and vm.user_id = auth.uid()
+            )
+          )
+        )
+        or exists (
+          select 1
+          from public.venues v
+          where v.id = r.venue_id
+            and v.admin_id = auth.uid()
+        )
+      )
   )
 );
 
@@ -667,16 +815,13 @@ using (
   )
 )
 with check (
-  bookings.status = 'cancelled'
-  and (
-    user_id = auth.uid()
-    or exists (
-      select 1
-      from public.rooms r
-      join public.venues v on v.id = r.venue_id
-      where r.id = bookings.room_id
-        and v.admin_id = auth.uid()
-    )
+  user_id = auth.uid()
+  or exists (
+    select 1
+    from public.rooms r
+    join public.venues v on v.id = r.venue_id
+    where r.id = bookings.room_id
+      and v.admin_id = auth.uid()
   )
 );
 
@@ -735,6 +880,154 @@ with check (
   )
 );
 
+-- business_service_categories
+
+drop policy if exists business_service_categories_select_admin on public.business_service_categories;
+create policy business_service_categories_select_admin
+on public.business_service_categories
+for select
+using (
+  exists (
+    select 1
+    from public.venues v
+    where v.id = business_service_categories.venue_id
+      and v.admin_id = auth.uid()
+  )
+);
+
+drop policy if exists business_service_categories_select_public on public.business_service_categories;
+create policy business_service_categories_select_public
+on public.business_service_categories
+for select
+using (
+  exists (
+    select 1
+    from public.venues v
+    where v.id = business_service_categories.venue_id
+  )
+);
+
+drop policy if exists business_service_categories_insert_admin on public.business_service_categories;
+create policy business_service_categories_insert_admin
+on public.business_service_categories
+for insert
+with check (
+  exists (
+    select 1
+    from public.venues v
+    where v.id = business_service_categories.venue_id
+      and v.admin_id = auth.uid()
+  )
+);
+
+drop policy if exists business_service_categories_update_admin on public.business_service_categories;
+create policy business_service_categories_update_admin
+on public.business_service_categories
+for update
+using (
+  exists (
+    select 1
+    from public.venues v
+    where v.id = business_service_categories.venue_id
+      and v.admin_id = auth.uid()
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.venues v
+    where v.id = business_service_categories.venue_id
+      and v.admin_id = auth.uid()
+  )
+);
+
+drop policy if exists business_service_categories_delete_admin on public.business_service_categories;
+create policy business_service_categories_delete_admin
+on public.business_service_categories
+for delete
+using (
+  exists (
+    select 1
+    from public.venues v
+    where v.id = business_service_categories.venue_id
+      and v.admin_id = auth.uid()
+  )
+);
+
+-- business_services
+
+drop policy if exists business_services_select_admin on public.business_services;
+create policy business_services_select_admin
+on public.business_services
+for select
+using (
+  exists (
+    select 1
+    from public.venues v
+    where v.id = business_services.venue_id
+      and v.admin_id = auth.uid()
+  )
+);
+
+drop policy if exists business_services_select_public on public.business_services;
+create policy business_services_select_public
+on public.business_services
+for select
+using (
+  exists (
+    select 1
+    from public.venues v
+    where v.id = business_services.venue_id
+  )
+);
+
+drop policy if exists business_services_insert_admin on public.business_services;
+create policy business_services_insert_admin
+on public.business_services
+for insert
+with check (
+  exists (
+    select 1
+    from public.venues v
+    where v.id = business_services.venue_id
+      and v.admin_id = auth.uid()
+  )
+);
+
+drop policy if exists business_services_update_admin on public.business_services;
+create policy business_services_update_admin
+on public.business_services
+for update
+using (
+  exists (
+    select 1
+    from public.venues v
+    where v.id = business_services.venue_id
+      and v.admin_id = auth.uid()
+  )
+)
+with check (
+  exists (
+    select 1
+    from public.venues v
+    where v.id = business_services.venue_id
+      and v.admin_id = auth.uid()
+  )
+);
+
+drop policy if exists business_services_delete_admin on public.business_services;
+create policy business_services_delete_admin
+on public.business_services
+for delete
+using (
+  exists (
+    select 1
+    from public.venues v
+    where v.id = business_services.venue_id
+      and v.admin_id = auth.uid()
+  )
+);
+
 grant usage on schema public to authenticated;
 revoke all on all tables in schema public from authenticated;
 grant select, insert on public.profiles to authenticated;
@@ -742,7 +1035,16 @@ grant update (first_name, last_name, avatar_url) on public.profiles to authentic
 grant select, insert, update, delete on public.venues to authenticated;
 grant select, insert, update, delete on public.rooms to authenticated;
 grant select, insert, update, delete on public.venue_memberships to authenticated;
+grant select, insert, update, delete on public.business_service_categories to authenticated;
+grant select, insert, update, delete on public.business_services to authenticated;
 grant select, insert on public.bookings to authenticated;
 grant update (status) on public.bookings to authenticated;
 grant select, insert on public.invitations to authenticated;
 grant update (expires_at, max_uses, revoked_at) on public.invitations to authenticated;
+
+grant usage on schema public to anon;
+revoke all on all tables in schema public from anon;
+grant select on public.venues to anon;
+grant select on public.rooms to anon;
+grant select on public.business_service_categories to anon;
+grant select on public.business_services to anon;

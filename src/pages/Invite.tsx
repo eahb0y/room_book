@@ -7,7 +7,7 @@ import type { Invitation } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { AlertCircle, CheckCircle2, Ticket } from 'lucide-react';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useI18n } from '@/i18n/useI18n';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 
@@ -132,9 +132,12 @@ export default function Invite() {
       <div className="w-full max-w-lg relative z-10 animate-fade-up">
         {/* Heading */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary/90 mb-5 shadow-glow">
-            <Ticket className="h-6 w-6 text-white" />
-          </div>
+          <img
+            src="/favicon.svg"
+            alt=""
+            aria-hidden="true"
+            className="mx-auto mb-5 h-12 w-12 rounded-xl shadow-glow"
+          />
           <h1 className="text-3xl font-semibold text-foreground mb-2">
             {t('Приглашение')}
           </h1>
