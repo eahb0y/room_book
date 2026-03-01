@@ -4,27 +4,28 @@ import {
   ArrowRight,
   Building2,
   CalendarClock,
-  Clock3,
   Compass,
   DoorOpen,
   GraduationCap,
   MapPin,
   Search,
+  ShieldCheck,
   Sparkles,
   Users,
-  Wallet,
   type LucideIcon,
 } from 'lucide-react';
 import { listVenues } from '@/lib/venueApi';
 import { listRooms } from '@/lib/roomApi';
 import { getRoomPhotoUrls } from '@/lib/roomPhotos';
 import { listBusinessServiceCategories, listBusinessServices } from '@/lib/serviceApi';
+import { isBusinessPortalActive } from '@/lib/businessAccess';
 import type { BusinessService, BusinessServiceProvider, Room, Venue } from '@/types';
 import { useAuthStore } from '@/store/authStore';
 import { useI18n } from '@/i18n/useI18n';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { RoomAmenities } from '@/components/RoomAmenities';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 
@@ -40,6 +41,7 @@ interface RoomCatalogCard {
   venue: Venue;
   category: CategoryId;
   photo: string | null;
+  searchText: string;
 }
 
 interface BusinessServiceCard {
@@ -48,7 +50,6 @@ interface BusinessServiceCard {
   categoryLabel: string;
   coverPhoto: string | null;
   providerCount: number;
-  featuredProviders: BusinessServiceProvider[];
   locations: string[];
   priceLabel: string;
   durationLabel: string;
@@ -91,6 +92,19 @@ const classifyCategory = (room: Room, venue?: Venue): CategoryId => {
 };
 
 const normalizeText = (value: string) => value.trim().toLowerCase();
+
+const buildRoomSearchText = (room: Room, venue: Venue) =>
+  normalizeText(
+    [
+      room.name,
+      room.description,
+      room.location,
+      venue.name,
+      venue.address,
+      venue.description,
+      ...room.services,
+    ].join(' '),
+  );
 
 const buildCurrencyFormatter = (locale: string) =>
   new Intl.NumberFormat(locale, {
@@ -137,19 +151,6 @@ const buildDurationLabel = (
   }
 
   return t('{from}-{to} мин', { from: minDuration, to: maxDuration });
-};
-
-const buildProviderFallback = (provider: BusinessServiceProvider) => {
-  const source = provider.name.trim() || provider.location.trim() || 'S';
-  return source.charAt(0).toUpperCase();
-};
-
-const buildProviderShift = (
-  provider: BusinessServiceProvider,
-  t: (value: string, params?: Record<string, string | number>) => string,
-) => {
-  if (!provider.workFrom || !provider.workTo) return t('График уточняется');
-  return `${provider.workFrom} - ${provider.workTo}`;
 };
 
 const buildServiceCoverPhoto = (service: BusinessService) => {
@@ -278,6 +279,7 @@ export default function Marketplace() {
         venue,
         category: classifyCategory(room, venue),
         photo: photos[0] ?? null,
+        searchText: buildRoomSearchText(room, venue),
       });
     });
 
@@ -289,8 +291,7 @@ export default function Marketplace() {
   const visibleRooms = useMemo(() => {
     return roomCatalog.filter((item) => {
       if (!normalizedSearchQuery) return true;
-      const haystack = `${item.room.name} ${item.venue.name} ${item.venue.address} ${item.venue.description}`.toLowerCase();
-      return haystack.includes(normalizedSearchQuery);
+      return item.searchText.includes(normalizedSearchQuery);
     });
   }, [normalizedSearchQuery, roomCatalog]);
 
@@ -302,32 +303,6 @@ export default function Marketplace() {
       }, {} as Record<CategoryId, string>),
     [],
   );
-
-  const catalogCategoryStats = useMemo(() => {
-    const counts: Record<CategoryId, number> = {
-      all: 0,
-      coworking: 0,
-      beauty: 0,
-      studio: 0,
-      education: 0,
-      health: 0,
-      events: 0,
-      other: 0,
-    };
-
-    roomCatalog.forEach((item) => {
-      counts[item.category] += 1;
-      counts.all += 1;
-    });
-
-    return categories
-      .filter((category) => category.id !== 'all' && counts[category.id] > 0)
-      .map((category) => ({
-        id: category.id,
-        label: category.label,
-        count: counts[category.id],
-      }));
-  }, [roomCatalog]);
 
   const businessServiceCatalog = useMemo(() => {
     return services
@@ -352,7 +327,6 @@ export default function Marketplace() {
           categoryLabel,
           coverPhoto: buildServiceCoverPhoto(service),
           providerCount: service.providers.length,
-          featuredProviders: service.providers.slice(0, 3),
           locations,
           priceLabel: buildPriceLabel(service.providers, intlLocale, t),
           durationLabel: buildDurationLabel(service.providers, t),
@@ -384,10 +358,7 @@ export default function Marketplace() {
     if (!normalizedSearchQuery) return [];
 
     const roomSuggestions = roomCatalog
-      .filter((item) => {
-        const haystack = `${item.room.name} ${item.venue.name} ${item.venue.address} ${item.venue.description}`.toLowerCase();
-        return haystack.includes(normalizedSearchQuery);
-      })
+      .filter((item) => item.searchText.includes(normalizedSearchQuery))
       .map((item) => ({
         id: `room:${item.room.id}`,
         title: item.room.name,
@@ -456,11 +427,10 @@ export default function Marketplace() {
   };
 
   const resolveVenueLink = (venueId: string) => {
-    if (!isAuthenticated) return `/login?next=${encodeURIComponent(`/venue/${venueId}`)}`;
     return `/venue/${venueId}`;
   };
 
-  const isBusinessPortal = portal === 'business' || user?.role === 'admin';
+  const isBusinessPortal = isBusinessPortalActive(user, portal);
 
   const fullName = [user?.firstName, user?.lastName]
     .filter((value): value is string => Boolean(value && value.trim()))
@@ -474,8 +444,6 @@ export default function Marketplace() {
         .map((part) => part.charAt(0).toUpperCase())
         .join('')
     : user?.email?.charAt(0).toUpperCase() ?? 'U';
-
-  const shortName = fullName || user?.email?.split('@')[0] || t('Гость');
 
   const roomsEmptyLabel = searchQuery.trim()
     ? t('По запросу «{query}» ничего не найдено', { query: searchQuery.trim() })
@@ -608,58 +576,36 @@ export default function Marketplace() {
       </header>
 
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-7 px-5 py-7 sm:px-6 sm:py-9 lg:px-8">
-        <section className="marketplace-hero-panel group relative overflow-hidden rounded-3xl border border-white/10 p-6 sm:p-8 lg:p-10">
-          <div className="pointer-events-none absolute inset-0">
-            <div className="absolute -left-16 top-10 h-36 w-36 rounded-full bg-white/5 blur-2xl transition-transform duration-700 group-hover:scale-110" />
-            <div className="absolute -right-10 bottom-0 h-40 w-40 rounded-full bg-amber-300/10 blur-2xl transition-transform duration-700 group-hover:translate-y-[-6px]" />
-          </div>
-
-          <div className="relative">
-            <div>
-              <h1 className="max-w-3xl text-3xl font-semibold leading-tight text-white sm:text-5xl">
-                {isAuthenticated
-                  ? t('С возвращением, {name}. Время выбрать следующий слот.', { name: shortName })
-                  : t('Находите, сравнивайте и бронируйте пространство за минуты')}
-              </h1>
-              <p className="mt-4 max-w-2xl text-sm text-white/75 sm:text-base">
-                {t('Мы делаем поиск и бронирование пространств простыми: один каталог, понятные фильтры и быстрый путь до подтверждённого слота.')}
-              </p>
-              <Button
-                asChild
-                size="sm"
-                variant="outline"
-                className="mt-6 h-10 rounded-lg border-white/30 bg-transparent px-4 text-white transition hover:bg-white/10"
-              >
-                <Link to="/business/landing">
-                  {t('Узнайте о нас больше')}
-                  <ArrowRight className="ml-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" />
-                </Link>
-              </Button>
+        {!isAuthenticated ? (
+          <section className="marketplace-hero-panel group relative overflow-hidden rounded-3xl border border-white/10 p-6 sm:p-8 lg:p-10">
+            <div className="pointer-events-none absolute inset-0">
+              <div className="absolute -left-16 top-10 h-36 w-36 rounded-full bg-white/5 blur-2xl transition-transform duration-700 group-hover:scale-110" />
+              <div className="absolute -right-10 bottom-0 h-40 w-40 rounded-full bg-amber-300/10 blur-2xl transition-transform duration-700 group-hover:translate-y-[-6px]" />
             </div>
-          </div>
-        </section>
 
-        <section className="marketplace-control-deck rounded-2xl border border-border/55 bg-card/70 p-4 sm:p-5">
-          <div className="flex flex-col gap-3">
-            <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{t('Категории из текущих комнат')}</p>
-            <div className="flex flex-wrap gap-2">
-              {catalogCategoryStats.length > 0 ? (
-                catalogCategoryStats.map((item) => (
-                  <span
-                    key={item.id}
-                    className="rounded-xl border border-border/70 bg-background/40 px-3 py-2 text-sm text-muted-foreground"
-                  >
-                    {t(item.label)} <span className="text-foreground/80">({item.count})</span>
-                  </span>
-                ))
-              ) : (
-                <span className="rounded-xl border border-border/70 bg-background/40 px-3 py-2 text-sm text-muted-foreground">
-                  {t('Категории появятся после добавления комнат')}
-                </span>
-              )}
+            <div className="relative">
+              <div>
+                <h1 className="max-w-3xl text-3xl font-semibold leading-tight text-white sm:text-5xl">
+                  {t('Находите, сравнивайте и бронируйте пространство за минуты в TezBron')}
+                </h1>
+                <p className="mt-4 max-w-2xl text-sm text-white/75 sm:text-base">
+                  {t('Мы делаем поиск и бронирование пространств простыми: один каталог, понятные фильтры и быстрый путь до подтверждённого слота.')}
+                </p>
+                <Button
+                  asChild
+                  size="sm"
+                  variant="outline"
+                  className="mt-6 h-10 rounded-lg border-white/30 bg-transparent px-4 text-white transition hover:bg-white/10"
+                >
+                  <Link to="/about">
+                    {t('Узнайте о нас больше')}
+                    <ArrowRight className="ml-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" />
+                  </Link>
+                </Button>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        ) : null}
 
         {error ? (
           <Card className="border-red-800/40 bg-red-950/20">
@@ -707,17 +653,25 @@ export default function Marketplace() {
                     ) : null}
                   </div>
 
-                  <div className="flex flex-wrap gap-2 sm:justify-end">
-                    {group.rooms.length > 0 ? (
-                      <Badge variant="outline" className="border-border/60 bg-background/35 px-3 py-1 text-sm text-foreground">
-                        {t('Комнаты')} ({group.rooms.length})
-                      </Badge>
-                    ) : null}
-                    {group.services.length > 0 ? (
-                      <Badge variant="outline" className="border-border/60 bg-background/35 px-3 py-1 text-sm text-foreground">
-                        {t('Услуги')} ({group.services.length})
-                      </Badge>
-                    ) : null}
+                  <div className="flex flex-col items-start gap-2 sm:items-end">
+                    <div className="flex flex-wrap gap-2 sm:justify-end">
+                      {group.rooms.length > 0 ? (
+                        <Badge variant="outline" className="border-border/60 bg-background/35 px-3 py-1 text-sm text-foreground">
+                          {t('Комнаты')} ({group.rooms.length})
+                        </Badge>
+                      ) : null}
+                      {group.services.length > 0 ? (
+                        <Badge variant="outline" className="border-border/60 bg-background/35 px-3 py-1 text-sm text-foreground">
+                          {t('Услуги')} ({group.services.length})
+                        </Badge>
+                      ) : null}
+                    </div>
+                    <Button asChild size="sm" variant="outline" className="rounded-full border-border/60 bg-background/30">
+                      <Link to={resolveVenueLink(group.venue.id)}>
+                        {t('Подробнее о заведении')}
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Link>
+                    </Button>
                   </div>
                 </div>
 
@@ -736,7 +690,11 @@ export default function Marketplace() {
                             return (
                               <Card
                                 key={room.id}
-                                className={`group marketplace-service-card card-hover stagger-${Math.min(index + 1, 6)} animate-fade-up w-[320px] shrink-0 snap-start overflow-hidden border-border/50 sm:w-[340px]`}
+                                className={`group marketplace-service-card card-hover stagger-${Math.min(index + 1, 6)} animate-fade-up w-[320px] shrink-0 snap-start overflow-hidden sm:w-[340px] ${
+                                  room.accessType === 'residents_only'
+                                    ? 'border-primary/30 bg-[linear-gradient(180deg,rgba(48,31,17,0.3),rgba(18,18,22,0.98))] shadow-[0_18px_42px_-28px_rgba(214,138,62,0.35)]'
+                                    : 'border-border/50'
+                                }`}
                               >
                                 <div className="relative h-40 overflow-hidden">
                                   {photo ? (
@@ -750,6 +708,12 @@ export default function Marketplace() {
                                       <CategoryIcon className="mr-1 h-3 w-3" />
                                       {t(categoryLabelById[category])}
                                     </Badge>
+                                    {room.accessType === 'residents_only' ? (
+                                      <Badge className="border border-primary/35 bg-primary/85 text-[11px] text-primary-foreground hover:bg-primary/85">
+                                        <ShieldCheck className="mr-1 h-3 w-3" />
+                                        {t('Для резидентов')}
+                                      </Badge>
+                                    ) : null}
                                   </div>
                                   <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between">
                                     <Badge variant="secondary" className="bg-black/45 text-[11px] text-white">
@@ -771,7 +735,7 @@ export default function Marketplace() {
                                       <p className="mt-1 text-sm text-muted-foreground">{venue.name}</p>
                                     </div>
                                     <Button asChild variant="ghost" size="icon" className="h-8 w-8 shrink-0 rounded-full">
-                                      <Link to={`/venue/${venue.id}`} aria-label={t('Все комнаты и услуги')}>
+                                      <Link to={resolveBookingLink(room.id)} aria-label={t('Открыть карточку комнаты')}>
                                         <ArrowRight className="h-4 w-4" />
                                       </Link>
                                     </Button>
@@ -786,6 +750,17 @@ export default function Marketplace() {
                                     <DoorOpen className="mt-0.5 h-4 w-4 shrink-0" />
                                     <span className="line-clamp-2">{room.description || venue.description || t('Подробности доступны внутри карточки')}</span>
                                   </p>
+
+                                  {room.accessType === 'residents_only' ? (
+                                    <div className="rounded-2xl border border-primary/25 bg-primary/8 p-3 text-xs text-foreground/85">
+                                      <div className="flex items-start gap-2">
+                                        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                                        <p>{t('Эта комната доступна только резидентам заведения')}</p>
+                                      </div>
+                                    </div>
+                                  ) : null}
+
+                                  <RoomAmenities roomId={room.id} services={room.services} maxVisible={5} />
 
                                   <Button asChild className="w-full rounded-xl">
                                     <Link to={resolveBookingLink(room.id)}>
@@ -880,50 +855,10 @@ export default function Marketplace() {
                                   </div>
                                 </div>
 
-                                <div>
-                                  <div className="mb-3 flex items-center gap-2 text-sm text-foreground/85">
-                                    <CalendarClock className="h-4 w-4 text-primary" />
-                                    <span>{t('Кто оказывает услугу')}</span>
-                                  </div>
-
-                                  {entry.featuredProviders.length > 0 ? (
-                                    <div className="space-y-3">
-                                      {entry.featuredProviders.map((provider) => (
-                                        <div key={`${entry.service.id}:${provider.id}`} className="flex items-center gap-3 rounded-2xl border border-border/50 bg-white/[0.03] p-3">
-                                          <Avatar className="h-10 w-10 border border-white/10">
-                                            {provider.photoUrl ? <AvatarImage src={provider.photoUrl} alt={provider.name} /> : null}
-                                            <AvatarFallback>{buildProviderFallback(provider)}</AvatarFallback>
-                                          </Avatar>
-                                          <div className="min-w-0 flex-1">
-                                            <p className="truncate text-sm font-medium text-foreground">{provider.name}</p>
-                                            <p className="truncate text-xs text-muted-foreground">
-                                              {provider.location || t('Локация уточняется')}
-                                            </p>
-                                          </div>
-                                          <div className="shrink-0 text-right">
-                                            <p className="flex items-center justify-end gap-1 text-xs text-muted-foreground">
-                                              <Clock3 className="h-3.5 w-3.5" />
-                                              {buildProviderShift(provider, t)}
-                                            </p>
-                                            <p className="mt-1 flex items-center justify-end gap-1 text-xs text-muted-foreground">
-                                              <Wallet className="h-3.5 w-3.5" />
-                                              {provider.price > 0 ? `${buildCurrencyFormatter(intlLocale).format(provider.price)} ${t('сум')}` : t('Цена по запросу')}
-                                            </p>
-                                          </div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <div className="rounded-2xl border border-dashed border-border/60 bg-white/[0.02] p-4 text-sm text-muted-foreground">
-                                      {t('Специалисты появятся после заполнения услуги в кабинете бизнеса')}
-                                    </div>
-                                  )}
-                                </div>
-
                                 <div className="mt-auto flex gap-3">
                                   <Button asChild className="flex-1 rounded-xl">
                                     <Link to={resolveVenueLink(entry.venue.id)}>
-                                      {isAuthenticated ? t('Открыть бизнес') : t('Войти и открыть бизнес')}
+                                      {t('Подробнее о заведении')}
                                       <ArrowRight className="h-4 w-4" />
                                     </Link>
                                   </Button>

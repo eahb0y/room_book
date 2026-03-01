@@ -11,10 +11,17 @@ import { Building2, MapPin, FileText, AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useI18n } from '@/i18n/useI18n';
 import { isBusinessEmail } from '@/lib/emailRules';
+import BusinessActivityField from '@/components/BusinessActivityField';
+import {
+  BUSINESS_ACTIVITY_CUSTOM_ID,
+  decodeBusinessActivityValue,
+  encodeBusinessActivityValue,
+} from '@/lib/businessActivity';
 
 export default function VenueManagement() {
   const { t } = useI18n();
   const user = useAuthStore((state) => state.user);
+  const refreshBusinessAccess = useAuthStore((state) => state.refreshBusinessAccess);
   const setPortal = useAuthStore((state) => state.setPortal);
   const navigate = useNavigate();
   const venues = useVenueStore((state) => state.venues);
@@ -28,6 +35,8 @@ export default function VenueManagement() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [address, setAddress] = useState('');
+  const [activityType, setActivityType] = useState('');
+  const [customActivityType, setCustomActivityType] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -47,6 +56,13 @@ export default function VenueManagement() {
       currentDescription === existingVenue.description ? currentDescription : existingVenue.description
     );
     setAddress((currentAddress) => (currentAddress === existingVenue.address ? currentAddress : existingVenue.address));
+    const decodedActivityType = decodeBusinessActivityValue(existingVenue.activityType);
+    setActivityType((currentValue) => (
+      currentValue === decodedActivityType.selectedValue ? currentValue : decodedActivityType.selectedValue
+    ));
+    setCustomActivityType((currentValue) => (
+      currentValue === decodedActivityType.customValue ? currentValue : decodedActivityType.customValue
+    ));
   }, [user, navigate, existingVenue]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -59,6 +75,12 @@ export default function VenueManagement() {
       return;
     }
 
+    const normalizedActivityType = encodeBusinessActivityValue(activityType, customActivityType);
+    if (activityType === BUSINESS_ACTIVITY_CUSTOM_ID && !normalizedActivityType) {
+      setError(t('Укажите свой род деятельности'));
+      return;
+    }
+
     if (!user || !isBusinessEmail(user.email)) {
       setError(t('Для управления бизнесом используйте корпоративный email'));
       return;
@@ -68,10 +90,16 @@ export default function VenueManagement() {
 
     try {
       if (existingVenue) {
-        await updateVenue(existingVenue.id, { name, description, address });
+        await updateVenue(existingVenue.id, { name, description, address, activityType: normalizedActivityType });
         setSuccess(t('Заведение успешно обновлено'));
       } else {
-        await createVenue({ name, description, address, adminId: user!.id });
+        if (!normalizedActivityType) {
+          setError(t('Выберите род деятельности'));
+          return;
+        }
+
+        await createVenue({ name, description, address, activityType: normalizedActivityType, adminId: user!.id });
+        await refreshBusinessAccess();
         setSuccess(t('Заведение успешно создано'));
       }
       setPortal('business');
@@ -148,6 +176,15 @@ export default function VenueManagement() {
                 className="h-11 bg-input/50 border-border/50 focus:border-primary/60 transition-colors"
               />
             </div>
+
+            <BusinessActivityField
+              idPrefix="venue-management"
+              selectedValue={activityType}
+              customValue={customActivityType}
+              onSelectedValueChange={setActivityType}
+              onCustomValueChange={setCustomActivityType}
+              required={!existingVenue}
+            />
 
             <div className="space-y-2">
               <Label htmlFor="description" className="flex items-center gap-2 text-sm text-muted-foreground">

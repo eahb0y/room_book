@@ -77,6 +77,22 @@ const resolveSeoByPath = (pathname: string) => {
     };
   }
 
+  if (pathname === '/about') {
+    const title = 'Как работает TezBron для клиентов | TezBron';
+    const description =
+      'Узнайте, кто такой TezBron, как работает бронирование пространств и что увидит клиент от каталога до подтверждённого слота.';
+
+    return {
+      title,
+      description,
+      path: '/about',
+      robots: INDEX_ROBOTS,
+      keywords:
+        'как работает TezBron, бронирование комнат, каталог пространств, слоты бронирования, TezBron для клиентов',
+      structuredData: createWebsiteSchema('/about', title, description),
+    };
+  }
+
   if (
     pathname === '/login' ||
     pathname === '/register' ||

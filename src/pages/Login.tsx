@@ -9,6 +9,7 @@ import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useI18n } from '@/i18n/useI18n';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
+import { isBusinessPortalActive } from '@/lib/businessAccess';
 
 export default function Login() {
   const { t } = useI18n();
@@ -32,7 +33,7 @@ export default function Login() {
   const isInviteFlow = Boolean(inviteToken);
   const resolveDefaultPostAuthPath = () => {
     const { portal, user } = useAuthStore.getState();
-    if (portal === 'business' || user?.role === 'admin') return '/my-venue';
+    if (isBusinessPortalActive(user, portal)) return '/my-venue';
     return '/';
   };
 
@@ -138,11 +139,11 @@ export default function Login() {
                 </Alert>
               )}
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm text-muted-foreground">Email</Label>
+                <Label htmlFor="email" className="text-sm text-muted-foreground">{t('Email')}</Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="your@email.com"
+                  placeholder={t('Например: your@email.com')}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required

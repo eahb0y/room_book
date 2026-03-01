@@ -1,16 +1,31 @@
 import { type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from 'react';
-import { AlertCircle, ArrowLeft, Camera, CheckCircle2, Trash2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { AlertCircle, ArrowLeft, Camera, CheckCircle2, History, MapPin, ShieldCheck, Trash2, UserRound } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { useVenueStore } from '@/store/venueStore';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import ClientBookingHistory from '@/components/ClientBookingHistory';
+import BusinessActivityField from '@/components/BusinessActivityField';
 import { useI18n } from '@/i18n/useI18n';
+import { canManageBusinessResources, getAccessibleBusinessVenues, isBusinessPortalActive } from '@/lib/businessAccess';
+import { getInvitationByToken, redeemInvitation } from '@/lib/inviteApi';
+import {
+  BUSINESS_ACTIVITY_CUSTOM_ID,
+  decodeBusinessActivityValue,
+  encodeBusinessActivityValue,
+} from '@/lib/businessActivity';
+import {
+  getResidentPromoDescription,
+  normalizeResidentPromoCode,
+} from '@/lib/residentPromo';
 
 const MAX_PROFILE_PHOTO_SIDE = 900;
 const MAX_PROFILE_PHOTO_BYTES = 900_000;
@@ -76,11 +91,13 @@ const toInitials = (firstName?: string, lastName?: string, email?: string) => {
 };
 
 export default function Profile() {
-  const { t } = useI18n();
-  const { user, portal, updateProfile } = useAuthStore();
+  const { t, intlLocale } = useI18n();
+  const { user, portal, updateProfile, refreshBusinessAccess } = useAuthStore();
   const venues = useVenueStore((state) => state.venues);
+  const memberships = useVenueStore((state) => state.memberships);
   const createVenue = useVenueStore((state) => state.createVenue);
   const updateVenue = useVenueStore((state) => state.updateVenue);
+  const loadUserData = useVenueStore((state) => state.loadUserData);
   const navigate = useNavigate();
 
   const [firstName, setFirstName] = useState('');
@@ -90,8 +107,14 @@ export default function Profile() {
   const [isImageProcessing, setIsImageProcessing] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [residentPromoCode, setResidentPromoCode] = useState('');
+  const [residentPromoError, setResidentPromoError] = useState('');
+  const [residentPromoSuccess, setResidentPromoSuccess] = useState('');
+  const [isResidentPromoSubmitting, setIsResidentPromoSubmitting] = useState(false);
   const [venueName, setVenueName] = useState('');
   const [venueAddress, setVenueAddress] = useState('');
+  const [venueActivityType, setVenueActivityType] = useState('');
+  const [venueCustomActivityType, setVenueCustomActivityType] = useState('');
   const [venueDescription, setVenueDescription] = useState('');
   const [isVenueSaving, setIsVenueSaving] = useState(false);
   const [venueError, setVenueError] = useState('');
@@ -110,20 +133,40 @@ export default function Profile() {
     [firstName, lastName, user?.email],
   );
 
-  const userId = user?.id ?? '';
-  const isBusinessPortal = portal === 'business' || user?.role === 'admin';
+  const isBusinessPortal = isBusinessPortalActive(user, portal);
   const isSimpleUser = !isBusinessPortal;
-  const ownedVenues = useMemo(() => venues.filter((venue) => venue.adminId === userId), [venues, userId]);
-  const existingVenue = useMemo(() => ownedVenues[0] ?? null, [ownedVenues]);
+  const accessibleBusinessVenues = useMemo(() => getAccessibleBusinessVenues(user, venues), [user, venues]);
+  const existingVenue = useMemo(() => accessibleBusinessVenues[0] ?? null, [accessibleBusinessVenues]);
+  const canEditVenue = canManageBusinessResources(user);
+  const connectedResidentVenues = useMemo(
+    () =>
+      memberships
+        .map((membership) => ({
+          membership,
+          venue: venues.find((venue) => venue.id === membership.venueId) ?? null,
+        }))
+        .sort((left, right) => right.membership.joinedAt.localeCompare(left.membership.joinedAt)),
+    [memberships, venues],
+  );
 
   useEffect(() => {
     if (!isBusinessPortal) return;
+    const decodedActivityType = decodeBusinessActivityValue(existingVenue?.activityType);
     setVenueName(existingVenue?.name ?? '');
     setVenueAddress(existingVenue?.address ?? '');
+    setVenueActivityType(decodedActivityType.selectedValue);
+    setVenueCustomActivityType(decodedActivityType.customValue);
     setVenueDescription(existingVenue?.description ?? '');
     setVenueError('');
     setVenueSuccess('');
-  }, [existingVenue?.id, existingVenue?.name, existingVenue?.address, existingVenue?.description, isBusinessPortal]);
+  }, [
+    existingVenue?.activityType,
+    existingVenue?.address,
+    existingVenue?.description,
+    existingVenue?.id,
+    existingVenue?.name,
+    isBusinessPortal,
+  ]);
 
   if (!user) return null;
 
@@ -213,6 +256,7 @@ export default function Profile() {
 
     const normalizedName = venueName.trim();
     const normalizedAddress = venueAddress.trim();
+    const normalizedActivityType = encodeBusinessActivityValue(venueActivityType, venueCustomActivityType);
     const normalizedDescription = venueDescription.trim();
 
     if (!normalizedName || !normalizedAddress) {
@@ -220,7 +264,21 @@ export default function Profile() {
       return;
     }
 
+    if (venueActivityType === BUSINESS_ACTIVITY_CUSTOM_ID && !normalizedActivityType) {
+      setVenueError(t('Укажите свой род деятельности'));
+      return;
+    }
+
+    if (!existingVenue && !normalizedActivityType) {
+      setVenueError(t('Выберите род деятельности'));
+      return;
+    }
+
     if (!user) return;
+    if (!canEditVenue) {
+      setVenueError(t('Эта роль может только просматривать данные заведения'));
+      return;
+    }
 
     setIsVenueSaving(true);
     try {
@@ -228,6 +286,7 @@ export default function Profile() {
         await updateVenue(existingVenue.id, {
           name: normalizedName,
           address: normalizedAddress,
+          activityType: normalizedActivityType,
           description: normalizedDescription,
         });
         setVenueSuccess(t('Данные заведения обновлены'));
@@ -236,8 +295,10 @@ export default function Profile() {
           adminId: user.id,
           name: normalizedName,
           address: normalizedAddress,
+          activityType: normalizedActivityType,
           description: normalizedDescription,
         });
+        await refreshBusinessAccess();
         setVenueSuccess(t('Заведение создано'));
       }
     } catch (err) {
@@ -248,16 +309,56 @@ export default function Profile() {
     }
   };
 
+  const formatJoinedAt = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return new Intl.DateTimeFormat(intlLocale, {
+      dateStyle: 'medium',
+    }).format(date);
+  };
+
+  const handleResidentPromoSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!user) return;
+
+    setResidentPromoError('');
+    setResidentPromoSuccess('');
+
+    const normalizedPromoCode = normalizeResidentPromoCode(residentPromoCode);
+    if (!normalizedPromoCode) {
+      setResidentPromoError(t('Введите промокод'));
+      return;
+    }
+
+    setIsResidentPromoSubmitting(true);
+    try {
+      const invitation = await getInvitationByToken(normalizedPromoCode);
+      await redeemInvitation(normalizedPromoCode);
+      await loadUserData(user.id);
+      setResidentPromoCode('');
+      setResidentPromoSuccess(
+        t('Промокод применён. Доступ к заведению «{venue}» открыт', {
+          venue: invitation.venueName ?? t('Заведение'),
+        }),
+      );
+    } catch (err) {
+      const message = err instanceof Error ? t(err.message) : t('Не удалось применить приглашение');
+      setResidentPromoError(message);
+    } finally {
+      setIsResidentPromoSubmitting(false);
+    }
+  };
+
   const profileSections = (
     <div className="space-y-8">
       <Card id="profile-business" className="border-border/40 scroll-mt-28">
         <CardHeader>
           <CardTitle>{isBusinessPortal ? t('Данные заведения') : t('Бизнес-профиль')}</CardTitle>
-          <CardDescription>
-            {isBusinessPortal
-              ? t('Редактируйте название, адрес и описание вашего заведения')
-              : t('Лендинг для добавления бизнеса открывается из профиля')}
-          </CardDescription>
+          {isBusinessPortal ? (
+            <CardDescription>
+              {t('Редактируйте название, адрес и описание вашего заведения')}
+            </CardDescription>
+          ) : null}
         </CardHeader>
         {isBusinessPortal ? (
           <CardContent>
@@ -282,6 +383,7 @@ export default function Profile() {
                   onChange={(event) => setVenueName(event.target.value)}
                   placeholder={t('Например: Nura Spaces')}
                   required
+                  disabled={!canEditVenue}
                   className="h-11 bg-input/50 border-border/50 focus:border-primary/60 transition-colors"
                 />
               </div>
@@ -294,9 +396,20 @@ export default function Profile() {
                   onChange={(event) => setVenueAddress(event.target.value)}
                   placeholder={t('Например: ул. Ленина, 1')}
                   required
+                  disabled={!canEditVenue}
                   className="h-11 bg-input/50 border-border/50 focus:border-primary/60 transition-colors"
                 />
               </div>
+
+              <BusinessActivityField
+                idPrefix="profile-venue"
+                selectedValue={venueActivityType}
+                customValue={venueCustomActivityType}
+                onSelectedValueChange={setVenueActivityType}
+                onCustomValueChange={setVenueCustomActivityType}
+                disabled={!canEditVenue}
+                required={!existingVenue}
+              />
 
               <div className="space-y-2">
                 <Label htmlFor="venueDescription">{t('Описание')}</Label>
@@ -306,15 +419,22 @@ export default function Profile() {
                   onChange={(event) => setVenueDescription(event.target.value)}
                   rows={4}
                   placeholder={t('Коротко опишите ваше заведение')}
+                  disabled={!canEditVenue}
                   className="bg-input/50 border-border/50 focus:border-primary/60 transition-colors resize-none"
                 />
               </div>
 
-              <div className="pt-1">
-                <Button type="submit" className="h-11 min-w-44" disabled={isVenueSaving}>
-                  {isVenueSaving ? t('Сохранение…') : existingVenue ? t('Обновить заведение') : t('Создать заведение')}
-                </Button>
-              </div>
+              {canEditVenue ? (
+                <div className="pt-1">
+                  <Button type="submit" className="h-11 min-w-44" disabled={isVenueSaving}>
+                    {isVenueSaving ? t('Сохранение…') : existingVenue ? t('Обновить заведение') : t('Создать заведение')}
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {t('Только роль business может изменять данные заведения')}
+                </p>
+              )}
             </form>
           </CardContent>
         ) : (
@@ -436,7 +556,129 @@ export default function Profile() {
         </Card>
       )}
 
+      {!isBusinessPortal ? (
+        <Card className="border-border/40">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              {t('Я являюсь резидентом')}
+            </CardTitle>
+            <CardDescription>{t('Введите промокод бизнеса, чтобы открыть комнаты для резидентов')}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {(residentPromoError || residentPromoSuccess) ? (
+              <Alert
+                variant={residentPromoError ? 'destructive' : 'default'}
+                className={!residentPromoError ? 'border-emerald-700/40 bg-emerald-950/20' : ''}
+              >
+                {residentPromoError ? <AlertCircle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4 text-emerald-400" />}
+                <AlertDescription className={!residentPromoError ? 'text-emerald-300' : ''}>
+                  {residentPromoError || residentPromoSuccess}
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            <form onSubmit={handleResidentPromoSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="residentPromoCode">{t('Промокод')}</Label>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <Input
+                    id="residentPromoCode"
+                    value={residentPromoCode}
+                    onChange={(event) => setResidentPromoCode(event.target.value)}
+                    placeholder={t('Вставьте промокод')}
+                    className="h-11 bg-input/50 border-border/50 font-mono focus:border-primary/60"
+                  />
+                  <Button type="submit" className="h-11 sm:min-w-52" disabled={isResidentPromoSubmitting}>
+                    {isResidentPromoSubmitting ? t('Сохранение…') : t('Применить промокод')}
+                  </Button>
+                </div>
+              </div>
+            </form>
+
+            <div className="rounded-2xl border border-border/50 bg-background/35 p-4">
+              <p className="text-sm leading-6 text-muted-foreground">{getResidentPromoDescription(t)}</p>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">{t('Мои резидентские доступы')}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{t('Площадки, которые открылись по промокоду')}</p>
+              </div>
+
+              {connectedResidentVenues.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border/50 bg-background/20 p-4 text-sm text-muted-foreground">
+                  {t('Пока нет подключений по промокоду')}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {connectedResidentVenues.map(({ membership, venue }) => (
+                    <div key={membership.id} className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="truncate text-sm font-medium text-foreground">
+                              {venue?.name ?? t('Заведение')}
+                            </p>
+                            <Badge variant="outline" className="border-primary/35 bg-primary/10 text-primary">
+                              {t('Подключено через промокод')}
+                            </Badge>
+                          </div>
+                          {venue?.address ? (
+                            <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                              <MapPin className="h-3.5 w-3.5" />
+                              <span>{venue.address}</span>
+                            </p>
+                          ) : null}
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            {t('Подключено {value}', { value: formatJoinedAt(membership.joinedAt) })}
+                          </p>
+                        </div>
+                        <Button asChild variant="outline" className="h-10 border-border/50">
+                          <Link to={`/venue/${membership.venueId}`}>
+                            {t('Открыть заведение')}
+                          </Link>
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
     </div>
+  );
+
+  const clientTabs = (
+    <Tabs defaultValue="profile" className="space-y-6">
+      <TabsList className="grid h-11 w-full max-w-[360px] grid-cols-2">
+        <TabsTrigger value="profile" className="gap-2">
+          <UserRound className="h-4 w-4" />
+          {t('Профиль')}
+        </TabsTrigger>
+        <TabsTrigger value="history" className="gap-2">
+          <History className="h-4 w-4" />
+          {t('История')}
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="profile" className="space-y-8">
+        {profileSections}
+      </TabsContent>
+
+      <TabsContent value="history" className="space-y-8">
+        <div>
+          <h2 className="text-3xl font-semibold tracking-tight text-foreground">
+            {t('История бронирований')}
+          </h2>
+          <p className="mt-2 text-muted-foreground">{t('Управляйте своими бронированиями')}</p>
+        </div>
+        <ClientBookingHistory showHeader={false} />
+      </TabsContent>
+    </Tabs>
   );
 
   return (
@@ -458,7 +700,7 @@ export default function Profile() {
         ) : null}
       </div>
 
-      {profileSections}
+      {isSimpleUser ? clientTabs : profileSections}
     </div>
   );
 }

@@ -9,10 +9,12 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useI18n } from '@/i18n/useI18n';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
+import { hasBusinessAccess } from '@/lib/businessAccess';
 
 export default function BusinessLogin() {
   const { t } = useI18n();
   const login = useAuthStore((state) => state.login);
+  const logout = useAuthStore((state) => state.logout);
   const setPortal = useAuthStore((state) => state.setPortal);
   const navigate = useNavigate();
 
@@ -37,6 +39,12 @@ export default function BusinessLogin() {
       const loggedUser = useAuthStore.getState().user;
       if (!loggedUser) {
         setError(t('Не удалось выполнить вход'));
+        return;
+      }
+
+      if (!hasBusinessAccess(loggedUser)) {
+        await logout();
+        setError(t('Этот email не подключён к бизнес-админке'));
         return;
       }
 
@@ -93,7 +101,7 @@ export default function BusinessLogin() {
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  placeholder="team@yourcompany.com"
+                  placeholder={t('Например: team@company.com')}
                   required
                   className="h-11 border-border/50 bg-input/50 focus:border-primary/60"
                 />
