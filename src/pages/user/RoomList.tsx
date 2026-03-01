@@ -45,6 +45,16 @@ const mergeUniqueById = <T extends { id: string }>(...collections: T[][]) => {
   return Array.from(map.values());
 };
 
+interface PublicVenueState {
+  requestKey: string | null;
+  venue: Venue | null;
+  rooms: Room[];
+  services: BusinessService[];
+  serviceCategories: BusinessServiceCategory[];
+  pageError: string;
+  serviceNotice: string;
+}
+
 export default function RoomList() {
   const { t, intlLocale } = useI18n();
   const { venueId } = useParams<{ venueId: string }>();
@@ -54,25 +64,20 @@ export default function RoomList() {
   const memberships = useVenueStore((state) => state.memberships);
   const allRooms = useVenueStore((state) => state.rooms);
 
-  const [publicVenue, setPublicVenue] = useState<Venue | null>(null);
-  const [publicRooms, setPublicRooms] = useState<Room[]>([]);
-  const [services, setServices] = useState<BusinessService[]>([]);
-  const [serviceCategories, setServiceCategories] = useState<BusinessServiceCategory[]>([]);
-  const [pageError, setPageError] = useState('');
-  const [serviceNotice, setServiceNotice] = useState('');
-  const [isPublicLoading, setIsPublicLoading] = useState(true);
+  const [publicVenueState, setPublicVenueState] = useState<PublicVenueState>({
+    requestKey: null,
+    venue: null,
+    rooms: [],
+    services: [],
+    serviceCategories: [],
+    pageError: '',
+    serviceNotice: '',
+  });
 
   useEffect(() => {
-    if (!venueId) {
-      setIsPublicLoading(false);
-      setPageError(t('Заведение не найдено'));
-      return;
-    }
+    if (!venueId) return;
 
     let isActive = true;
-    setIsPublicLoading(true);
-    setPageError('');
-    setServiceNotice('');
 
     void (async () => {
       const [venueResult, roomsResult, categoriesResult, servicesResult] = await Promise.allSettled([
@@ -84,37 +89,50 @@ export default function RoomList() {
 
       if (!isActive) return;
 
+      let nextVenue: Venue | null = null;
+      let nextRooms: Room[] = [];
+      let nextServiceCategories: BusinessServiceCategory[] = [];
+      let nextServices: BusinessService[] = [];
+      let nextPageError = '';
+      let nextServiceNotice = '';
+
       if (venueResult.status === 'fulfilled') {
-        setPublicVenue(venueResult.value[0] ?? null);
+        nextVenue = venueResult.value[0] ?? null;
         if (!venueResult.value[0]) {
-          setPageError(t('Заведение не найдено'));
+          nextPageError = t('Заведение не найдено');
         }
       } else {
-        setPageError(venueResult.reason instanceof Error ? t(venueResult.reason.message) : t('Не удалось загрузить каталог'));
+        nextPageError = venueResult.reason instanceof Error ? t(venueResult.reason.message) : t('Не удалось загрузить каталог');
       }
 
       if (roomsResult.status === 'fulfilled') {
-        setPublicRooms(roomsResult.value);
+        nextRooms = roomsResult.value;
       } else {
-        setPageError(roomsResult.reason instanceof Error ? t(roomsResult.reason.message) : t('Не удалось загрузить каталог'));
+        nextPageError =
+          nextPageError ||
+          (roomsResult.reason instanceof Error ? t(roomsResult.reason.message) : t('Не удалось загрузить каталог'));
       }
 
       if (categoriesResult.status === 'fulfilled') {
-        setServiceCategories(categoriesResult.value);
-      } else {
-        setServiceCategories([]);
+        nextServiceCategories = categoriesResult.value;
       }
 
       if (servicesResult.status === 'fulfilled') {
-        setServices(servicesResult.value);
+        nextServices = servicesResult.value;
       } else {
-        setServices([]);
-        setServiceNotice(
-          servicesResult.reason instanceof Error ? t(servicesResult.reason.message) : t('Не удалось загрузить сервисы'),
-        );
+        nextServiceNotice =
+          servicesResult.reason instanceof Error ? t(servicesResult.reason.message) : t('Не удалось загрузить сервисы');
       }
 
-      setIsPublicLoading(false);
+      setPublicVenueState({
+        requestKey: venueId,
+        venue: nextVenue,
+        rooms: nextRooms,
+        services: nextServices,
+        serviceCategories: nextServiceCategories,
+        pageError: nextPageError,
+        serviceNotice: nextServiceNotice,
+      });
     })();
 
     return () => {
@@ -122,6 +140,13 @@ export default function RoomList() {
     };
   }, [t, venueId]);
 
+  const publicVenue = publicVenueState.venue;
+  const publicRooms = publicVenueState.rooms;
+  const services = publicVenueState.services;
+  const serviceCategories = publicVenueState.serviceCategories;
+  const isPublicLoading = publicVenueState.requestKey !== venueId;
+  const pageError = isPublicLoading ? '' : publicVenueState.pageError;
+  const serviceNotice = isPublicLoading ? '' : publicVenueState.serviceNotice;
   const venue = storedVenue ?? publicVenue;
 
   const hasResidentAccess = useMemo(() => {
@@ -196,6 +221,26 @@ export default function RoomList() {
 
   const mapLink = venue ? buildMapsLink(venue.address) : '#';
   const isLoading = isPublicLoading && !venue;
+
+  if (!venueId) {
+    return (
+      <Card className="border-border/40">
+        <CardContent className="flex flex-col items-center justify-center gap-4 py-16 text-center">
+          <Building2 className="h-10 w-10 text-muted-foreground/35" />
+          <div className="space-y-2">
+            <p className="text-base font-medium text-foreground">{t('Заведение не найдено')}</p>
+            <p className="text-sm text-muted-foreground">{t('Попробуйте вернуться в каталог и выбрать другое заведение.')}</p>
+          </div>
+          <Button asChild variant="outline" className="border-border/50">
+            <Link to="/">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              {t('Вернуться в каталог')}
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   if (isLoading) {
     return (
