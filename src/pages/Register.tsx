@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
@@ -32,7 +32,10 @@ export default function Register() {
   if (nextPath) loginParams.set('next', nextPath);
   const loginPath = loginParams.toString() ? `/login?${loginParams.toString()}` : '/login';
   const isInviteFlow = Boolean(inviteToken);
-  const resolvePostAuthPath = () => (inviteToken ? `/invite/${inviteToken}` : nextPath ?? '/');
+  const resolvePostAuthPath = useCallback(
+    () => (inviteToken ? `/invite/${inviteToken}` : nextPath ?? '/'),
+    [inviteToken, nextPath],
+  );
 
   useEffect(() => {
     const hasOAuthPayload = location.hash.includes('access_token') || location.hash.includes('error=');
@@ -60,7 +63,7 @@ export default function Register() {
     return () => {
       isActive = false;
     };
-  }, [completeGoogleAuth, inviteToken, location.hash, location.pathname, location.search, navigate, nextPath, setPortal, t]);
+  }, [completeGoogleAuth, location.hash, location.pathname, location.search, navigate, resolvePostAuthPath, setPortal, t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

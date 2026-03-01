@@ -56,6 +56,16 @@ interface BusinessServiceCard {
   searchText: string;
 }
 
+interface MarketplaceCatalogState {
+  requestKey: string | null;
+  venues: Venue[];
+  rooms: Room[];
+  services: BusinessService[];
+  categoryNameById: Record<string, string>;
+  serviceNotice: string;
+  error: string;
+}
+
 const categories: CategoryItem[] = [
   { id: 'all', label: 'Все категории' },
   { id: 'coworking', label: 'Коворкинги' },
@@ -172,22 +182,22 @@ const mergeUniqueById = <T extends { id: string }>(...collections: T[][]) => {
 export default function Marketplace() {
   const { t, intlLocale } = useI18n();
   const { isAuthenticated, user, portal } = useAuthStore();
-  const [venues, setVenues] = useState<Venue[]>([]);
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [services, setServices] = useState<BusinessService[]>([]);
-  const [categoryNameById, setCategoryNameById] = useState<Record<string, string>>({});
-  const [serviceNotice, setServiceNotice] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [catalogState, setCatalogState] = useState<MarketplaceCatalogState>({
+    requestKey: null,
+    venues: [],
+    rooms: [],
+    services: [],
+    categoryNameById: {},
+    serviceNotice: '',
+    error: '',
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const deferredSearchQuery = useDeferredValue(searchQuery);
+  const catalogRequestKey = isAuthenticated ? 'authenticated' : 'public';
 
   useEffect(() => {
     let isActive = true;
-    setIsLoading(true);
-    setError('');
-    setServiceNotice('');
 
     void (async () => {
       const [venuesResult, roomsResult, categoriesResult, servicesResult] = await Promise.allSettled([
@@ -198,6 +208,13 @@ export default function Marketplace() {
       ]);
 
       if (!isActive) return;
+
+      let nextVenues: Venue[] = [];
+      let nextRooms: Room[] = [];
+      let nextCategoryNameById: Record<string, string> = {};
+      let nextServices: BusinessService[] = [];
+      let nextError = '';
+      let nextServiceNotice = '';
 
       let resolvedCategories = categoriesResult.status === 'fulfilled' ? categoriesResult.value : [];
       let resolvedServices = servicesResult.status === 'fulfilled' ? servicesResult.value : [];
@@ -220,45 +237,59 @@ export default function Marketplace() {
       }
 
       if (venuesResult.status === 'fulfilled') {
-        setVenues(venuesResult.value);
+        nextVenues = venuesResult.value;
       } else {
         const message = venuesResult.reason instanceof Error ? venuesResult.reason.message : t('Не удалось загрузить каталог');
-        setError(t(message));
+        nextError = t(message);
       }
 
       if (roomsResult.status === 'fulfilled') {
-        setRooms(roomsResult.value);
+        nextRooms = roomsResult.value;
       } else {
         const message = roomsResult.reason instanceof Error ? roomsResult.reason.message : t('Не удалось загрузить каталог');
-        setError((current) => current || t(message));
+        nextError = nextError || t(message);
       }
 
       if (resolvedCategories.length > 0 || categoriesResult.status === 'fulfilled') {
-        setCategoryNameById(
-          resolvedCategories.reduce<Record<string, string>>((acc, category) => {
-            acc[category.id] = category.name;
-            return acc;
-          }, {}),
-        );
+        nextCategoryNameById = resolvedCategories.reduce<Record<string, string>>((acc, category) => {
+          acc[category.id] = category.name;
+          return acc;
+        }, {});
       } else {
         const message = categoriesResult.reason instanceof Error ? categoriesResult.reason.message : t('Не удалось загрузить сервисы');
-        setServiceNotice(t(message));
+        nextServiceNotice = t(message);
       }
 
       if (resolvedServices.length > 0 || servicesResult.status === 'fulfilled') {
-        setServices(resolvedServices);
+        nextServices = resolvedServices;
       } else {
         const message = servicesResult.reason instanceof Error ? servicesResult.reason.message : t('Не удалось загрузить сервисы');
-        setServiceNotice(t(message));
+        nextServiceNotice = t(message);
       }
 
-      setIsLoading(false);
+      setCatalogState({
+        requestKey: catalogRequestKey,
+        venues: nextVenues,
+        rooms: nextRooms,
+        services: nextServices,
+        categoryNameById: nextCategoryNameById,
+        serviceNotice: nextServiceNotice,
+        error: nextError,
+      });
     })();
 
     return () => {
       isActive = false;
     };
-  }, [isAuthenticated, t]);
+  }, [catalogRequestKey, isAuthenticated, t]);
+
+  const isLoading = catalogState.requestKey !== catalogRequestKey;
+  const venues = catalogState.venues;
+  const rooms = catalogState.rooms;
+  const services = catalogState.services;
+  const categoryNameById = catalogState.categoryNameById;
+  const error = isLoading ? '' : catalogState.error;
+  const serviceNotice = isLoading ? '' : catalogState.serviceNotice;
 
   const venueById = useMemo(() => {
     const map = new Map<string, Venue>();

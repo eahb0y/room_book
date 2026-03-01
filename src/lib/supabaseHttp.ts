@@ -71,13 +71,12 @@ const resolveAccessToken = (accessToken?: string, requireAuth = true) => {
 
 const normalizePath = (path: string) => (path.startsWith('/') ? path : `/${path}`);
 
-const buildSupabaseNetworkError = (_url: string, _endpointType: 'auth' | 'database') =>
+const buildSupabaseNetworkError = () =>
   'Не удалось подключиться к Supabase. Проверьте интернет, VPN/firewall и настройки URL проекта.';
 
 const performSupabaseFetch = async (
   url: string,
   init: RequestInit,
-  endpointType: 'auth' | 'database',
 ) => {
   try {
     return await fetch(url, init);
@@ -87,7 +86,7 @@ const performSupabaseFetch = async (
       err instanceof TypeError || message.includes('failed to fetch') || message.includes('networkerror');
 
     if (isNetworkError) {
-      throw new Error(buildSupabaseNetworkError(url, endpointType));
+      throw new Error(buildSupabaseNetworkError());
     }
 
     throw err;
@@ -106,7 +105,7 @@ export const supabaseAuthRequest = async <T>(
   const res = await performSupabaseFetch(url, {
     ...init,
     headers: mergeHeaders(init?.headers, token, withJson),
-  }, 'auth');
+  });
 
   const payload = await parsePayload(res);
   if (!res.ok) {
@@ -128,7 +127,7 @@ export const supabaseDbRequest = async <T>(
   const res = await performSupabaseFetch(url, {
     ...init,
     headers: mergeHeaders(init?.headers, token, withJson),
-  }, 'database');
+  });
 
   const payload = await parsePayload(res);
   if (!res.ok) {
