@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { useAuthStore } from '@/store/authStore';
 import Layout from '@/components/Layout';
 import Landing from '@/pages/Landing';
+import ClientLanding from '@/pages/ClientLanding';
 import Marketplace from '@/pages/Marketplace';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
@@ -9,6 +10,7 @@ import BusinessLogin from '@/pages/BusinessLogin';
 import BusinessRegister from '@/pages/BusinessRegister';
 import Invite from '@/pages/Invite';
 import AdminDashboard from '@/pages/admin/AdminDashboard';
+import EmployeesManagement from '@/pages/admin/EmployeesManagement';
 import PeopleManagement from '@/pages/admin/PeopleManagement';
 import RoomManagement from '@/pages/admin/RoomManagement';
 import ServicesManagement from '@/pages/admin/ServicesManagement';
@@ -18,6 +20,7 @@ import BookingPage from '@/pages/user/BookingPage';
 import MyBookings from '@/pages/user/MyBookings';
 import Profile from '@/pages/Profile';
 import SeoRouteManager from '@/components/SeoRouteManager';
+import { isBusinessPortalActive } from '@/lib/businessAccess';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -38,7 +41,7 @@ function UserRoute({ children }: { children: React.ReactNode }) {
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, portal, user } = useAuthStore();
-  const isBusinessPortal = portal === 'business' || user?.role === 'admin';
+  const isBusinessPortal = isBusinessPortalActive(user, portal);
   if (!isAuthenticated) return <Navigate to="/business/login" replace />;
   if (!isBusinessPortal) return <Navigate to="/" replace />;
   return <>{children}</>;
@@ -48,7 +51,7 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, portal, user } = useAuthStore();
   if (!isAuthenticated) return <>{children}</>;
 
-  const defaultPath = portal === 'business' || user?.role === 'admin' ? '/my-venue' : '/';
+  const defaultPath = isBusinessPortalActive(user, portal) ? '/my-venue' : '/';
   return <Navigate to={defaultPath} replace />;
 }
 
@@ -90,6 +93,10 @@ function App() {
           path="/business/landing"
           element={<Landing />}
         />
+        <Route
+          path="/about"
+          element={<ClientLanding />}
+        />
 
         {/* Protected routes */}
         <Route path="/app" element={<Navigate to="/" replace />} />
@@ -111,6 +118,16 @@ function App() {
             <AdminRoute>
               <Layout>
                 <PeopleManagement />
+              </Layout>
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/employees"
+          element={
+            <AdminRoute>
+              <Layout>
+                <EmployeesManagement />
               </Layout>
             </AdminRoute>
           }
@@ -150,11 +167,9 @@ function App() {
         <Route
           path="/venue/:venueId"
           element={
-            <UserRoute>
-              <Layout>
-                <RoomList />
-              </Layout>
-            </UserRoute>
+            <Layout>
+              <RoomList />
+            </Layout>
           }
         />
         <Route

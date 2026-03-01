@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 import { useI18n } from '@/i18n/useI18n';
 import { getBookingViewStatus, type BookingViewStatus } from '@/lib/bookingStatus';
 import type { Invitation, VenueMembership } from '@/types';
+import { canManageBusinessBookings, getAccessibleBusinessVenues, isBusinessPortalActive } from '@/lib/businessAccess';
 
 const DISPLAY_SLOT_STEP_MINUTES = 30;
 const EDIT_SLOT_STEP_SECONDS = 15 * 60;
@@ -389,7 +390,7 @@ export default function AdminBookings() {
   const { user, portal } = useAuthStore();
   const { isVenueDataLoading } = useVenueDataGuard(user, 'admin');
   const navigate = useNavigate();
-  const isBusinessPortal = portal === 'business' || user?.role === 'admin';
+  const isBusinessPortal = isBusinessPortalActive(user, portal);
 
   const venues = useVenueStore((state) => state.venues);
   const allRooms = useVenueStore((state) => state.rooms);
@@ -426,7 +427,8 @@ export default function AdminBookings() {
   const [isSaving, setIsSaving] = useState(false);
 
   const todayDate = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
-  const ownedVenues = useMemo(() => venues.filter((venue) => venue.adminId === user?.id), [venues, user?.id]);
+  const ownedVenues = useMemo(() => getAccessibleBusinessVenues(user, venues), [user, venues]);
+  const canManageBookings = canManageBusinessBookings(user);
   const ownedVenueIds = useMemo(() => new Set(ownedVenues.map((venue) => venue.id)), [ownedVenues]);
   const venueNameById = useMemo(
     () => new Map(ownedVenues.map((venue) => [venue.id, venue.name])),
@@ -721,6 +723,7 @@ export default function AdminBookings() {
   );
 
   const openCreateDialog = (room: AdminRoom, params?: { date?: string; startTime?: string }) => {
+    if (!canManageBookings) return;
     setSelectedRoomId(room.id);
     setCreateUserId(user?.id ?? '');
     setCreateDate(params?.date ?? todayDate);
@@ -746,6 +749,7 @@ export default function AdminBookings() {
   };
 
   const openEditDialog = (booking: BookingViewItem) => {
+    if (!canManageBookings) return;
     setEditingBookingId(booking.id);
     setEditRoomId(booking.roomId);
     setEditUserId(booking.userId);
@@ -807,6 +811,7 @@ export default function AdminBookings() {
 
   const handleCreateBooking = async () => {
     if (!selectedRoom || !user) return;
+    if (!canManageBookings) return;
 
     setCreateError('');
 
@@ -844,6 +849,7 @@ export default function AdminBookings() {
 
   const handleSaveEdit = async () => {
     if (!editingBookingId || !editRoomId) return;
+    if (!canManageBookings) return;
 
     setEditError('');
 
@@ -902,9 +908,11 @@ export default function AdminBookings() {
       <div>
         <h1 className="text-4xl font-semibold tracking-tight text-foreground">{t('Бронирования')}</h1>
         <p className="mt-2 text-muted-foreground">
-          {ownedVenues.length === 1
-            ? t('Все бронирования в заведении «{venue}»', { venue: ownedVenues[0]?.name ?? '' })
-            : t('Все бронирования по вашим заведениям')}
+          {canManageBookings
+            ? (ownedVenues.length === 1
+              ? t('Все бронирования в заведении «{venue}»', { venue: ownedVenues[0]?.name ?? '' })
+              : t('Все бронирования по вашим заведениям'))
+            : t('Бронирования доступны для просмотра. Управлять ими могут только роли business и manager')}
         </p>
       </div>
 
@@ -993,15 +1001,15 @@ export default function AdminBookings() {
             rooms={selectedRoom ? [{ id: selectedRoom.id, name: selectedRoom.name }] : []}
             bookings={activeDateBookings}
             t={t}
-            onEdit={openEditDialog}
-            onCreateSlot={({ roomId, slotStart }) => {
+            onEdit={canManageBookings ? openEditDialog : undefined}
+            onCreateSlot={canManageBookings ? ({ roomId, slotStart }) => {
               const room = roomById.get(roomId);
               if (!room) return;
               openCreateDialog(room, {
                 date: resolvedActiveDate,
                 startTime: toTime(slotStart),
               });
-            }}
+            } : undefined}
           />
         </TabsContent>
 
@@ -1114,7 +1122,7 @@ export default function AdminBookings() {
             <Button type="button" variant="outline" onClick={resetCreateDialog} className="border-border/50" disabled={isCreating}>
               {t('Отмена')}
             </Button>
-            <Button type="button" onClick={handleCreateBooking} disabled={isCreating}>
+            <Button type="button" onClick={handleCreateBooking} disabled={isCreating || !canManageBookings}>
               {isCreating ? t('Создание…') : t('Создать бронь')}
             </Button>
           </DialogFooter>
@@ -1229,7 +1237,7 @@ export default function AdminBookings() {
             <Button type="button" variant="outline" onClick={resetEditDialog} className="border-border/50" disabled={isSaving}>
               {t('Отмена')}
             </Button>
-            <Button type="button" onClick={handleSaveEdit} disabled={isSaving}>
+            <Button type="button" onClick={handleSaveEdit} disabled={isSaving || !canManageBookings}>
               {isSaving ? t('Сохранение…') : t('Сохранить изменения')}
             </Button>
           </DialogFooter>

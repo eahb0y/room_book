@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { AuthState, User } from '@/types';
 import * as authApi from '@/lib/authApi';
+import { hasBusinessAccess } from '@/lib/businessAccess';
 import { getAuthSession } from '@/lib/supabaseSession';
 import { useVenueStore } from '@/store/venueStore';
 
@@ -8,7 +9,7 @@ const AUTH_STATE_STORAGE_KEY = 'workspace-booking-auth-state';
 const LEGACY_AUTH_STATE_STORAGE_KEY = AUTH_STATE_STORAGE_KEY;
 const isBrowser = typeof window !== 'undefined';
 const isPortal = (value: unknown): value is 'user' | 'business' => value === 'user' || value === 'business';
-const resolvePortalByRole = (user: User): AuthState['portal'] => (user.role === 'admin' ? 'business' : 'user');
+const resolvePortalByRole = (user: User): AuthState['portal'] => (hasBusinessAccess(user) ? 'business' : 'user');
 
 const isAuthError = (err: unknown) => {
   const message = err instanceof Error ? err.message.toLowerCase() : '';
@@ -33,6 +34,16 @@ const isDuplicateError = (err: unknown) => {
 const isUser = (value: unknown): value is User => {
   if (!value || typeof value !== 'object') return false;
   const user = value as Record<string, unknown>;
+  const businessAccess = user.businessAccess;
+  const hasValidBusinessAccess = businessAccess === undefined || businessAccess === null || (
+    typeof businessAccess === 'object'
+    && typeof (businessAccess as Record<string, unknown>).venueId === 'string'
+    && ((businessAccess as Record<string, unknown>).venueName === undefined || typeof (businessAccess as Record<string, unknown>).venueName === 'string')
+    && ((businessAccess as Record<string, unknown>).role === 'business'
+      || (businessAccess as Record<string, unknown>).role === 'manager'
+      || (businessAccess as Record<string, unknown>).role === 'staff')
+    && typeof (businessAccess as Record<string, unknown>).isOwner === 'boolean'
+  );
 
   return (
     typeof user.id === 'string' &&
@@ -41,7 +52,8 @@ const isUser = (value: unknown): value is User => {
     (user.role === 'admin' || user.role === 'user') &&
     (user.firstName === undefined || typeof user.firstName === 'string') &&
     (user.lastName === undefined || typeof user.lastName === 'string') &&
-    (user.avatarUrl === undefined || user.avatarUrl === null || typeof user.avatarUrl === 'string')
+    (user.avatarUrl === undefined || user.avatarUrl === null || typeof user.avatarUrl === 'string') &&
+    hasValidBusinessAccess
   );
 };
 
@@ -99,7 +111,7 @@ const readPersistedAuthState = (): Pick<AuthState, 'user' | 'isAuthenticated' | 
 
     const rolePortal = resolvePortalByRole(parsed.user);
     const requestedPortal = isPortal(parsed.portal) ? parsed.portal : null;
-    const portal = parsed.user.role === 'admin' ? 'business' : requestedPortal ?? rolePortal;
+    const portal = hasBusinessAccess(parsed.user) ? requestedPortal ?? rolePortal : 'user';
 
     if (!localRaw && legacyRaw) {
       persistAuthState({ user: parsed.user, isAuthenticated: true, portal });
@@ -152,6 +164,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
+  refreshBusinessAccess: async () => {
+    const currentUser = get().user;
+    if (!currentUser) return null;
+
+    const user = await authApi.refreshBusinessAccess(currentUser.id);
+    const currentPortal = get().portal;
+    const nextPortal = hasBusinessAccess(user) ? (currentPortal === 'business' ? 'business' : resolvePortalByRole(user)) : 'user';
+    const nextState = { user, isAuthenticated: true, portal: nextPortal };
+    persistAuthState(nextState);
+    set(nextState);
+    return user;
+  },
+
   startGoogleAuth: (redirectPath) => {
     if (typeof window === 'undefined') return;
     const destination = redirectPath?.trim() ? redirectPath : '/login';
@@ -180,7 +205,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setPortal: (portal) => {
     const currentUser = get().user;
     const isAuthenticated = get().isAuthenticated;
-    const resolvedPortal = currentUser?.role === 'admin' ? 'business' : portal;
+    const resolvedPortal = portal === 'business' && currentUser && hasBusinessAccess(currentUser) ? 'business' : 'user';
     set({ portal: resolvedPortal });
     persistAuthState({ user: currentUser, isAuthenticated, portal: resolvedPortal });
   },
@@ -188,7 +213,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   updateProfile: async (payload) => {
     const currentUser = get().user;
     if (!currentUser) {
-      throw new Error('Not authenticated');
+      throw new Error('Пользователь не авторизован');
     }
 
     const user = await authApi.updateProfile(currentUser.id, payload);
@@ -201,7 +226,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   changePassword: async (payload) => {
     const currentUser = get().user;
     if (!currentUser) {
-      throw new Error('Not authenticated');
+      throw new Error('Пользователь не авторизован');
     }
 
     await authApi.changePassword(currentUser.email, payload);

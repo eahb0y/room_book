@@ -6,22 +6,23 @@ import { Building2, DoorOpen, CalendarDays, CheckCircle2, CircleSlash, Clock3 } 
 import { useVenueStore } from '@/store/venueStore';
 import { useI18n } from '@/i18n/useI18n';
 import { getBookingViewStatus } from '@/lib/bookingStatus';
+import { getAccessibleBusinessVenues, isBusinessPortalActive } from '@/lib/businessAccess';
 
 export default function AdminDashboard() {
   const { t } = useI18n();
   const { user, portal } = useAuthStore();
   const navigate = useNavigate();
-  const isBusinessPortal = portal === 'business' || user?.role === 'admin';
+  const isBusinessPortal = isBusinessPortalActive(user, portal);
   const venues = useVenueStore((state) => state.venues);
   const allRooms = useVenueStore((state) => state.rooms);
   const allBookings = useVenueStore((state) => state.bookings);
 
-  const ownedVenues = useMemo(() => venues.filter((v) => v.adminId === user?.id), [venues, user?.id]);
-  const ownedVenueIds = useMemo(() => new Set(ownedVenues.map((venue) => venue.id)), [ownedVenues]);
+  const businessVenues = useMemo(() => getAccessibleBusinessVenues(user, venues), [user, venues]);
+  const ownedVenueIds = useMemo(() => new Set(businessVenues.map((venue) => venue.id)), [businessVenues]);
   const rooms = useMemo(() => allRooms.filter((room) => ownedVenueIds.has(room.venueId)), [allRooms, ownedVenueIds]);
   const venueRoomIds = useMemo(() => new Set(rooms.map((room) => room.id)), [rooms]);
   const bookings = useMemo(() => allBookings.filter((booking) => venueRoomIds.has(booking.roomId)), [allBookings, venueRoomIds]);
-  const primaryVenue = ownedVenues[0];
+  const primaryVenue = businessVenues[0];
 
   useEffect(() => {
     if (!user || !isBusinessPortal) {
@@ -66,11 +67,11 @@ export default function AdminDashboard() {
   const stats = [
     {
       label: t('Заведений'),
-      value: ownedVenues.length,
+      value: businessVenues.length,
       sub:
-        ownedVenues.length === 0
+        businessVenues.length === 0
           ? t('Добавьте своё заведение')
-          : ownedVenues.length === 1
+          : businessVenues.length === 1
             ? primaryVenue?.address ?? ''
             : t('Управляйте всеми своими заведениями'),
       icon: Building2,

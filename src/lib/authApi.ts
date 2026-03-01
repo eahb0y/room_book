@@ -1,4 +1,4 @@
-import type { LoginCredentials, RegisterCredentials, User } from '@/types';
+import type { BusinessAccess, LoginCredentials, RegisterCredentials, User } from '@/types';
 import { getSupabaseUrl } from '@/lib/supabaseConfig';
 import { supabaseAuthRequest, supabaseDbRequest } from '@/lib/supabaseHttp';
 import { clearAuthSession, getAuthSession, setAuthSession } from '@/lib/supabaseSession';
@@ -42,9 +42,54 @@ interface ProfileRow {
   created_at: string;
 }
 
+interface OwnedVenueRow {
+  id: string;
+  name: string;
+}
+
+interface BusinessStaffAccessRow {
+  venue_id: string;
+  role: 'manager' | 'staff';
+  venues: {
+    name: string;
+  } | null;
+}
+
 export type OAuthProvider = 'google' | 'apple';
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
+
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+
+  if (typeof error === 'object' && error !== null) {
+    const record = error as Record<string, unknown>;
+    const candidates = [record.message, record.msg, record.detail, record.hint, record.error];
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && candidate.trim()) {
+        return candidate;
+      }
+    }
+  }
+
+  return '';
+};
+
+const isMissingBusinessStaffSchemaError = (error: unknown) => {
+  const message = getErrorMessage(error).toLowerCase();
+  return (
+    message.includes('business_staff_accounts')
+    && (
+      message.includes('schema cache')
+      || message.includes('could not find the table')
+      || message.includes('relation')
+      || message.includes('does not exist')
+      || message.includes('pgrst')
+      || message.includes('42p01')
+    )
+  );
+};
 
 const decodeOAuthError = (value: string) => {
   try {
@@ -54,13 +99,14 @@ const decodeOAuthError = (value: string) => {
   }
 };
 
-const mapProfileToUser = (profile: ProfileRow): User => ({
+const mapProfileToUser = (profile: ProfileRow, businessAccess?: BusinessAccess | null): User => ({
   id: profile.id,
   email: profile.email,
   role: profile.role,
   firstName: profile.first_name ?? undefined,
   lastName: profile.last_name ?? undefined,
   avatarUrl: profile.avatar_url ?? null,
+  businessAccess: businessAccess ?? null,
   createdAt: profile.created_at,
 });
 
@@ -82,6 +128,56 @@ const fetchProfileById = async (userId: string, accessToken?: string) => {
   );
 
   return rows[0];
+};
+
+const fetchOwnedBusinessAccess = async (userId: string, accessToken?: string): Promise<BusinessAccess | null> => {
+  const rows = await supabaseDbRequest<OwnedVenueRow[]>(
+    `venues?select=id,name&admin_id=eq.${encodeURIComponent(userId)}&order=created_at.asc&limit=1`,
+    { method: 'GET' },
+    { accessToken },
+  );
+
+  const venue = rows[0];
+  if (!venue) return null;
+
+  return {
+    venueId: venue.id,
+    venueName: venue.name,
+    role: 'business',
+    isOwner: true,
+  };
+};
+
+const fetchStaffBusinessAccess = async (userId: string, accessToken?: string): Promise<BusinessAccess | null> => {
+  try {
+    const rows = await supabaseDbRequest<BusinessStaffAccessRow[]>(
+      `business_staff_accounts?select=venue_id,role,venues(name)&user_id=eq.${encodeURIComponent(userId)}&order=created_at.asc&limit=1`,
+      { method: 'GET' },
+      { accessToken },
+    );
+
+    const staffAccount = rows[0];
+    if (!staffAccount) return null;
+
+    return {
+      venueId: staffAccount.venue_id,
+      venueName: staffAccount.venues?.name ?? undefined,
+      role: staffAccount.role,
+      isOwner: false,
+    };
+  } catch (error) {
+    if (isMissingBusinessStaffSchemaError(error)) {
+      return null;
+    }
+
+    throw error;
+  }
+};
+
+const resolveBusinessAccess = async (userId: string, accessToken?: string) => {
+  const ownedAccess = await fetchOwnedBusinessAccess(userId, accessToken);
+  if (ownedAccess) return ownedAccess;
+  return fetchStaffBusinessAccess(userId, accessToken);
 };
 
 const upsertProfile = async (
@@ -123,6 +219,8 @@ const ensureProfile = async (input: {
   userId: string;
   email: string;
   accessToken: string;
+  firstName?: string;
+  lastName?: string;
 }) => {
   const existing = await fetchProfileById(input.userId, input.accessToken);
   if (existing) return existing;
@@ -132,9 +230,16 @@ const ensureProfile = async (input: {
       id: input.userId,
       email: input.email,
       role: 'user',
+      firstName: input.firstName,
+      lastName: input.lastName,
     },
     input.accessToken,
   );
+};
+
+const buildUserWithAccess = async (profile: ProfileRow, accessToken?: string) => {
+  const businessAccess = await resolveBusinessAccess(profile.id, accessToken);
+  return mapProfileToUser(profile, businessAccess);
 };
 
 export const login = async (credentials: LoginCredentials) => {
@@ -161,7 +266,7 @@ export const login = async (credentials: LoginCredentials) => {
     accessToken: data.access_token,
   });
 
-  return mapProfileToUser(profile);
+  return buildUserWithAccess(profile, data.access_token);
 };
 
 export const getOAuthAuthorizeUrl = (provider: OAuthProvider, redirectTo: string) => {
@@ -230,7 +335,7 @@ export const completeGoogleAuthFromHash = async (hash: string) => {
     accessToken,
   });
 
-  return mapProfileToUser(profile);
+  return buildUserWithAccess(profile, accessToken);
 };
 
 export const register = async (payload: RegisterCredentials) => {
@@ -287,7 +392,7 @@ export const register = async (payload: RegisterCredentials) => {
     accessToken,
   });
 
-  return mapProfileToUser(profile);
+  return buildUserWithAccess(profile, accessToken);
 };
 
 export const updateProfile = async (
@@ -320,7 +425,7 @@ export const updateProfile = async (
     if (!existing) {
       throw new Error('Профиль не найден');
     }
-    return mapProfileToUser(existing);
+    return buildUserWithAccess(existing);
   }
 
   const rows = await supabaseDbRequest<ProfileRow[]>(
@@ -339,7 +444,16 @@ export const updateProfile = async (
     throw new Error('Профиль не найден');
   }
 
-  return mapProfileToUser(updated);
+  return buildUserWithAccess(updated);
+};
+
+export const refreshBusinessAccess = async (userId: string) => {
+  const profile = await fetchProfileById(userId);
+  if (!profile) {
+    throw new Error('Профиль не найден');
+  }
+
+  return buildUserWithAccess(profile);
 };
 
 export const changePassword = async (

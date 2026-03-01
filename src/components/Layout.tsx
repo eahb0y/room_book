@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { LogOut, Home, DoorOpen, List, Users, UserRound, Sparkles } from 'lucide-react';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { useI18n } from '@/i18n/useI18n';
+import { canManageBusinessStaff, isBusinessPortalActive } from '@/lib/businessAccess';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -21,16 +22,16 @@ export default function Layout({ children }: LayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
   const isUserJourneyPath = location.pathname === '/my-bookings' || location.pathname.startsWith('/venue/') || location.pathname.startsWith('/room/');
-  const isBusinessPortal = (portal === 'business' || user?.role === 'admin') && !isUserJourneyPath;
+  const isBusinessPortal = isBusinessPortalActive(user, portal) && !isUserJourneyPath;
   const homePath = isBusinessPortal ? '/my-venue' : '/';
   const showSidebarNavigation = isAuthenticated && isBusinessPortal;
 
   useEffect(() => {
     if (!isAuthenticated || !user) return;
-    const key = `${isBusinessPortal ? 'admin' : 'user'}:${user.id}`;
+    const key = isBusinessPortal ? `admin:${user.id}:${user.businessAccess?.isOwner ? 'owner' : user.businessAccess?.venueId ?? 'none'}` : `user:${user.id}`;
     if (loadedFor === key) return;
     if (isBusinessPortal) {
-      loadAdminData(user.id);
+      loadAdminData(user);
     } else {
       loadUserData(user.id);
     }
@@ -128,6 +129,12 @@ export default function Layout({ children }: LayoutProps) {
                     <Users className="h-4 w-4" />
                     <span>{t('Резиденты')}</span>
                   </Link>
+                  {canManageBusinessStaff(user) ? (
+                    <Link to="/employees" className={navLink('/employees')}>
+                      <Users className="h-4 w-4" />
+                      <span>{t('Сотрудники')}</span>
+                    </Link>
+                  ) : null}
                   <Link to="/rooms" className={navLink('/rooms')}>
                     <DoorOpen className="h-4 w-4" />
                     <span>{t('Комнаты')}</span>

@@ -29,11 +29,27 @@ type RedeemRpcResponse = {
   venue_id?: string;
   invitation_id?: string;
 };
+type InvitationPreviewRpcResponse = {
+  id?: string;
+  venueId?: string;
+  venueName?: string | null;
+  token?: string;
+  createdAt?: string;
+  expiresAt?: string | null;
+  maxUses?: number | null;
+  uses?: number;
+  revokedAt?: string | null;
+  status?: 'pending' | 'connected' | null;
+  connectedAt?: string | null;
+  connectedUserId?: string | null;
+};
 
 const normalizeEmail = (value?: string) => {
   const normalized = value?.trim().toLowerCase();
   return normalized && normalized.length > 0 ? normalized : null;
 };
+
+const normalizeToken = (value: string) => value.trim().toLowerCase();
 
 const mapInvitation = (row: InvitationRow): Invitation => ({
   id: row.id,
@@ -67,15 +83,6 @@ const generateToken = (length = 32) => {
   }
 
   return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join('');
-};
-
-const getInvitationRowByToken = async (token: string) => {
-  const rows = await supabaseDbRequest<InvitationRow[]>(
-    `invitations?select=*&token=eq.${encodeURIComponent(token)}&limit=1`,
-    { method: 'GET' },
-  );
-
-  return rows[0];
 };
 
 export const listInvitations = async (venueId: string) => {
@@ -125,7 +132,7 @@ export const createInvitation = async (payload: {
   );
 
   const created = rows[0];
-  if (!created) throw new Error('Invitation was not created');
+  if (!created) throw new Error('Не удалось создать приглашение');
 
   return mapInvitation(created);
 };
@@ -150,7 +157,7 @@ export const updateInvitation = async (
   );
 
   const updated = rows[0];
-  if (!updated) throw new Error('Invitation not found');
+  if (!updated) throw new Error('Приглашение не найдено');
 
   return mapInvitation(updated);
 };
@@ -170,21 +177,46 @@ export const revokeInvitation = async (id: string) => {
   );
 
   const updated = rows[0];
-  if (!updated) throw new Error('Invitation not found');
+  if (!updated) throw new Error('Приглашение не найдено');
 
   return mapInvitation(updated);
 };
 
 export const getInvitationByToken = async (token: string) => {
-  const invitation = await getInvitationRowByToken(token);
-  if (!invitation) {
+  const response = await supabaseDbRequest<InvitationPreviewRpcResponse>(
+    'rpc/preview_invitation_by_token',
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        p_token: normalizeToken(token),
+      }),
+    },
+    { requireAuth: false },
+  );
+
+  if (!response.id || !response.venueId || !response.token || !response.createdAt || typeof response.uses !== 'number') {
     throw new Error('Приглашение не найдено');
   }
-  return mapInvitation(invitation);
+
+  return {
+    id: response.id,
+    venueId: response.venueId,
+    venueName: response.venueName ?? undefined,
+    token: response.token,
+    createdByUserId: '',
+    createdAt: response.createdAt,
+    expiresAt: response.expiresAt ?? undefined,
+    maxUses: response.maxUses ?? undefined,
+    uses: response.uses,
+    revokedAt: response.revokedAt ?? undefined,
+    status: response.status ?? undefined,
+    connectedAt: response.connectedAt ?? undefined,
+    connectedUserId: response.connectedUserId ?? undefined,
+  };
 };
 
 export const redeemInvitation = async (token: string): Promise<RedeemResponse> => {
-  const normalizedToken = token.trim();
+  const normalizedToken = normalizeToken(token);
   if (!normalizedToken) {
     throw new Error('Не удалось применить приглашение');
   }

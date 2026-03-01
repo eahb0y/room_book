@@ -18,6 +18,57 @@ const uzTranslations: Record<string, string> = {
   'Заведения': 'Maskanlar',
   'Мои бронирования': 'Mening bronlarim',
   'Профиль': 'Profil',
+  'История': 'Tarix',
+  'Род деятельности': 'Faoliyat turi',
+  'Выберите сферу бизнеса': 'Biznes yo‘nalishini tanlang',
+  'Другое (указать вручную)': 'Boshqa (qo‘lda kiritish)',
+  'Укажите свой род деятельности': 'Faoliyat turingizni kiriting',
+  'Например: стоматология, языковая школа, барбершоп':
+    'Masalan: stomatologiya, til maktabi, barbershop',
+  'Выберите род деятельности': 'Faoliyat turini tanlang',
+  'Коворкинг и офисы': 'Kovorking va ofislar',
+  'Медицина': 'Tibbiyot',
+  'Красота и уход': 'Go‘zallik va parvarish',
+  'Фитнес и wellbeing': 'Fitnes va wellbeing',
+  'Ивенты и мероприятия': 'Tadbirlar va uchrashuvlar',
+  'Студия и креатив': 'Studiya va kreativ',
+  'Консультации и сервис': 'Konsultatsiya va servis',
+  'Промокод резидента': 'Rezident promokodi',
+  'Промокод резидента в «{venue}»': '«{venue}» uchun rezident promokodi',
+  'Открывает доступ к закрытым комнатам и слотам для резидентов этого бизнеса':
+    'Ushbu biznesdagi rezidentlar uchun yopiq xonalar va slotlarga kirishni ochadi',
+  'Войдите или зарегистрируйтесь, чтобы активировать промокод.':
+    'Promokodni faollashtirish uchun kiring yoki ro‘yxatdan o‘ting.',
+  'Я являюсь резидентом': 'Men rezidentman',
+  'Введите промокод бизнеса, чтобы открыть комнаты для резидентов':
+    'Rezidentlar uchun xonalarni ochish uchun biznes promokodini kiriting',
+  'Введите промокод': 'Promokodni kiriting',
+  'Вставьте промокод': 'Promokodni kiriting',
+  'Применить промокод': 'Promokodni qo‘llash',
+  'Промокод применён. Доступ к заведению «{venue}» открыт':
+    'Promokod qo‘llandi. «{venue}» maskaniga kirish ochildi',
+  'Мои резидентские доступы': 'Mening rezident kirishlarim',
+  'Площадки, которые открылись по промокоду': 'Promokod orqali ochilgan maskanlar',
+  'Пока нет подключений по промокоду': 'Hozircha promokod orqali ulanishlar yo‘q',
+  'Подключено через промокод': 'Promokod orqali ulangan',
+  'Подключено {value}': '{value} da ulandi',
+  'Открыть заведение': 'Maskanni ochish',
+  'Промокод резидентов': 'Rezidentlar promokodi',
+  'Отправьте код, ссылку или QR, чтобы человек получил доступ к закрытым комнатам':
+    'Kod, havola yoki QR yuboring, shunda foydalanuvchi yopiq xonalarga kirish oladi',
+  'Промокод ещё не создан': 'Promokod hali yaratilmagan',
+  'Создать промокод': 'Promokod yaratish',
+  'Обновить промокод': 'Promokodni yangilash',
+  'Промокод активен для резидентов этого заведения':
+    'Promokod ushbu maskan rezidentlari uchun faol',
+  'Код скопирован': 'Kod nusxalandi',
+  'Скопировать код': 'Koddan nusxa olish',
+  'QR-код промокода': 'Promokodning QR-kodi',
+  'Закрытых комнат: {count}': 'Yopiq xonalar: {count}',
+  'По промокоду: {value}': 'Promokod: {value}',
+  'Для резидентов': 'Rezidentlar uchun',
+  'Эта комната доступна только резидентам заведения':
+    'Bu xona faqat maskan rezidentlari uchun ochiq',
   'Активно': 'Faol',
   'Отменено': 'Bekor qilingan',
   'Отозвано': 'Bekor qilingan',
@@ -170,6 +221,8 @@ const uzTranslations: Record<string, string> = {
     'Ro‘yxatdan o‘tishdan boshlang, maskaningizni yarating va birinchi taklifnomani yuboring.',
   'Создать пространство': 'Maskan yaratish',
   'Платформа бронирования комнат и пространств': 'Xona va maskanlarni bron qilish platformasi',
+  'Находите, сравнивайте и бронируйте пространство за минуты в TezBron':
+    'TezBron orqali maskanlarni bir necha daqiqada toping, taqqoslang va bron qiling',
   'Доступные заведения': 'Mavjud maskanlar',
   'Выберите заведение': 'Maskanni tanlang',
   'Выберите заведение для просмотра доступных комнат': 'Mavjud xonalarni ko‘rish uchun maskanni tanlang',
@@ -641,6 +694,347 @@ const uzTranslations: Record<string, string> = {
   'Готовы добавить бизнес в систему?': 'Biznesni tizimga qo‘shishga tayyormisiz?',
   'Откройте бизнес-кабинет, заполните карточку и начните принимать бронирования.':
     'Biznes kabinetini oching, kartochkani to‘ldiring va bronlarni qabul qilishni boshlang.',
+  'Email': 'Email',
+  'Адрес': 'Manzil',
+  'Бизнес-вход': 'Biznes kirishi',
+  'Бизнес-профиль': 'Biznes profili',
+  'Боковая панель': 'Yon panel',
+  'Войдите, чтобы бронировать места и управлять своими бронями':
+    'Joylarni bron qilish va bronlaringizni boshqarish uchun tizimga kiring',
+  'Войти в бизнес-кабинет': 'Biznes kabinetiga kirish',
+  'Войти в кабинет': 'Kabinetga kirish',
+  'Войти и забронировать': 'Kirish va bron qilish',
+  'Войти и открыть бизнес': 'Kirish va biznesni ochish',
+  'Вход': 'Kirish',
+  'Вход в бизнес-кабинет': 'Biznes kabinetiga kirish',
+  'Вход выполняется по email и паролю': 'Kirish email va parol orqali amalga oshiriladi',
+  'Вход пользователя': 'Foydalanuvchi kirishi',
+  'Гость': 'Mehmon',
+  'Данные для входа': 'Kirish maʼlumotlari',
+  'Для регистрации бизнеса используйте корпоративный email':
+    'Biznesni ro‘yxatdan o‘tkazish uchun korporativ emaildan foydalaning',
+  'Для управления бизнесом используйте корпоративный email':
+    'Biznesni boshqarish uchun korporativ emaildan foydalaning',
+  'Добавить бизнес': 'Biznes qo‘shish',
+  'Добавьте новый бизнес в ваш кабинет': 'Kabinetingizga yangi biznes qo‘shing',
+  'Доступ в админку': 'Admin panelga kirish',
+  'Ещё': 'Yana',
+  'Ещё страницы': 'Yana sahifalar',
+  'Загрузка': 'Yuklanmoqda',
+  'Закрыть': 'Yopish',
+  'Зарегистрировать бизнес': 'Biznesni ro‘yxatdan o‘tkazish',
+  'Кабинет': 'Kabinet',
+  'Карусель': 'Karusel',
+  'Команда': 'Jamoa',
+  'Корпоративный email': 'Korporativ email',
+  'Коротко опишите ваше заведение': 'Maskaningizni qisqacha tasvirlab bering',
+  'Коротко опишите, что можно бронировать': 'Nimani bron qilish mumkinligini qisqacha tasvirlab bering',
+  'Лендинг для добавления бизнеса открывается из профиля':
+    'Biznes qo‘shish lendingi profil ichidan ochiladi',
+  'Маркетплейс': 'Marketpleys',
+  'Мы делаем поиск и бронирование пространств простыми: один каталог, понятные фильтры и быстрый путь до подтверждённого слота.':
+    'Biz maskanlarni qidirish va bron qilishni sodda qildik: bitta katalog, tushunarli filtrlar va tasdiqlangan slotgacha tez yo‘l.',
+  'Нажмите кнопку, чтобы открыть страницу с условиями и подключением бизнеса':
+    'Shartlar va biznesni ulash sahifasini ochish uchun tugmani bosing',
+  'Название бизнеса': 'Biznes nomi',
+  'Название бизнеса и адрес обязательны': 'Biznes nomi va manzil majburiy',
+  'Например: Nura Spaces': 'Masalan: Nura Spaces',
+  'Например: team@company.com': 'Masalan: team@company.com',
+  'Например: your@email.com': 'Masalan: your@email.com',
+  'Не удалось выполнить вход': 'Tizimga kirib bo‘lmadi',
+  'Не удалось завершить регистрацию': 'Ro‘yxatdan o‘tishni yakunlab bo‘lmadi',
+  'Неверные данные для входа': 'Kirish maʼlumotlari noto‘g‘ri',
+  'Нет бизнес-аккаунта?': 'Biznes akkauntingiz yo‘qmi?',
+  'Открыть бизнес': 'Biznesni ochish',
+  'Пагинация': 'Sahifalash',
+  'Перейти на предыдущую страницу': 'Oldingi sahifaga o‘tish',
+  'Перейти на следующую страницу': 'Keyingi sahifaga o‘tish',
+  'Переключить боковую панель': 'Yon panelni almashtirish',
+  'Показывает мобильную боковую панель.': 'Mobil yon panelni ko‘rsatadi.',
+  'После регистрации вы сразу попадете в бизнес-кабинет':
+    'Ro‘yxatdan o‘tgach darhol biznes kabinetiga o‘tasiz',
+  'Поиск пространства': 'Maskan qidiruvi',
+  'Предыдущая': 'Oldingi',
+  'Предыдущий слайд': 'Oldingi slayd',
+  'Продолжить с Google': 'Google orqali davom etish',
+  'Публичная': 'Ochiq',
+  'С возвращением, {name}. Время выбрать следующий слот.':
+    'Qaytganingiz bilan, {name}. Keyingi slotni tanlash vaqti keldi.',
+  'Скопировать логин': 'Loginni nusxalash',
+  'Скопировать пароль': 'Parolni nusxalash',
+  'Слайд': 'Slayd',
+  'Следующая': 'Keyingi',
+  'Следующий слайд': 'Keyingi slayd',
+  'Создайте аккаунт, чтобы бронировать места в маркетплейсе':
+    'Marketpleysda joylarni bron qilish uchun akkaunt yarating',
+  'Создайте бизнес-аккаунт и сразу добавьте свой первый бизнес':
+    'Biznes akkaunt yarating va darhol birinchi biznesingizni qo‘shing',
+  'Создание пользовательского аккаунта': 'Foydalanuvchi akkauntini yaratish',
+  'Статус бизнеса': 'Biznes holati',
+  'Только для владельцев бизнеса и администраторов площадок':
+    'Faqat biznes egalari va maskan administratorlari uchun',
+  'Уже есть бизнес-аккаунт?': 'Biznes akkauntingiz bormi?',
+  'Узнайте о нас больше': 'Biz haqimizda ko‘proq bilib oling',
+  'Хлебные крошки': 'Navigatsiya yo‘li',
+  'Этот email не подключён к бизнес-админке': 'Bu email biznes admin paneliga ulangan emas',
+  'или через email': 'yoki email orqali',
+  'Пользователь не авторизован': 'Foydalanuvchi avtorizatsiyadan o‘tmagan',
+  'Не удалось подключиться к Supabase. Проверьте интернет, VPN/firewall и настройки URL проекта.':
+    'Supabase bilan ulanib bo‘lmadi. Internetni, VPN/firewall ni va loyiha URL sozlamalarini tekshiring.',
+  'Location *': 'Lokatsiya *',
+  '{count} мин': '{count} daq',
+  '{count} специалистов': '{count} ta mutaxassis',
+  '{date}. Доступно с {from} до {to}.': '{date}. {from} dan {to} gacha mavjud.',
+  '{from}-{to} мин': '{from}-{to} daq',
+  'Активные брони': 'Faol bronlar',
+  'Брони сегодня': 'Bugungi bronlar',
+  'Бронирование недоступно: запросите доступ резидента у владельца бизнеса.':
+    'Bron qilish imkoni yo‘q: biznes egasidan rezident ruxsatini so‘rang.',
+  'Бронирования доступны для просмотра. Управлять ими могут только роли business и manager':
+    'Bronlarni ko‘rish mumkin. Ularni faqat business va manager rollari boshqara oladi',
+  'Бронь: {min} - {max}': 'Bron: {min} - {max}',
+  'Бронь: от {min} до {max} мин': 'Bron: {min} dan {max} daqiqagacha',
+  'Введите имя и фамилию. Система сама сгенерирует логин для входа.':
+    'Ism va familiyani kiriting. Tizim kirish logini o‘zi yaratadi.',
+  'Владелец всегда имеет роль business. Для сотрудников можно менять роли или удалить доступ.':
+    'Egada doim business roli bo‘ladi. Xodimlar uchun rollarni o‘zgartirish yoki kirishni o‘chirish mumkin.',
+  'Время окончания доступности должно быть позже времени начала':
+    'Mavjudlik tugash vaqti boshlanish vaqtidan keyin bo‘lishi kerak',
+  'Все бронирования по вашим заведениям': 'Maskanlaringiz bo‘yicha barcha bronlar',
+  'Всего броней: {count}': 'Jami bronlar: {count}',
+  'Выберите время': 'Vaqtni tanlang',
+  'Выберите заведение и перейдите к бронированию комнат':
+    'Maskanni tanlang va xonalarni bron qilishga o‘ting',
+  'Выберите хотя бы одну услугу для комнаты': 'Xona uchun kamida bitta xizmatni tanlang',
+  'Данные заведения': 'Maskan maʼlumotlari',
+  'Данные заведения обновлены': 'Maskan maʼlumotlari yangilandi',
+  'Длительность уточняется': 'Davomiylik aniqlashtiriladi',
+  'Для одного бизнеса доступно максимум 3 входа в админку':
+    'Bitta biznes uchun admin panelga ko‘pi bilan 3 ta kirish mavjud',
+  'Для одного бизнеса доступно максимум 3 входа в админку: владелец и ещё 2 сотрудника.':
+    'Bitta biznes uchun admin panelga ko‘pi bilan 3 ta kirish bor: egasi va yana 2 xodim.',
+  'Добавить свою услугу': 'Xizmatingizni qo‘shing',
+  'Дополнительных сотрудников пока нет': 'Hozircha qo‘shimcha xodimlar yo‘q',
+  'Доступ: Публичная': 'Kirish: ochiq',
+  'Доступ: Только резиденты': 'Kirish: faqat rezidentlar',
+  'Доступно до': 'Mavjud oxiri',
+  'Доступно с': 'Mavjud boshlanishi',
+  'Доступно: {from} — {to}': 'Mavjud: {from} — {to}',
+  'Доступность комнаты по времени *': 'Xonaning vaqt bo‘yicha mavjudligi *',
+  'Заведение создано': 'Maskan yaratildi',
+  'Заведений': 'Maskanlar',
+  'Завершённые': 'Yakunlanganlar',
+  'Загружаем сотрудников…': 'Xodimlarni yuklayapmiz…',
+  'Загрузка комнат': 'Xonalar yuklanmoqda',
+  'Закрытая (только резиденты)': 'Yopiq (faqat rezidentlar)',
+  'Занято входов: {used} из {total}': 'Band kirishlar: {used} / {total}',
+  'Занято сейчас: {count}': 'Hozir band: {count}',
+  'История выполненных броней': 'Yakunlangan bronlar tarixi',
+  'Категории из текущих комнат': 'Joriy xonalardagi kategoriyalar',
+  'Категории появятся после добавления комнат': 'Kategoriyalar xonalar qo‘shilgandan keyin paydo bo‘ladi',
+  'Клиентов всего': 'Jami mijozlar',
+  'Комната доступна только с {from} до {to}': 'Xona faqat {from} dan {to} gacha mavjud',
+  'Комнату увидят и смогут бронировать все авторизованные пользователи.':
+    'Xonani barcha avtorizatsiyadan o‘tgan foydalanuvchilar ko‘radi va bron qila oladi.',
+  'Комнату увидят и смогут бронировать только резиденты вашего бизнеса.':
+    'Xonani faqat biznesingiz rezidentlari ko‘radi va bron qila oladi.',
+  'Комнаты доступны только для просмотра. Изменять их может только роль business':
+    'Xonalarni faqat ko‘rish mumkin. Ularni faqat business roli o‘zgartira oladi',
+  'Логин для входа': 'Kirish logini',
+  'Логин скопирован': 'Login nusxalandi',
+  'Локация уточняется внутри бизнеса': 'Lokatsiya biznes ichida aniqlashtiriladi',
+  'Максимальная длительность брони: {duration}': 'Bronning maksimal davomiyligi: {duration}',
+  'Максимальная длительность должна быть кратна {step} минутам':
+    'Maksimal davomiylik {step} daqiqaga karrali bo‘lishi kerak',
+  'Максимальная длительность не может быть меньше минимальной':
+    'Maksimal davomiylik minimaldan kichik bo‘lishi mumkin emas',
+  'Максимальная длительность не может превышать окно доступности комнаты':
+    'Maksimal davomiylik xonaning mavjudlik oynasidan oshib ketishi mumkin emas',
+  'Максимум (минут)': 'Maksimum (daqiqa)',
+  'Менеджер': 'Menejer',
+  'Минимальная длительность брони: {duration}': 'Bronning minimal davomiyligi: {duration}',
+  'Минимальная длительность должна быть кратна {step} минутам':
+    'Minimal davomiylik {step} daqiqaga karrali bo‘lishi kerak',
+  'Минимальная длительность не помещается в окно доступности комнаты':
+    'Minimal davomiylik xonaning mavjudlik oynasiga sig‘maydi',
+  'Минимум (минут)': 'Minimum (daqiqa)',
+  'Нажмите на свободный 15‑минутный слот, затем задайте начало и конец бронирования. Доступно с {from} до {to}, длительность от {min} до {max}.':
+    'Bo‘sh 15 daqiqalik slotni bosing, so‘ng bronning boshlanishi va tugashini tanlang. {from} dan {to} gacha mavjud, davomiylik {min} dan {max} gacha.',
+  'Название заведения': 'Maskan nomi',
+  'Например: 2 этаж, блок B': 'Masalan: 2-qavat, B blok',
+  'Не удалось загрузить каталог': 'Katalogni yuklab bo‘lmadi',
+  'Не удалось загрузить сотрудников': 'Xodimlarni yuklab bo‘lmadi',
+  'Не удалось обновить роль сотрудника': 'Xodim rolini yangilab bo‘lmadi',
+  'Не удалось скопировать данные': 'Maʼlumotlarni nusxalab bo‘lmadi',
+  'Не удалось создать сотрудника': 'Xodimni yaratib bo‘lmadi',
+  'Не удалось удалить сотрудника': 'Xodimni o‘chirib bo‘lmadi',
+  'Нет данных': 'Maʼlumot yo‘q',
+  'Нет комнат': 'Xonalar yo‘q',
+  'Новые площадки появятся здесь автоматически': 'Yangi maskanlar shu yerda avtomatik paydo bo‘ladi',
+  'Новый сотрудник': 'Yangi xodim',
+  'Ограничения длительности брони *': 'Bron davomiyligi cheklovlari *',
+  'Оперативная сводка по текущему состоянию': 'Joriy holat bo‘yicha tezkor ko‘rinish',
+  'Описание *': 'Tavsif *',
+  'Описание комнаты обязательно': 'Xona tavsifi majburiy',
+  'Опишите комнату и формат использования': 'Xonani va undan foydalanish formatini tasvirlab bering',
+  'Основное заведение': 'Asosiy maskan',
+  'Отмены по вашим комнатам': 'Xonalaringiz bo‘yicha bekor qilinganlar',
+  'Отменённые': 'Bekor qilinganlar',
+  'Открыть карточку комнаты': 'Xona kartochkasini ochish',
+  'Пароль скопирован': 'Parol nusxalandi',
+  'По запросу «{query}» ничего не найдено': '«{query}» so‘rovi bo‘yicha hech narsa topilmadi',
+  'Подробности доступны внутри карточки': 'Tafsilotlar kartochka ichida mavjud',
+  'Пока нет доступных вариантов': 'Hozircha mavjud variantlar yo‘q',
+  'Помещения пока не опубликованы': 'Maskanlar hali eʼlon qilinmagan',
+  'Последнее бронирование': 'So‘nggi bron',
+  'Прямо сейчас': 'Hozir',
+  'Публичная (доступна всем)': 'Ochiq (hamma uchun mavjud)',
+  'Редактирование и удаление доступны только роли business':
+    'Tahrirlash va o‘chirish faqat business roli uchun mavjud',
+  'Редактируйте данные вашего заведения': 'Maskaningiz maʼlumotlarini tahrirlang',
+  'Редактируйте название, адрес и описание вашего заведения':
+    'Maskaningiz nomi, manzili va tavsifini tahrirlang',
+  'Резиденты доступны для просмотра. Управлять ими могут только роли business и manager':
+    'Rezidentlarni ko‘rish mumkin. Ularni faqat business va manager rollari boshqara oladi',
+  'Рекомендуемый шаг: {step} минут': 'Tavsiya etilgan qadam: {step} daqiqa',
+  'Роль': 'Rol',
+  'Роль сотрудника обновлена': 'Xodim roli yangilandi',
+  'Создать сотрудника': 'Xodim yaratish',
+  'Сотрудник': 'Xodim',
+  'Сотрудник создан. Передайте ему логин и временный пароль':
+    'Xodim yaratildi. Unga login va vaqtinchalik parolni yuboring',
+  'Сотрудник удалён': 'Xodim o‘chirildi',
+  'Сотрудники': 'Xodimlar',
+  'Сохраните эти данные и передайте сотруднику': 'Bu maʼlumotlarni saqlang va xodimga yuboring',
+  'Только для резидентов': 'Faqat rezidentlar uchun',
+  'Только резиденты': 'Faqat rezidentlar',
+  'Тип доступности комнаты *': 'Xona kirish turi *',
+  'Только роль business может изменять данные заведения':
+    'Faqat business roli maskan maʼlumotlarini o‘zgartira oladi',
+  'Только роль business может создавать новых сотрудников':
+    'Faqat business roli yangi xodimlarni yaratishi mumkin',
+  'Только роль business может создавать сотрудников':
+    'Faqat business roli xodimlarni yaratishi mumkin',
+  'Только роль business может создавать, удалять и редактировать комнаты':
+    'Faqat business roli xonalarni yaratishi, o‘chirishi va tahrirlashi mumkin',
+  'Только роль business может создавать, удалять и редактировать услуги':
+    'Faqat business roli xizmatlarni yaratishi, o‘chirishi va tahrirlashi mumkin',
+  'Укажите location комнаты': 'Xona lokatsiyasini kiriting',
+  'Укажите имя и фамилию сотрудника': 'Xodimning ism va familiyasini kiriting',
+  'Укажите корректное время доступности комнаты':
+    'Xonaning mavjudlik vaqtini to‘g‘ri kiriting',
+  'Управляйте всеми своими заведениями': 'Barcha maskanlaringizni boshqaring',
+  'Услуги доступны только для просмотра. Менять их может только роль business':
+    'Xizmatlarni faqat ko‘rish mumkin. Ularni faqat business roli o‘zgartira oladi',
+  'Формат': 'Format',
+  'Цена по запросу': 'Narx so‘rov bo‘yicha',
+  'Что предоставляет бизнес в этой комнате *': 'Biznes bu xonada nimani taqdim etadi *',
+  'Что предоставляется с комнатой': 'Xona bilan nimalar beriladi',
+  'Эта комната доступна только резидентам данного бизнеса':
+    'Bu xona faqat ushbu biznes rezidentlari uchun mavjud',
+  'Эта роль может только просматривать данные заведения':
+    'Bu rol maskan maʼlumotlarini faqat ko‘ra oladi',
+  'недоступно': 'mavjud emas',
+  'от {price} сум': '{price} so‘mdan',
+  'сум': 'so‘m',
+  'Не удалось создать подключение резидента': 'Rezident ulanishini yaratib bo‘lmadi',
+  'Не удалось создать комнату': 'Xonani yaratib bo‘lmadi',
+  'Не удалось создать заведение': 'Maskanni yaratib bo‘lmadi',
+  'Не удалось создать бронирование': 'Bronni yaratib bo‘lmadi',
+  'Бронирование не найдено': 'Bron topilmadi',
+  'Бронируйте пространства без звонков и долгих переписок.':
+    'Maskanlarni qo‘ng‘iroqlar va uzoq yozishmalarsiz bron qiling.',
+  'Понимайте формат, условия и свободные слоты с первого экрана.':
+    'Formatni, shartlarni va bo‘sh slotlarni birinchi ekranning o‘zidayoq tushuning.',
+  'TezBron собирает переговорные, студии, кабинеты и другие пространства в одном каталоге, чтобы вы могли быстро сравнить варианты и выбрать подходящий слот.':
+    'TezBron muzokara xonalari, studiyalar, kabinetlar va boshqa maskanlarni bitta katalogda jamlaydi, shunda siz variantlarni tez solishtirib, mos slotni tanlaysiz.',
+  'Перейти в каталог': 'Katalogga o‘tish',
+  'Открыть мои бронирования': 'Bronlarimni ochish',
+  'Фон клиентского лендинга': 'Mijozlar lendingi foni',
+  'Кто мы и зачем нужен TezBron': 'Biz kimmiz va TezBron nima uchun kerak',
+  'Мы сделали сервис для людей, которым нужно быстро понять, что доступно, сколько это вмещает и как забронировать без лишней координации.':
+    'Biz mavjud variantlarni, sig‘imni va ortiqcha muvofiqlashtirishsiz qanday bron qilishni tez tushunishi kerak bo‘lgan odamlar uchun servis yaratdik.',
+  'Один каталог': 'Bitta katalog',
+  'Понятные карточки': 'Tushunarli kartochkalar',
+  'Бронирование по слотам': 'Slotlar bo‘yicha bron qilish',
+  'Какие пространства можно бронировать': 'Qanday maskanlarni bron qilish mumkin',
+  'Как это работает для клиента': 'Bu mijoz uchun qanday ishlaydi',
+  'Поиск и сравнение': 'Qidirish va solishtirish',
+  'Как выглядит бронирование': 'Bron qilish qanday ko‘rinadi',
+  'Открыть каталог': 'Katalogni ochish',
+  'Что вы увидите внутри платформы': 'Platforma ichida nimani ko‘rasiz',
+  'До выбора': 'Tanlovgacha',
+  'В момент бронирования': 'Bron paytida',
+  'После подтверждения': 'Tasdiqlangandan keyin',
+  'Готовы посмотреть, что доступно прямо сейчас?': 'Hozir nimalar mavjudligini ko‘rishga tayyormisiz?',
+  'Откройте каталог, выберите пространство и пройдите путь от поиска до подтверждения за несколько минут.':
+    'Katalogni oching, maskanni tanlang va qidiruvdan tasdiqqacha bo‘lgan yo‘lni bir necha daqiqada bosib o‘ting.',
+  'Переговорные и кабинеты': 'Muzokara xonalari va kabinetlar',
+  'Для встреч, созвонов, интервью и небольших команд.':
+    'Uchrashuvlar, qo‘ng‘iroqlar, intervyular va kichik jamoalar uchun.',
+  'Рабочие места и гибкие офисы на нужное время.':
+    'Kerakli vaqtga ish joylari va moslashuvchan ofislar.',
+  'Кресла, кабинеты и сервисные пространства по записи.':
+    'Kreslolar, kabinetlar va yozuv bo‘yicha servis maskanlari.',
+  'Фото, видео, подкасты и музыкальные сессии.':
+    'Foto, video, podkast va musiqiy sessiyalar.',
+  'Классы, аудитории и залы для групповых занятий.':
+    'Guruh mashg‘ulotlari uchun sinflar, auditoriyalar va zallar.',
+  'Площадки для встреч, лекций и камерных событий.':
+    'Uchrashuvlar, maʼruzalar va kichik tadbirlar uchun maydonlar.',
+  'Все предложения собраны в одном месте: от переговорных и коворкингов до студий, кабинетов и событийных площадок.':
+    'Barcha takliflar bitta joyga jamlangan: muzokara xonalari va koverkinglardan studiyalar, kabinetlar va tadbir maydonlarigacha.',
+  'В карточке сразу видно фото, адрес, вместимость, формат доступа и то, что предоставляет комната.':
+    'Kartochkaning o‘zida foto, manzil, sig‘im, kirish formati va xona nimalarni taqdim etishi ko‘rinadi.',
+  'Вы выбираете день, видите свободное время и подтверждаете бронь без ручных согласований.':
+    'Siz kunni tanlaysiz, bo‘sh vaqtni ko‘rasiz va bronni qo‘lda kelishuvlarsiz tasdiqlaysiz.',
+  'Откройте каталог и выберите подходящее заведение':
+    'Katalogni oching va mos maskanni tanlang',
+  'Сравните комнаты по фото, вместимости, локации и наполнению':
+    'Xonalarni foto, sig‘im, lokatsiya va to‘ldirilishiga qarab solishtiring',
+  'Перейдите в карточку комнаты и проверьте правила доступа':
+    'Xona kartochkasiga o‘ting va kirish qoidalarini tekshiring',
+  'Выберите день и свободный слот в расписании':
+    'Jadvaldan kun va bo‘sh slotni tanlang',
+  'Укажите начало и окончание брони в доступном диапазоне':
+    'Bron boshlanishi va tugashini mavjud oraliqda kiriting',
+  'Получите подтверждение и управляйте своими бронями из аккаунта':
+    'Tasdiqni oling va bronlaringizni akkaunt ichidan boshqaring',
+  'Категории, поиск, адреса и короткие описания помогают быстро отсечь неподходящие варианты.':
+    'Kategoriyalar, qidiruv, manzillar va qisqa tavsiflar mos bo‘lmagan variantlarni tezda chiqarib tashlashga yordam beradi.',
+  'Календарь показывает только доступные интервалы, а ограничения комнаты видны до подтверждения.':
+    'Kalendar faqat mavjud intervallarni ko‘rsatadi, xona cheklovlari esa tasdiqlashdan oldin ko‘rinadi.',
+  'Активные и завершённые брони сохраняются в одном месте, чтобы вы могли легко вернуться к ним позже.':
+    'Faol va yakunlangan bronlar bitta joyda saqlanadi, shunda keyin ularga osongina qayta olasiz.',
+  'Подробнее о заведении': 'Maskan haqida batafsil',
+  'Заведение не найдено': 'Maskan topilmadi',
+  'Попробуйте вернуться в каталог и выбрать другое заведение.':
+    'Katalogga qaytib, boshqa maskanni tanlab ko‘ring.',
+  'Описание заведения пока не добавлено.': 'Maskan tavsifi hali qo‘shilmagan.',
+  'Открыть на карте': 'Xaritada ochish',
+  'Публичные комнаты': 'Ochiq xonalar',
+  'Комнаты для резидентов': 'Rezidentlar uchun xonalar',
+  'Локаций': 'Lokatsiyalar',
+  'Доступные комнаты этого заведения': 'Ushbu maskanning mavjud xonalari',
+  'Что доступно внутри': 'Ichkarida nima mavjud',
+  'Локации внутри заведения': 'Maskan ichidagi lokatsiyalar',
+  'Где находится команда и комнаты': 'Jamoa va xonalar qayerda joylashgan',
+  'О заведении': 'Maskan haqida',
+  'Адрес и ориентир для клиента': 'Mijoz uchun manzil va mo‘ljal',
+  'Где находится': 'Qayerda joylashgan',
+  'Что можно забронировать здесь': 'Bu yerda nimani bron qilish mumkin',
+  'Категории услуг': 'Xizmat kategoriyalari',
+  'Как проходит бронирование': 'Bron qilish qanday o‘tadi',
+  'Короткий сценарий для знакомства с площадкой': 'Maskan bilan tanishish uchun qisqa ssenariy',
+  'Выберите комнату или услугу, посмотрите детали и перейдите к нужному слоту.':
+    'Xona yoki xizmatni tanlang, tafsilotlarni ko‘ring va kerakli slotga o‘ting.',
+  'Если для комнаты нужен доступ резидента, это будет видно до подтверждения.':
+    'Agar xona uchun rezident ruxsati kerak bo‘lsa, bu tasdiqlashdan oldin ko‘rinadi.',
+  'Адрес можно открыть в картах, а описание помогает быстро понять формат заведения.':
+    'Manzilni xaritada ochish mumkin, tavsif esa maskan formatini tez tushunishga yordam beradi.',
+  'Если вы ещё не вошли, заведение можно изучить сейчас, а авторизация понадобится только перед самой бронью.':
+    'Agar siz hali tizimga kirmagan bo‘lsangiz, maskanni hozir o‘rganishingiz mumkin, avtorizatsiya esa faqat bron qilishdan oldin kerak bo‘ladi.',
+  'В этом заведении пока нет публичных услуг': 'Bu maskanda hozircha ochiq xizmatlar yo‘q',
 };
 
 const interpolate = (value: string, params?: Record<string, string | number>) => {

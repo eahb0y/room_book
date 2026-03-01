@@ -1,5 +1,14 @@
 // User types
 export type UserRole = 'admin' | 'user';
+export type BusinessAccessRole = 'business' | 'manager' | 'staff';
+export type BusinessStaffRole = Exclude<BusinessAccessRole, 'business'>;
+
+export interface BusinessAccess {
+  venueId: string;
+  venueName?: string;
+  role: BusinessAccessRole;
+  isOwner: boolean;
+}
 
 export interface User {
   id: string;
@@ -8,6 +17,7 @@ export interface User {
   lastName?: string;
   avatarUrl?: string | null;
   role: UserRole;
+  businessAccess?: BusinessAccess | null;
   createdAt: string;
 }
 
@@ -18,6 +28,7 @@ export interface Venue {
   name: string;
   description: string;
   address: string;
+  activityType: string;
   adminId: string;
   createdAt: string;
 }
@@ -102,6 +113,23 @@ export interface BusinessService {
   createdAt: string;
 }
 
+export interface BusinessStaffAccount {
+  id: string;
+  venueId: string;
+  venueName?: string;
+  userId: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: BusinessStaffRole;
+  createdByUserId: string;
+  createdAt: string;
+}
+
+export interface CreatedBusinessStaffAccount extends BusinessStaffAccount {
+  temporaryPassword: string;
+}
+
 // Booking types
 export type BookingStatus = 'active' | 'cancelled';
 
@@ -140,6 +168,7 @@ export interface AuthState {
   portal: 'user' | 'business' | null;
   login: (credentials: LoginCredentials) => Promise<boolean>;
   register: (credentials: RegisterCredentials) => Promise<boolean>;
+  refreshBusinessAccess: () => Promise<User | null>;
   startGoogleAuth: (redirectPath?: string) => void;
   startAppleAuth: (redirectPath?: string) => void;
   completeGoogleAuth: (hash: string) => Promise<boolean>;

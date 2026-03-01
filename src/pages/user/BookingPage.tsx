@@ -14,9 +14,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { RoomPhotoGallery } from '@/components/RoomPhotoGallery';
+import { RoomAmenities } from '@/components/RoomAmenities';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useI18n } from '@/i18n/useI18n';
+import { hasBusinessAccess } from '@/lib/businessAccess';
 
 const SLOT_STEP_MINUTES = 15;
 const MINUTES_IN_DAY = 24 * 60;
@@ -76,7 +78,7 @@ export default function BookingPage() {
 
   const hasResidentAccess = useMemo(() => {
     if (!user || !room || !venue) return false;
-    if (user.role === 'admin') return true;
+    if (hasBusinessAccess(user) && (user.businessAccess.isOwner || user.businessAccess.venueId === venue.id)) return true;
     if (venue.adminId === user.id) return true;
     return memberships.some((membership) => membership.venueId === room.venueId && membership.userId === user.id);
   }, [memberships, room, user, venue]);
@@ -306,6 +308,15 @@ export default function BookingPage() {
               <span>{t('Бронь: {min} - {max}', { min: toDurationLabel(roomMinBookingMinutes), max: toDurationLabel(roomMaxBookingMinutes) })}</span>
             </p>
           </div>
+          <RoomAmenities
+            roomId={room.id}
+            services={room.services}
+            maxVisible={6}
+            className="mt-4"
+            titleClassName="text-white/70"
+            badgeClassName="border-white/25 bg-black/25 text-white"
+            overflowBadgeClassName="border-white/20 bg-black/15 text-white/75"
+          />
         </div>
       </div>
 

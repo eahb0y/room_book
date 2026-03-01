@@ -1,9 +1,10 @@
 import { create } from 'zustand';
-import type { Booking, Room, Venue, VenueMembership } from '@/types';
+import type { Booking, Room, User, Venue, VenueMembership } from '@/types';
 import * as venueApi from '@/lib/venueApi';
 import * as roomApi from '@/lib/roomApi';
 import * as bookingApi from '@/lib/bookingApi';
 import * as membershipApi from '@/lib/membershipApi';
+import { getBusinessVenueScopeKey, hasBusinessAccess } from '@/lib/businessAccess';
 
 interface VenueState {
   venues: Venue[];
@@ -14,11 +15,13 @@ interface VenueState {
   loadedFor: string | null;
   settledFor: string | null;
 
-  loadAdminData: (adminId: string) => Promise<void>;
+  loadAdminData: (user: User) => Promise<void>;
   loadUserData: (userId: string) => Promise<void>;
   loadRoomBookings: (roomId: string) => Promise<Booking[]>;
 
-  createVenue: (venue: Omit<Venue, 'id' | 'createdAt'>) => Promise<Venue>;
+  createVenue: (
+    venue: Omit<Venue, 'id' | 'createdAt' | 'activityType'> & { activityType?: string },
+  ) => Promise<Venue>;
   updateVenue: (id: string, venue: Partial<Venue>) => Promise<Venue>;
 
   createRoom: (room: Omit<Room, 'id' | 'createdAt'>) => Promise<Room>;
@@ -53,11 +56,18 @@ export const useVenueStore = create<VenueState>((set, get) => ({
   loadedFor: null,
   settledFor: null,
 
-  loadAdminData: async (adminId) => {
-    const key = `admin:${adminId}`;
+  loadAdminData: async (user) => {
+    if (!hasBusinessAccess(user)) {
+      throw new Error('Нет доступа к бизнес-кабинету');
+    }
+
+    const scope = getBusinessVenueScopeKey(user);
+    const key = `admin:${user.id}:${scope ?? 'none'}`;
     set({ isLoading: true, loadedFor: null, settledFor: null });
     try {
-      const venues = await venueApi.listVenues({ adminId });
+      const venues = user.businessAccess.isOwner
+        ? await venueApi.listVenues({ adminId: user.id })
+        : await venueApi.listVenues({ venueIds: [user.businessAccess.venueId] });
       const venueIds = venues.map((venue) => venue.id);
       const rooms = venueIds.length ? await roomApi.listRooms({ venueIds }) : [];
       const bookingResults = await Promise.allSettled(
@@ -98,22 +108,24 @@ export const useVenueStore = create<VenueState>((set, get) => ({
   },
 
   createVenue: async (venueData) => {
-    const venue = await venueApi.createVenue({
-      name: venueData.name,
-      description: venueData.description,
-      address: venueData.address,
-      adminId: venueData.adminId,
-    });
+      const venue = await venueApi.createVenue({
+        name: venueData.name,
+        description: venueData.description,
+        address: venueData.address,
+        activityType: venueData.activityType,
+        adminId: venueData.adminId,
+      });
     set((state) => ({ venues: mergeById(state.venues, [venue]) }));
     return venue;
   },
 
   updateVenue: async (id, venueData) => {
-    const venue = await venueApi.updateVenue(id, {
-      name: venueData.name,
-      description: venueData.description,
-      address: venueData.address,
-    });
+      const venue = await venueApi.updateVenue(id, {
+        name: venueData.name,
+        description: venueData.description,
+        address: venueData.address,
+        activityType: venueData.activityType,
+      });
     set((state) => ({ venues: mergeById(state.venues, [venue]) }));
     return venue;
   },

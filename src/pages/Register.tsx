@@ -149,11 +149,11 @@ export default function Register() {
                 </Alert>
               )}
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm text-muted-foreground">Email</Label>
+                <Label htmlFor="email" className="text-sm text-muted-foreground">{t('Email')}</Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="your@email.com"
+                  placeholder={t('Например: your@email.com')}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required

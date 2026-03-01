@@ -9,7 +9,13 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useI18n } from '@/i18n/useI18n';
+import { hasBusinessAccess } from '@/lib/businessAccess';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
+import {
+  formatResidentPromoCode,
+  getResidentPromoDescription,
+  getResidentPromoTitle,
+} from '@/lib/residentPromo';
 
 export default function Invite() {
   const { t } = useI18n();
@@ -27,35 +33,31 @@ export default function Invite() {
   const redeemAttemptRef = useRef<string | null>(null);
   const invitation = token && loadedToken === token ? loadedInvitation : null;
   const inviteLoadError = token && loadedToken === token ? loadedInviteError : '';
-  const inviteLoading = Boolean(token && isAuthenticated && loadedToken !== token);
+  const inviteLoading = Boolean(token && loadedToken !== token);
   const error = token && redeemErrorState.token === token ? redeemErrorState.message : '';
 
-  const invitationStatus = !isAuthenticated
-    ? 'pending-auth'
-    : !invitation
-      ? 'missing'
-      : invitation.revokedAt
-        ? 'revoked'
-        : invitation.expiresAt && new Date(invitation.expiresAt) <= new Date()
-          ? 'expired'
-          : invitation.maxUses !== undefined && invitation.uses >= invitation.maxUses
-            ? 'used'
-            : 'valid';
+  const invitationStatus = !invitation
+    ? 'missing'
+    : invitation.revokedAt
+      ? 'revoked'
+      : invitation.expiresAt && new Date(invitation.expiresAt) <= new Date()
+        ? 'expired'
+        : invitation.maxUses !== undefined && invitation.uses >= invitation.maxUses
+          ? 'used'
+          : 'valid';
 
-  const inviteSubtitle = !isAuthenticated
-    ? t('Войдите, чтобы проверить приглашение')
-    : inviteLoading
-      ? t('Проверяем приглашение…')
-      : invitation?.venueName
-        ? t('Вы приглашены в «{venue}»', { venue: invitation.venueName })
-        : t('Приглашение');
+  const inviteSubtitle = inviteLoading
+    ? t('Проверяем приглашение…')
+    : invitation
+      ? getResidentPromoTitle(invitation.venueName, t)
+      : t('Приглашение');
 
   useEffect(() => {
     redeemAttemptRef.current = null;
   }, [token]);
 
   useEffect(() => {
-    if (!token || !isAuthenticated) return;
+    if (!token) return;
     let isActive = true;
 
     getInvitationByToken(token)
@@ -81,11 +83,11 @@ export default function Invite() {
     return () => {
       isActive = false;
     };
-  }, [token, isAuthenticated, t]);
+  }, [token, t]);
 
   useEffect(() => {
     if (!token || !isAuthenticated || !user) return;
-    if (user.role === 'admin') return;
+    if (hasBusinessAccess(user)) return;
     if (inviteLoading || inviteLoadError) return;
     if (invitationStatus !== 'valid') return;
 
@@ -155,7 +157,7 @@ export default function Invite() {
               </Alert>
             )}
 
-            {!inviteLoading && !inviteLoadError && isAuthenticated && invitationStatus !== 'valid' && (
+            {!inviteLoading && !inviteLoadError && invitationStatus !== 'valid' && (
               <Alert variant="destructive" className="animate-scale-in">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
@@ -170,6 +172,22 @@ export default function Invite() {
               </Alert>
             )}
 
+            {invitation ? (
+              <div className="rounded-2xl border border-border/50 bg-background/35 p-4">
+                <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{t('Промокод')}</p>
+                <p className="mt-2 text-lg font-semibold text-foreground">
+                  {getResidentPromoTitle(invitation.venueName, t)}
+                </p>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                  {getResidentPromoDescription(t)}
+                </p>
+                <div className="mt-4 rounded-xl border border-border/50 bg-background/50 p-3">
+                  <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{t('Промокод')}</p>
+                  <p className="mt-1 font-mono text-sm text-foreground">{formatResidentPromoCode(invitation.token)}</p>
+                </div>
+              </div>
+            ) : null}
+
             {error && (
               <Alert variant="destructive" className="animate-scale-in">
                 <AlertCircle className="h-4 w-4" />
@@ -177,7 +195,7 @@ export default function Invite() {
               </Alert>
             )}
 
-            {invitationStatus === 'valid' && isAuthenticated && user?.role !== 'admin' && (
+            {invitationStatus === 'valid' && isAuthenticated && user && !hasBusinessAccess(user) && (
               <Alert className="bg-emerald-950/30 border-emerald-800/40 animate-scale-in">
                 <CheckCircle2 className="h-4 w-4 text-emerald-400" />
                 <AlertDescription className="text-emerald-300">
@@ -189,7 +207,7 @@ export default function Invite() {
             {!isAuthenticated && (
               <>
                 <p className="text-sm text-muted-foreground">
-                  {t('Войдите или зарегистрируйтесь, чтобы принять приглашение.')}
+                  {t('Войдите или зарегистрируйтесь, чтобы активировать промокод.')}
                 </p>
                 <div className="flex flex-col gap-3">
                   <Button onClick={handleContinue} className="h-11">{t('Войти')}</Button>
@@ -204,7 +222,7 @@ export default function Invite() {
               </>
             )}
 
-            {isAuthenticated && user?.role === 'admin' && (
+            {isAuthenticated && user && hasBusinessAccess(user) && (
               <Alert variant="destructive" className="animate-scale-in">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
