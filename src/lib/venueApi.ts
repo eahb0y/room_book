@@ -6,6 +6,7 @@ interface VenueRow {
   name: string;
   description: string;
   address: string;
+  activity_type?: string | null;
   admin_id: string;
   created_at: string;
 }
@@ -15,11 +16,14 @@ const mapVenue = (row: VenueRow): Venue => ({
   name: row.name,
   description: row.description,
   address: row.address,
+  activityType: row.activity_type ?? '',
   adminId: row.admin_id,
   createdAt: row.created_at,
 });
 
-export const listVenues = async (params?: { adminId?: string; userId?: string; publicAccess?: boolean }) => {
+const toInFilter = (values: string[]) => values.join(',');
+
+export const listVenues = async (params?: { adminId?: string; userId?: string; venueIds?: string[]; publicAccess?: boolean }) => {
   if (params?.adminId) {
     const rows = await supabaseDbRequest<VenueRow[]>(
       `venues?select=*&admin_id=eq.${encodeURIComponent(params.adminId)}&order=created_at.desc`,
@@ -45,6 +49,16 @@ export const listVenues = async (params?: { adminId?: string; userId?: string; p
     return Array.from(deduped.values());
   }
 
+  if (params?.venueIds && params.venueIds.length > 0) {
+    const rows = await supabaseDbRequest<VenueRow[]>(
+      `venues?select=*&id=in.(${toInFilter(params.venueIds)})&order=created_at.desc`,
+      { method: 'GET' },
+      { requireAuth: !params.publicAccess },
+    );
+
+    return rows.map(mapVenue);
+  }
+
   const rows = await supabaseDbRequest<VenueRow[]>(
     'venues?select=*&order=created_at.desc',
     { method: 'GET' },
@@ -57,6 +71,7 @@ export const createVenue = async (payload: {
   name: string;
   description: string;
   address: string;
+  activityType?: string;
   adminId: string;
 }) => {
   const rows = await supabaseDbRequest<VenueRow[]>(
@@ -71,6 +86,7 @@ export const createVenue = async (payload: {
           name: payload.name,
           description: payload.description,
           address: payload.address,
+          activity_type: payload.activityType ?? '',
           admin_id: payload.adminId,
         },
       ]),
@@ -78,16 +94,17 @@ export const createVenue = async (payload: {
   );
 
   const created = rows[0];
-  if (!created) throw new Error('Venue was not created');
+  if (!created) throw new Error('Не удалось создать заведение');
 
   return mapVenue(created);
 };
 
-export const updateVenue = async (id: string, payload: Partial<Pick<Venue, 'name' | 'description' | 'address'>>) => {
+export const updateVenue = async (id: string, payload: Partial<Pick<Venue, 'name' | 'description' | 'address' | 'activityType'>>) => {
   const patch: Record<string, unknown> = {};
   if (payload.name !== undefined) patch.name = payload.name;
   if (payload.description !== undefined) patch.description = payload.description;
   if (payload.address !== undefined) patch.address = payload.address;
+  if (payload.activityType !== undefined) patch.activity_type = payload.activityType;
 
   const rows = await supabaseDbRequest<VenueRow[]>(
     `venues?id=eq.${encodeURIComponent(id)}`,
@@ -101,7 +118,7 @@ export const updateVenue = async (id: string, payload: Partial<Pick<Venue, 'name
   );
 
   const updated = rows[0];
-  if (!updated) throw new Error('Venue not found');
+  if (!updated) throw new Error('Заведение не найдено');
 
   return mapVenue(updated);
 };

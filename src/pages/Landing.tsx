@@ -6,6 +6,7 @@ import { ArrowRight, Building2, CalendarClock, CheckCircle2, Layers3, Search, Sh
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { useAuthStore } from '@/store/authStore';
 import { useI18n } from '@/i18n/useI18n';
+import { isBusinessPortalActive } from '@/lib/businessAccess';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -55,7 +56,7 @@ export default function Landing() {
   const { isAuthenticated, portal, user } = useAuthStore();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const navRef = useRef<HTMLElement | null>(null);
-  const isOwnerPortal = portal === 'business' || user?.role === 'admin';
+  const isOwnerPortal = isBusinessPortalActive(user, portal);
   const businessCtaLink = isAuthenticated ? (isOwnerPortal ? '/my-venue' : '/business/register') : '/business/register';
   const businessCtaLabel = isOwnerPortal ? t('Перейти к управлению бизнесом') : t('Перейти к добавлению бизнеса');
 

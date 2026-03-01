@@ -4,6 +4,7 @@ import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useVenueStore } from '@/store/venueStore';
 import { isBusinessEmail } from '@/lib/emailRules';
+import { BUSINESS_ACTIVITY_CUSTOM_ID, encodeBusinessActivityValue } from '@/lib/businessActivity';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,18 +13,22 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useI18n } from '@/i18n/useI18n';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
+import BusinessActivityField from '@/components/BusinessActivityField';
 
 export default function BusinessRegister() {
   const { t } = useI18n();
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const register = useAuthStore((state) => state.register);
+  const refreshBusinessAccess = useAuthStore((state) => state.refreshBusinessAccess);
   const setPortal = useAuthStore((state) => state.setPortal);
   const createVenue = useVenueStore((state) => state.createVenue);
   const navigate = useNavigate();
 
   const [businessName, setBusinessName] = useState('');
   const [address, setAddress] = useState('');
+  const [activityType, setActivityType] = useState('');
+  const [customActivityType, setCustomActivityType] = useState('');
   const [description, setDescription] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,6 +42,16 @@ export default function BusinessRegister() {
 
     if (!businessName.trim() || !address.trim()) {
       setError(t('Название бизнеса и адрес обязательны'));
+      return;
+    }
+
+    const normalizedActivityType = encodeBusinessActivityValue(activityType, customActivityType);
+    if (!normalizedActivityType) {
+      setError(
+        activityType === BUSINESS_ACTIVITY_CUSTOM_ID
+          ? t('Укажите свой род деятельности')
+          : t('Выберите род деятельности'),
+      );
       return;
     }
 
@@ -85,9 +100,11 @@ export default function BusinessRegister() {
         adminId: currentUser.id,
         name: businessName.trim(),
         address: address.trim(),
+        activityType: normalizedActivityType,
         description: description.trim(),
       });
 
+      await refreshBusinessAccess();
       setPortal('business');
       navigate('/my-venue');
     } catch (err) {
@@ -148,6 +165,15 @@ export default function BusinessRegister() {
                 />
               </div>
 
+              <BusinessActivityField
+                idPrefix="business-register"
+                selectedValue={activityType}
+                customValue={customActivityType}
+                onSelectedValueChange={setActivityType}
+                onCustomValueChange={setCustomActivityType}
+                required
+              />
+
               <div className="space-y-2">
                 <Label htmlFor="address" className="text-sm text-muted-foreground">
                   {t('Адрес')}
@@ -187,7 +213,7 @@ export default function BusinessRegister() {
                       type="email"
                       value={email}
                       onChange={(event) => setEmail(event.target.value)}
-                      placeholder="team@yourcompany.com"
+                      placeholder={t('Например: team@company.com')}
                       required
                       className="h-11 border-border/50 bg-input/50 focus:border-primary/60"
                     />

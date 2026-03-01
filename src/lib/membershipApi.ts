@@ -56,7 +56,7 @@ export const createMembership = async (payload: {
   );
 
   const created = rows[0];
-  if (!created) throw new Error('Membership was not created');
+  if (!created) throw new Error('Не удалось создать подключение резидента');
 
   return mapMembership(created);
 };

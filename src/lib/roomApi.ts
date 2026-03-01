@@ -170,7 +170,7 @@ const fetchRoomById = async (id: string) => {
     { method: 'GET' },
   );
   const room = rows[0];
-  if (!room) throw new Error('Room not found');
+  if (!room) throw new Error('Комната не найдена');
   return mapRoom(room);
 };
 
@@ -256,7 +256,7 @@ export const createRoom = async (payload: {
       );
 
       const created = rows[0];
-      if (!created) throw new Error('Room was not created');
+      if (!created) throw new Error('Не удалось создать комнату');
       return mapRoom(created);
     } catch (error) {
       const missingColumn = getMissingRoomColumn(error);
@@ -288,7 +288,7 @@ export const createRoom = async (payload: {
     }
   }
 
-  throw (lastError instanceof Error ? lastError : new Error('Room was not created'));
+  throw (lastError instanceof Error ? lastError : new Error('Не удалось создать комнату'));
 };
 
 export const updateRoom = async (
@@ -352,7 +352,7 @@ export const updateRoom = async (
       );
 
       const updated = rows[0];
-      if (!updated) throw new Error('Room not found');
+      if (!updated) throw new Error('Комната не найдена');
       return mapRoom(updated);
     } catch (error) {
       const missingColumn = getMissingRoomColumn(error);
@@ -393,7 +393,7 @@ export const updateRoom = async (
     }
   }
 
-  throw (lastError instanceof Error ? lastError : new Error('Room not found'));
+  throw (lastError instanceof Error ? lastError : new Error('Комната не найдена'));
 };
 
 export const deleteRoom = async (id: string) => {

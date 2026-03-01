@@ -63,7 +63,7 @@ const resolveAccessToken = (accessToken?: string, requireAuth = true) => {
   const token = accessToken ?? getAuthSession()?.accessToken;
 
   if (requireAuth && !token) {
-    throw new Error('Not authenticated');
+    throw new Error('Пользователь не авторизован');
   }
 
   return token;
@@ -71,18 +71,8 @@ const resolveAccessToken = (accessToken?: string, requireAuth = true) => {
 
 const normalizePath = (path: string) => (path.startsWith('/') ? path : `/${path}`);
 
-const buildSupabaseNetworkError = (url: string, endpointType: 'auth' | 'database') => {
-  const endpointLabel = endpointType === 'auth' ? 'authentication' : 'database';
-  const host = (() => {
-    try {
-      return new URL(url).host;
-    } catch {
-      return 'Supabase';
-    }
-  })();
-
-  return `Network error: unable to reach Supabase ${endpointLabel} endpoint (${host}). Check internet connection, ad blocker, VPN/firewall, and Supabase URL configuration.`;
-};
+const buildSupabaseNetworkError = (_url: string, _endpointType: 'auth' | 'database') =>
+  'Не удалось подключиться к Supabase. Проверьте интернет, VPN/firewall и настройки URL проекта.';
 
 const performSupabaseFetch = async (
   url: string,

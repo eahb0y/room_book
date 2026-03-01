@@ -154,7 +154,7 @@ export const createBooking = async (payload: {
   );
 
   const created = rows[0];
-  if (!created) throw new Error('Booking was not created');
+  if (!created) throw new Error('Не удалось создать бронирование');
 
   return mapBooking(created);
 };
@@ -174,7 +174,7 @@ export const cancelBooking = async (id: string) => {
   );
 
   const updated = rows[0];
-  if (!updated) throw new Error('Booking not found');
+  if (!updated) throw new Error('Бронирование не найдено');
 
   return mapBooking(updated);
 };
@@ -186,7 +186,7 @@ const getBookingById = async (id: string) => {
   );
 
   const booking = rows[0];
-  if (!booking) throw new Error('Booking not found');
+  if (!booking) throw new Error('Бронирование не найдено');
   return booking;
 };
 
@@ -234,7 +234,7 @@ export const updateBooking = async (
   );
 
   const updated = rows[0];
-  if (!updated) throw new Error('Booking not found');
+  if (!updated) throw new Error('Бронирование не найдено');
 
   return mapBooking(updated);
 };

@@ -50,6 +50,7 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useI18n } from '@/i18n/useI18n';
+import { canManageBusinessResources, getAccessibleBusinessVenues, isBusinessPortalActive } from '@/lib/businessAccess';
 
 const MAX_SERVICE_PHOTO_SIDE = 1400;
 const MAX_SERVICE_PHOTO_BYTES = 1_500_000;
@@ -176,10 +177,11 @@ export default function ServicesManagement() {
   const { t } = useI18n();
   const { user, portal } = useAuthStore();
   const navigate = useNavigate();
-  const isBusinessPortal = portal === 'business' || user?.role === 'admin';
+  const isBusinessPortal = isBusinessPortalActive(user, portal);
   const venues = useVenueStore((state) => state.venues);
 
-  const ownedVenues = useMemo(() => venues.filter((venue) => venue.adminId === user?.id), [venues, user?.id]);
+  const ownedVenues = useMemo(() => getAccessibleBusinessVenues(user, venues), [user, venues]);
+  const canManageServices = canManageBusinessResources(user);
   const [selectedVenueId, setSelectedVenueId] = useState('');
   const [categories, setCategories] = useState<BusinessServiceCategory[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
@@ -353,6 +355,7 @@ export default function ServicesManagement() {
   }, [services]);
 
   const openCreateDialog = (categoryId?: string) => {
+    if (!canManageServices) return;
     const nextCategoryId = categoryId || selectedCategoryId || categories[0]?.id || '';
 
     resetForm(nextCategoryId);
@@ -361,6 +364,7 @@ export default function ServicesManagement() {
   };
 
   const openEditDialog = (service: BusinessService) => {
+    if (!canManageServices) return;
     setEditingService(service);
     setFormCategoryId(service.categoryId ?? selectedCategoryId ?? categories[0]?.id ?? '');
     setServiceName(service.name);
@@ -412,6 +416,7 @@ export default function ServicesManagement() {
   };
 
   const addProviderRow = () => {
+    if (!canManageServices) return;
     setProviders((current) => [
       ...current,
       {
@@ -438,6 +443,7 @@ export default function ServicesManagement() {
   };
 
   const handleSelectExistingProvider = (index: number, optionId: string) => {
+    if (!canManageServices) return;
     const option = existingStaffOptions.find((item) => item.id === optionId);
     if (!option) return;
 
@@ -455,10 +461,12 @@ export default function ServicesManagement() {
   };
 
   const removeProviderRow = (index: number) => {
+    if (!canManageServices) return;
     setProviders((current) => current.filter((_, currentIndex) => currentIndex !== index));
   };
 
   const handlePhotoChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    if (!canManageServices) return;
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -477,6 +485,7 @@ export default function ServicesManagement() {
   };
 
   const handleProviderPhotoChange = async (index: number, event: ChangeEvent<HTMLInputElement>) => {
+    if (!canManageServices) return;
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -495,6 +504,11 @@ export default function ServicesManagement() {
   };
 
   const createCategoryWithName = useCallback(async (rawName: string) => {
+    if (!canManageServices) {
+      setError(t('Только роль business может создавать, удалять и редактировать услуги'));
+      return null;
+    }
+
     const normalizedName = normalizeCategoryName(rawName);
 
     if (!selectedVenueId) {
@@ -534,7 +548,7 @@ export default function ServicesManagement() {
     } finally {
       setIsCategorySaving(false);
     }
-  }, [categories, loadPageData, selectedVenueId, t]);
+  }, [canManageServices, categories, loadPageData, selectedVenueId, t]);
 
   const handleCreateDialogCategory = async () => {
     setError('');
@@ -573,6 +587,11 @@ export default function ServicesManagement() {
     event.preventDefault();
     setError('');
     setSuccessMessage('');
+
+    if (!canManageServices) {
+      setError(t('Только роль business может создавать, удалять и редактировать услуги'));
+      return;
+    }
 
     if (isImageProcessing) {
       setError(t('Дождитесь завершения обработки фото'));
@@ -703,6 +722,7 @@ export default function ServicesManagement() {
 
   const handleDelete = async () => {
     if (!deleteConfirmId || !selectedVenueId) return;
+    if (!canManageServices) return;
 
     setError('');
     setSuccessMessage('');
@@ -736,7 +756,9 @@ export default function ServicesManagement() {
       <div>
         <h1 className="text-4xl font-semibold tracking-tight text-foreground">{t('Услуги')}</h1>
         <p className="mt-2 max-w-3xl text-muted-foreground">
-          {t('Создавайте категории и сразу наполняйте их услугами без лишних шагов.')}
+          {canManageServices
+            ? t('Создавайте категории и сразу наполняйте их услугами без лишних шагов.')
+            : t('Услуги доступны только для просмотра. Менять их может только роль business')}
         </p>
       </div>
 
@@ -792,9 +814,10 @@ export default function ServicesManagement() {
                 value={categoryName}
                 onChange={(event) => setCategoryName(event.target.value)}
                 placeholder={t('Например: Стрижка')}
+                disabled={!canManageServices}
                 className="h-11 border-border/50 bg-input/50 focus:border-primary/60"
               />
-              <Button type="submit" className="h-11 w-full" disabled={isCategorySaving}>
+              <Button type="submit" className="h-11 w-full" disabled={isCategorySaving || !canManageServices}>
                 <Plus className="mr-2 h-4 w-4" />
                 {isCategorySaving ? t('Создание…') : t('Создать категорию')}
               </Button>
@@ -863,7 +886,7 @@ export default function ServicesManagement() {
                 <p className="text-sm text-muted-foreground">
                   {t('Сначала создайте категорию или добавьте её прямо в форме создания сервиса.')}
                 </p>
-                <Button type="button" className="mt-2 h-10" onClick={() => openCreateDialog()}>
+                <Button type="button" className="mt-2 h-10" onClick={() => openCreateDialog()} disabled={!canManageServices}>
                   <Plus className="mr-2 h-4 w-4" />
                   {t('Добавить сервис')}
                 </Button>
@@ -879,7 +902,7 @@ export default function ServicesManagement() {
                   {t('Сервисов: {count}', { count: selectedCategoryServices.length })}
                 </CardDescription>
               </div>
-              <Button type="button" className="h-10 shrink-0 self-start md:self-center" onClick={() => openCreateDialog(selectedCategory.id)}>
+              <Button type="button" className="h-10 shrink-0 self-start md:self-center" onClick={() => openCreateDialog(selectedCategory.id)} disabled={!canManageServices}>
                 <Plus className="mr-2 h-4 w-4" />
                 {t('Добавить сервис')}
               </Button>
@@ -938,27 +961,29 @@ export default function ServicesManagement() {
                               </div>
                             </div>
 
-                            <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="h-9 w-full border-border/50 hover:border-primary/30 sm:flex-1"
-                                onClick={() => openEditDialog(service)}
-                              >
-                                <Edit2 className="mr-2 h-3.5 w-3.5" />
-                                {t('Редактировать')}
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="h-9 w-full border-red-900/30 px-3 text-red-400 hover:border-red-800/40 hover:bg-red-950/30 hover:text-red-300 sm:w-auto"
-                                onClick={() => setDeleteConfirmId(service.id)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
+                            {canManageServices ? (
+                              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-9 w-full border-border/50 hover:border-primary/30 sm:flex-1"
+                                  onClick={() => openEditDialog(service)}
+                                >
+                                  <Edit2 className="mr-2 h-3.5 w-3.5" />
+                                  {t('Редактировать')}
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-9 w-full border-red-900/30 px-3 text-red-400 hover:border-red-800/40 hover:bg-red-950/30 hover:text-red-300 sm:w-auto"
+                                  onClick={() => setDeleteConfirmId(service.id)}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            ) : null}
                           </div>
                         );
                       })}
@@ -1014,6 +1039,7 @@ export default function ServicesManagement() {
                       variant="ghost"
                       className="h-8 px-0 text-sm text-primary hover:bg-transparent hover:text-primary/80"
                       onClick={() => setIsDialogCategoryCreateOpen(true)}
+                      disabled={!canManageServices}
                     >
                       <Plus className="mr-2 h-4 w-4" />
                       {t('Добавить категорию')}
@@ -1039,13 +1065,14 @@ export default function ServicesManagement() {
                           value={dialogCategoryName}
                           onChange={(event) => setDialogCategoryName(event.target.value)}
                           placeholder={t('Новая категория')}
+                          disabled={!canManageServices}
                           className="h-10 border-border/50 bg-input/50 focus:border-primary/60"
                         />
                         <Button
                           type="button"
                           variant="outline"
                           className="h-10 shrink-0 border-border/50"
-                          disabled={isCategorySaving}
+                          disabled={isCategorySaving || !canManageServices}
                           onClick={() => void handleCreateDialogCategory()}
                         >
                           <Plus className="mr-2 h-4 w-4" />
@@ -1066,6 +1093,7 @@ export default function ServicesManagement() {
                   value={serviceName}
                   onChange={(event) => setServiceName(event.target.value)}
                   placeholder={t('Например: Стрижка')}
+                  disabled={!canManageServices}
                   className="h-11 border-border/50 bg-input/50 focus:border-primary/60"
                 />
               </div>
@@ -1079,7 +1107,7 @@ export default function ServicesManagement() {
                   type="file"
                   accept="image/*"
                   onChange={handlePhotoChange}
-                  disabled={isImageProcessing}
+                  disabled={isImageProcessing || !canManageServices}
                   className="h-11 border-border/50 bg-input/50 file:mr-3 file:text-xs file:font-medium"
                 />
                 <p className="text-xs text-muted-foreground/70">
@@ -1100,6 +1128,7 @@ export default function ServicesManagement() {
                       variant="outline"
                       className="h-9 border-border/50"
                       onClick={() => setServicePhotoUrl(null)}
+                      disabled={!canManageServices}
                     >
                       <X className="mr-2 h-4 w-4" />
                       {t('Удалить фото')}
@@ -1123,7 +1152,7 @@ export default function ServicesManagement() {
                       {t('Для каждого специалиста укажите имя, локацию, рабочие часы, длительность, цену и фото.')}
                     </p>
                   </div>
-                  <Button type="button" variant="outline" className="h-9 border-border/50" onClick={addProviderRow}>
+                  <Button type="button" variant="outline" className="h-9 border-border/50" onClick={addProviderRow} disabled={!canManageServices}>
                     <Plus className="mr-2 h-4 w-4" />
                     {t('Добавить специалиста')}
                   </Button>
@@ -1142,7 +1171,7 @@ export default function ServicesManagement() {
                           variant="outline"
                           className="h-9 border-border/50 px-3"
                           onClick={() => removeProviderRow(index)}
-                          disabled={providers.length === 1}
+                          disabled={providers.length === 1 || !canManageServices}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -1155,6 +1184,7 @@ export default function ServicesManagement() {
                             <Select
                               value={provider.templateId || undefined}
                               onValueChange={(value) => handleSelectExistingProvider(index, value)}
+                              disabled={!canManageServices}
                             >
                               <SelectTrigger className="h-11 border-border/50 bg-input/50">
                                 <SelectValue placeholder={t('Выберите существующего специалиста')} />
@@ -1179,6 +1209,7 @@ export default function ServicesManagement() {
                             value={provider.name}
                             onChange={(event) => updateProviderRow(index, { name: event.target.value, templateId: provider.templateId })}
                             placeholder={t('Например: Азиза')}
+                            disabled={!canManageServices}
                             className="h-11 border-border/50 bg-input/50 focus:border-primary/60"
                           />
                         </div>
@@ -1189,6 +1220,7 @@ export default function ServicesManagement() {
                             value={provider.location}
                             onChange={(event) => updateProviderRow(index, { location: event.target.value })}
                             placeholder={t('Например: Кабинет 3')}
+                            disabled={!canManageServices}
                             className="h-11 border-border/50 bg-input/50 focus:border-primary/60"
                           />
                         </div>
@@ -1199,6 +1231,7 @@ export default function ServicesManagement() {
                             type="time"
                             value={provider.workFrom}
                             onChange={(event) => updateProviderRow(index, { workFrom: event.target.value })}
+                            disabled={!canManageServices}
                             className="h-11 border-border/50 bg-input/50 focus:border-primary/60"
                           />
                         </div>
@@ -1209,6 +1242,7 @@ export default function ServicesManagement() {
                             type="time"
                             value={provider.workTo}
                             onChange={(event) => updateProviderRow(index, { workTo: event.target.value })}
+                            disabled={!canManageServices}
                             className="h-11 border-border/50 bg-input/50 focus:border-primary/60"
                           />
                         </div>
@@ -1220,6 +1254,7 @@ export default function ServicesManagement() {
                             onChange={(event) => updateProviderRow(index, { durationMinutes: normalizeInteger(event.target.value) })}
                             inputMode="numeric"
                             placeholder={t('Например: 45')}
+                            disabled={!canManageServices}
                             className="h-11 border-border/50 bg-input/50 focus:border-primary/60"
                           />
                         </div>
@@ -1231,6 +1266,7 @@ export default function ServicesManagement() {
                             onChange={(event) => updateProviderRow(index, { price: normalizePriceInput(event.target.value) })}
                             inputMode="decimal"
                             placeholder={t('Например: 120000')}
+                            disabled={!canManageServices}
                             className="h-11 border-border/50 bg-input/50 focus:border-primary/60"
                           />
                         </div>
@@ -1259,7 +1295,7 @@ export default function ServicesManagement() {
                               type="file"
                               accept="image/*"
                               onChange={(event) => void handleProviderPhotoChange(index, event)}
-                              disabled={isImageProcessing}
+                              disabled={isImageProcessing || !canManageServices}
                               className="h-11 border-border/50 bg-input/50 file:mr-3 file:text-xs file:font-medium"
                             />
                             {provider.photoUrl ? (
@@ -1268,6 +1304,7 @@ export default function ServicesManagement() {
                                 variant="outline"
                                 className="h-9 border-border/50"
                                 onClick={() => updateProviderRow(index, { photoUrl: null })}
+                                disabled={!canManageServices}
                               >
                                 <X className="mr-2 h-4 w-4" />
                                 {t('Удалить фото специалиста')}
@@ -1286,7 +1323,7 @@ export default function ServicesManagement() {
               <Button type="button" variant="outline" className="border-border/50" onClick={closeDialog} disabled={isSaving}>
                 {t('Отмена')}
               </Button>
-              <Button type="submit" disabled={isSaving || isImageProcessing}>
+              <Button type="submit" disabled={isSaving || isImageProcessing || !canManageServices}>
                 {isSaving ? t('Сохранение…') : editingService ? t('Сохранить') : t('Добавить')}
               </Button>
             </DialogFooter>

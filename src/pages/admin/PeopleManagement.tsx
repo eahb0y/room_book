@@ -11,12 +11,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Copy, QrCode, Trash2 } from 'lucide-react';
 import { useI18n } from '@/i18n/useI18n';
+import { canManageBusinessResidents, getAccessibleBusinessVenues, isBusinessPortalActive } from '@/lib/businessAccess';
+import {
+  formatResidentPromoCode,
+  getResidentPromoDescription,
+  getResidentPromoTitle,
+} from '@/lib/residentPromo';
 
 interface ConnectedResident {
   membership: VenueMembership;
   invitation?: Invitation;
   fullName: string;
   email: string;
+  promoCode: string;
+  promoTitle: string;
 }
 
 export default function PeopleManagement() {
@@ -24,11 +32,13 @@ export default function PeopleManagement() {
   const user = useAuthStore((state) => state.user);
   const portal = useAuthStore((state) => state.portal);
   const navigate = useNavigate();
-  const isBusinessPortal = portal === 'business' || user?.role === 'admin';
+  const isBusinessPortal = isBusinessPortalActive(user, portal);
   const venues = useVenueStore((state) => state.venues);
+  const rooms = useVenueStore((state) => state.rooms);
+  const canManageResidents = canManageBusinessResidents(user);
   const existingVenue = useMemo(
-    () => venues.find((venue) => venue.adminId === user?.id),
-    [venues, user?.id]
+    () => getAccessibleBusinessVenues(user, venues)[0],
+    [user, venues]
   );
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [memberships, setMemberships] = useState<VenueMembership[]>([]);
@@ -160,10 +170,18 @@ export default function PeopleManagement() {
             invitation,
             fullName: fullName || t('Резидент #{id}', { id: fallbackId }),
             email: invitation?.inviteeEmail ?? '—',
+            promoCode: invitation?.token ? formatResidentPromoCode(invitation.token) : '—',
+            promoTitle: getResidentPromoTitle(invitation?.venueName ?? existingVenue?.name, t),
           };
         })
         .sort((a, b) => b.membership.joinedAt.localeCompare(a.membership.joinedAt)),
-    [invitationById, memberships, t]
+    [existingVenue?.name, invitationById, memberships, t]
+  );
+
+  const residentRoomCount = useMemo(
+    () =>
+      rooms.filter((room) => room.venueId === existingVenueId && room.accessType === 'residents_only').length,
+    [existingVenueId, rooms],
   );
 
   const formatDateTime = (iso?: string) => {
@@ -184,6 +202,7 @@ export default function PeopleManagement() {
 
   const handleCreateSharedInvite = async (options?: { regenerate?: boolean }) => {
     if (!existingVenue || !user) return;
+    if (!canManageResidents) return;
     setInviteError('');
     setInviteSuccess('');
     setSharedInviteSubmitting(true);
@@ -224,6 +243,7 @@ export default function PeopleManagement() {
 
   const handleRemoveResident = async (membershipId: string) => {
     if (!existingVenue) return;
+    if (!canManageResidents) return;
     setDeletingMembershipId(membershipId);
     setInviteError('');
     setInviteSuccess('');
@@ -244,7 +264,9 @@ export default function PeopleManagement() {
       <div>
         <h1 className="text-4xl font-semibold text-foreground tracking-tight">{t('Резиденты')}</h1>
         <p className="text-muted-foreground mt-2">
-          {t('Резиденты получают доступ к закрытым комнатам после подключения по ссылке или QR-коду')}
+          {canManageResidents
+            ? t('Резиденты получают доступ к закрытым комнатам после подключения по ссылке или QR-коду')
+            : t('Резиденты доступны для просмотра. Управлять ими могут только роли business и manager')}
         </p>
       </div>
 
@@ -292,9 +314,9 @@ export default function PeopleManagement() {
 
           <Card className="border-border/40 animate-fade-up stagger-2">
             <CardHeader>
-              <CardTitle className="text-lg font-body font-semibold">{t('Общая ссылка резидентов')}</CardTitle>
+              <CardTitle className="text-lg font-body font-semibold">{t('Промокод резидентов')}</CardTitle>
               <CardDescription>
-                {t('Одна ссылка для всех резидентов: отправьте ее сообщением или покажите QR-код')}
+                {t('Отправьте код, ссылку или QR, чтобы человек получил доступ к закрытым комнатам')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -305,31 +327,77 @@ export default function PeopleManagement() {
               {!sharedInvitation ? (
                 <div className="space-y-3">
                   <div className="rounded-lg border border-dashed border-border/50 p-4 text-sm text-muted-foreground">
-                    {t('Общая ссылка еще не создана')}
+                    {t('Промокод ещё не создан')}
                   </div>
-                  <Button
-                    onClick={() => handleCreateSharedInvite()}
-                    disabled={sharedInviteSubmitting || inviteLoading}
-                    className="h-11"
-                  >
-                    {sharedInviteSubmitting ? t('Создание…') : t('Создать общую ссылку')}
-                  </Button>
+                  {canManageResidents ? (
+                    <Button
+                      onClick={() => handleCreateSharedInvite()}
+                      disabled={sharedInviteSubmitting || inviteLoading}
+                      className="h-11"
+                    >
+                      {sharedInviteSubmitting ? t('Создание…') : t('Создать промокод')}
+                    </Button>
+                  ) : null}
                 </div>
               ) : (
                 <div className="space-y-4">
+                  <div className="rounded-2xl border border-border/50 bg-background/35 p-4">
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{t('Промокод')}</p>
+                    <p className="mt-2 text-lg font-semibold text-foreground">
+                      {getResidentPromoTitle(existingVenue.name, t)}
+                    </p>
+                    <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                      {getResidentPromoDescription(t)}
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <div className="rounded-full border border-border/50 bg-background/50 px-3 py-1.5 text-xs text-muted-foreground">
+                        {t('Закрытых комнат: {count}', { count: residentRoomCount })}
+                      </div>
+                      <div className="rounded-full border border-border/50 bg-background/50 px-3 py-1.5 text-xs text-muted-foreground">
+                        {t('Подключений по этой ссылке: {count}', { count: sharedInvitation.uses })}
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground">
                     <div>{t('Ссылка создана: {value}', { value: formatDateTime(sharedInvitation.createdAt) })}</div>
-                    <div>{t('Подключений по этой ссылке: {count}', { count: sharedInvitation.uses })}</div>
+                    <div>{t('Промокод активен для резидентов этого заведения')}</div>
+                  </div>
+
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Input
+                      value={formatResidentPromoCode(sharedInvitation.token)}
+                      readOnly
+                      className="h-10 bg-input/30 border-border/40 text-xs font-mono text-foreground"
+                    />
+                    {canManageResidents ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(formatResidentPromoCode(sharedInvitation.token));
+                            setInviteSuccess(t('Код скопирован'));
+                          } catch {
+                            setInviteError(t('Не удалось скопировать ссылку'));
+                          }
+                        }}
+                        className="h-10 border-border/50 hover:border-primary/30"
+                      >
+                        <Copy className="h-3.5 w-3.5 mr-1.5" />
+                        {t('Скопировать код')}
+                      </Button>
+                    ) : null}
                   </div>
 
                   <div className="w-fit rounded-lg border border-border/40 bg-background/40 p-2">
                     <div className="mb-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                       <QrCode className="h-3.5 w-3.5" />
-                      <span>{t('QR-код общей ссылки')}</span>
+                      <span>{t('QR-код промокода')}</span>
                     </div>
                     <img
                       src={buildInviteQrCode(sharedInvitation.token)}
-                      alt={t('QR-код общей ссылки')}
+                      alt={t('QR-код промокода')}
                       className="h-52 w-52 rounded border border-border/40 bg-white p-1"
                       loading="lazy"
                     />
@@ -341,24 +409,28 @@ export default function PeopleManagement() {
                       readOnly
                       className="h-10 bg-input/30 border-border/40 text-xs font-mono text-muted-foreground"
                     />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleCopySharedLink}
-                      className="h-10 border-border/50 hover:border-primary/30"
-                    >
-                      <Copy className="h-3.5 w-3.5 mr-1.5" />
-                      {t('Скопировать ссылку')}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleCreateSharedInvite({ regenerate: true })}
-                      className="h-10 border-border/50 hover:border-primary/30"
-                      disabled={sharedInviteSubmitting}
-                    >
-                      {t('Обновить ссылку')}
-                    </Button>
+                    {canManageResidents ? (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleCopySharedLink}
+                          className="h-10 border-border/50 hover:border-primary/30"
+                        >
+                          <Copy className="h-3.5 w-3.5 mr-1.5" />
+                          {t('Скопировать ссылку')}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleCreateSharedInvite({ regenerate: true })}
+                          className="h-10 border-border/50 hover:border-primary/30"
+                          disabled={sharedInviteSubmitting}
+                        >
+                          {t('Обновить промокод')}
+                        </Button>
+                      </>
+                    ) : null}
                   </div>
                 </div>
               )}
@@ -406,16 +478,18 @@ export default function PeopleManagement() {
                           <p className="text-sm font-medium text-foreground">{resident.fullName}</p>
                           <p className="text-xs text-muted-foreground">{resident.email}</p>
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleRemoveResident(resident.membership.id)}
-                          className="h-10 border-red-900/40 text-red-400 hover:bg-red-950/30 hover:text-red-300"
-                          disabled={deletingMembershipId === resident.membership.id}
-                        >
-                          <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                          {t('Удалить')}
-                        </Button>
+                        {canManageResidents ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRemoveResident(resident.membership.id)}
+                            className="h-10 border-red-900/40 text-red-400 hover:bg-red-950/30 hover:text-red-300"
+                            disabled={deletingMembershipId === resident.membership.id}
+                          >
+                            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                            {t('Удалить')}
+                          </Button>
+                        ) : null}
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground">
@@ -429,6 +503,8 @@ export default function PeopleManagement() {
                             value: formatDateTime(resident.invitation?.createdAt),
                           })}
                         </div>
+                        <div>{t('По промокоду: {value}', { value: resident.promoCode })}</div>
+                        <div>{resident.promoTitle}</div>
                       </div>
                     </div>
                   ))}

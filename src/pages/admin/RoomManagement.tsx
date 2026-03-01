@@ -23,6 +23,7 @@ import { getRoomPhotoUrls } from '@/lib/roomPhotos';
 import { cn } from '@/lib/utils';
 import type { Room } from '@/types';
 import { useI18n } from '@/i18n/useI18n';
+import { canManageBusinessResources, getAccessibleBusinessVenues, isBusinessPortalActive } from '@/lib/businessAccess';
 
 const MAX_ROOM_PHOTO_SIDE = 1400;
 const MAX_ROOM_PHOTO_BYTES = 1_500_000;
@@ -117,17 +118,18 @@ export default function RoomManagement() {
   const { t } = useI18n();
   const { user, portal } = useAuthStore();
   const navigate = useNavigate();
-  const isBusinessPortal = portal === 'business' || user?.role === 'admin';
+  const isBusinessPortal = isBusinessPortalActive(user, portal);
   const venues = useVenueStore((state) => state.venues);
   const allRooms = useVenueStore((state) => state.rooms);
   const createRoom = useVenueStore((state) => state.createRoom);
   const updateRoom = useVenueStore((state) => state.updateRoom);
   const deleteRoom = useVenueStore((state) => state.deleteRoom);
 
-  const ownedVenues = useMemo(() => venues.filter((venue) => venue.adminId === user?.id), [venues, user?.id]);
-  const ownedVenueIds = useMemo(() => new Set(ownedVenues.map((venue) => venue.id)), [ownedVenues]);
+  const businessVenues = useMemo(() => getAccessibleBusinessVenues(user, venues), [user, venues]);
+  const canManageRooms = canManageBusinessResources(user);
+  const ownedVenueIds = useMemo(() => new Set(businessVenues.map((venue) => venue.id)), [businessVenues]);
   const rooms = useMemo(() => allRooms.filter((room) => ownedVenueIds.has(room.venueId)), [allRooms, ownedVenueIds]);
-  const defaultVenueId = ownedVenues[0]?.id;
+  const defaultVenueId = businessVenues[0]?.id;
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
@@ -163,6 +165,7 @@ export default function RoomManagement() {
   }, [photoUrls.length]);
 
   const handleOpenDialog = (room?: Room) => {
+    if (!canManageRooms) return;
     if (room) {
       setEditingRoom(room);
       setName(room.name);
@@ -322,6 +325,11 @@ export default function RoomManagement() {
     e.preventDefault();
     setError('');
 
+    if (!canManageRooms) {
+      setError(t('Только роль business может создавать, удалять и редактировать комнаты'));
+      return;
+    }
+
     if (isImageProcessing) {
       setError(t('Дождитесь завершения обработки фото'));
       return;
@@ -440,13 +448,14 @@ export default function RoomManagement() {
   };
 
   const handleDelete = async (roomId: string) => {
+    if (!canManageRooms) return;
     await deleteRoom(roomId);
     setDeleteConfirmId(null);
   };
 
   const selectedPhoto = photoUrls[selectedPhotoIndex] ?? photoUrls[0] ?? null;
 
-  if (ownedVenues.length === 0) {
+  if (businessVenues.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <div className="w-16 h-16 rounded-2xl bg-secondary/50 flex items-center justify-center mb-5">
@@ -466,13 +475,17 @@ export default function RoomManagement() {
             {t('Управление комнатами')}
           </h1>
           <p className="text-muted-foreground mt-2">
-            {t('Добавляйте и управляйте переговорными комнатами')}
+            {canManageRooms
+              ? t('Добавляйте и управляйте переговорными комнатами')
+              : t('Комнаты доступны только для просмотра. Изменять их может только роль business')}
           </p>
         </div>
-        <Button onClick={() => handleOpenDialog()} className="flex items-center gap-2 h-11 shrink-0">
-          <Plus className="h-4 w-4" />
-          <span>{t('Добавить комнату')}</span>
-        </Button>
+        {canManageRooms ? (
+          <Button onClick={() => handleOpenDialog()} className="flex items-center gap-2 h-11 shrink-0">
+            <Plus className="h-4 w-4" />
+            <span>{t('Добавить комнату')}</span>
+          </Button>
+        ) : null}
       </div>
 
       {rooms.length === 0 ? (
@@ -482,7 +495,7 @@ export default function RoomManagement() {
               <DoorOpen className="h-7 w-7 text-muted-foreground/40" />
             </div>
             <p className="text-muted-foreground mb-4">{t('У вас пока нет комнат')}</p>
-            <Button onClick={() => handleOpenDialog()}>{t('Добавить первую комнату')}</Button>
+            {canManageRooms ? <Button onClick={() => handleOpenDialog()}>{t('Добавить первую комнату')}</Button> : null}
           </CardContent>
         </Card>
       ) : (
@@ -565,23 +578,31 @@ export default function RoomManagement() {
                 </CardHeader>
                 <CardContent>
                   <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleOpenDialog(room)}
-                      className="flex-1 flex items-center justify-center gap-2 h-9 border-border/50 hover:border-primary/30"
-                    >
-                      <Edit2 className="h-3.5 w-3.5" />
-                      <span>{t('Редактировать')}</span>
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setDeleteConfirmId(room.id)}
-                      className="h-9 px-3 border-red-900/30 text-red-400 hover:bg-red-950/30 hover:text-red-300 hover:border-red-800/40"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
+                    {canManageRooms ? (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleOpenDialog(room)}
+                          className="flex-1 flex items-center justify-center gap-2 h-9 border-border/50 hover:border-primary/30"
+                        >
+                          <Edit2 className="h-3.5 w-3.5" />
+                          <span>{t('Редактировать')}</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setDeleteConfirmId(room.id)}
+                          className="h-9 px-3 border-red-900/30 text-red-400 hover:bg-red-950/30 hover:text-red-300 hover:border-red-800/40"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </>
+                    ) : (
+                      <div className="text-xs text-muted-foreground">
+                        {t('Редактирование и удаление доступны только роли business')}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
