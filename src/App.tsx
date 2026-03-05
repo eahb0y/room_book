@@ -23,6 +23,7 @@ import ServiceBookingPage from '@/pages/user/ServiceBookingPage';
 import MyBookings from '@/pages/user/MyBookings';
 import Profile from '@/pages/Profile';
 import SeoRouteManager from '@/components/SeoRouteManager';
+import ContactTelegramWidget from '@/components/ContactTelegramWidget';
 import { isBusinessPortalActive } from '@/lib/businessAccess';
 import { getOAuthCallbackErrorMessage } from '@/lib/authApi';
 import { getSupabaseEnvironment } from '@/lib/supabaseConfig';
@@ -301,6 +302,7 @@ function App() {
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
+      <ContactTelegramWidget />
     </BrowserRouter>
   );
 }
