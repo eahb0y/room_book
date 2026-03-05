@@ -87,8 +87,13 @@ as $$
 declare
   raw_password text;
 begin
-  raw_password := encode(gen_random_bytes(12), 'base64');
-  raw_password := regexp_replace(raw_password, '[^A-Za-z0-9]', 'A', 'g');
+  raw_password := upper(
+    substring(
+      md5(random()::text || clock_timestamp()::text)
+      || md5(clock_timestamp()::text || random()::text)
+      from 1 for 9
+    )
+  );
   return 'Tmp' || substring(raw_password from 1 for 9) || '9!';
 end;
 $$;

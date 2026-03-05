@@ -11,6 +11,36 @@ interface VenueRow {
   created_at: string;
 }
 
+const getErrorMessage = (error: unknown) => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+
+  if (typeof error === 'object' && error !== null) {
+    const record = error as Record<string, unknown>;
+    const candidates = [record.message, record.msg, record.detail, record.hint, record.error];
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && candidate.trim()) {
+        return candidate;
+      }
+    }
+  }
+
+  return '';
+};
+
+const isMissingColumnError = (error: unknown, columnName: string) => {
+  const message = getErrorMessage(error).toLowerCase();
+  if (!message.includes(columnName.toLowerCase())) return false;
+
+  return (
+    message.includes('schema cache')
+    || message.includes('does not exist')
+    || message.includes('could not find the')
+    || message.includes('pgrst204')
+    || message.includes('42703')
+  );
+};
+
 const mapVenue = (row: VenueRow): Venue => ({
   id: row.id,
   name: row.name,
@@ -22,6 +52,17 @@ const mapVenue = (row: VenueRow): Venue => ({
 });
 
 const toInFilter = (values: string[]) => values.join(',');
+
+const fetchVenueById = async (id: string) => {
+  const rows = await supabaseDbRequest<VenueRow[]>(
+    `venues?select=*&id=eq.${encodeURIComponent(id)}&limit=1`,
+    { method: 'GET' },
+  );
+
+  const venue = rows[0];
+  if (!venue) throw new Error('Заведение не найдено');
+  return mapVenue(venue);
+};
 
 export const listVenues = async (params?: { adminId?: string; userId?: string; venueIds?: string[]; publicAccess?: boolean }) => {
   if (params?.adminId) {
@@ -74,24 +115,44 @@ export const createVenue = async (payload: {
   activityType?: string;
   adminId: string;
 }) => {
-  const rows = await supabaseDbRequest<VenueRow[]>(
-    'venues',
-    {
-      method: 'POST',
-      headers: {
-        Prefer: 'return=representation',
-      },
-      body: JSON.stringify([
-        {
-          name: payload.name,
-          description: payload.description,
-          address: payload.address,
-          activity_type: payload.activityType ?? '',
-          admin_id: payload.adminId,
+  const insertPayload: Record<string, unknown> = {
+    name: payload.name,
+    description: payload.description,
+    address: payload.address,
+    activity_type: payload.activityType ?? '',
+    admin_id: payload.adminId,
+  };
+
+  let rows: VenueRow[];
+  try {
+    rows = await supabaseDbRequest<VenueRow[]>(
+      'venues',
+      {
+        method: 'POST',
+        headers: {
+          Prefer: 'return=representation',
         },
-      ]),
-    },
-  );
+        body: JSON.stringify([insertPayload]),
+      },
+    );
+  } catch (error) {
+    if (!isMissingColumnError(error, 'activity_type')) {
+      throw error;
+    }
+
+    delete insertPayload.activity_type;
+
+    rows = await supabaseDbRequest<VenueRow[]>(
+      'venues',
+      {
+        method: 'POST',
+        headers: {
+          Prefer: 'return=representation',
+        },
+        body: JSON.stringify([insertPayload]),
+      },
+    );
+  }
 
   const created = rows[0];
   if (!created) throw new Error('Не удалось создать заведение');
@@ -106,16 +167,44 @@ export const updateVenue = async (id: string, payload: Partial<Pick<Venue, 'name
   if (payload.address !== undefined) patch.address = payload.address;
   if (payload.activityType !== undefined) patch.activity_type = payload.activityType;
 
-  const rows = await supabaseDbRequest<VenueRow[]>(
-    `venues?id=eq.${encodeURIComponent(id)}`,
-    {
-      method: 'PATCH',
-      headers: {
-        Prefer: 'return=representation',
+  if (Object.keys(patch).length === 0) {
+    return fetchVenueById(id);
+  }
+
+  let rows: VenueRow[];
+  try {
+    rows = await supabaseDbRequest<VenueRow[]>(
+      `venues?id=eq.${encodeURIComponent(id)}`,
+      {
+        method: 'PATCH',
+        headers: {
+          Prefer: 'return=representation',
+        },
+        body: JSON.stringify(patch),
       },
-      body: JSON.stringify(patch),
-    },
-  );
+    );
+  } catch (error) {
+    if (!isMissingColumnError(error, 'activity_type') || !Object.prototype.hasOwnProperty.call(patch, 'activity_type')) {
+      throw error;
+    }
+
+    delete patch.activity_type;
+
+    if (Object.keys(patch).length === 0) {
+      return fetchVenueById(id);
+    }
+
+    rows = await supabaseDbRequest<VenueRow[]>(
+      `venues?id=eq.${encodeURIComponent(id)}`,
+      {
+        method: 'PATCH',
+        headers: {
+          Prefer: 'return=representation',
+        },
+        body: JSON.stringify(patch),
+      },
+    );
+  }
 
   const updated = rows[0];
   if (!updated) throw new Error('Заведение не найдено');

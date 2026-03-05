@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
+import { getOAuthCallbackErrorMessage } from '@/lib/authApi';
+import { getSupabaseEnvironment } from '@/lib/supabaseConfig';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,10 +10,11 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useI18n } from '@/i18n/useI18n';
-import LanguageSwitcher from '@/components/LanguageSwitcher';
+import PreferenceControls from '@/components/PreferenceControls';
 
 export default function Register() {
   const { t } = useI18n();
+  const isProdEnvironment = getSupabaseEnvironment() === 'prod';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -27,6 +30,10 @@ export default function Register() {
   const inviteToken = searchParams.get('invite');
   const nextPathParam = searchParams.get('next');
   const nextPath = nextPathParam && nextPathParam.startsWith('/') && !nextPathParam.startsWith('//') ? nextPathParam : null;
+  const oauthReturnParams = new URLSearchParams();
+  if (inviteToken) oauthReturnParams.set('invite', inviteToken);
+  if (nextPath) oauthReturnParams.set('next', nextPath);
+  const oauthReturnPath = oauthReturnParams.toString() ? `/register?${oauthReturnParams.toString()}` : '/register';
   const loginParams = new URLSearchParams();
   if (inviteToken) loginParams.set('invite', inviteToken);
   if (nextPath) loginParams.set('next', nextPath);
@@ -38,24 +45,35 @@ export default function Register() {
   );
 
   useEffect(() => {
-    const hasOAuthPayload = location.hash.includes('access_token') || location.hash.includes('error=');
+    const oauthError = getOAuthCallbackErrorMessage(location.search);
+    if (!oauthError) return;
+
+    setError(t(oauthError));
+    setIsLoading(false);
+    window.history.replaceState(null, '', oauthReturnPath);
+  }, [location.search, oauthReturnPath, t]);
+
+  useEffect(() => {
+    const oauthHash = location.hash;
+    const hasOAuthPayload = oauthHash.includes('access_token') || oauthHash.includes('refresh_token');
     if (!hasOAuthPayload) return;
 
     let isActive = true;
     setError('');
     setIsLoading(true);
+    window.history.replaceState(null, '', `${location.pathname}${location.search}`);
 
     void (async () => {
       try {
-        const success = await completeGoogleAuth(location.hash);
+        const success = await completeGoogleAuth(oauthHash);
         if (!success) return;
         setPortal('user');
+        if (isProdEnvironment) return;
         navigate(resolvePostAuthPath());
       } catch (err) {
         const message = err instanceof Error ? t(err.message) : t('Произошла ошибка при регистрации');
         if (isActive) setError(message);
       } finally {
-        window.history.replaceState(null, '', `${location.pathname}${location.search}`);
         if (isActive) setIsLoading(false);
       }
     })();
@@ -63,7 +81,7 @@ export default function Register() {
     return () => {
       isActive = false;
     };
-  }, [completeGoogleAuth, location.hash, location.pathname, location.search, navigate, resolvePostAuthPath, setPortal, t]);
+  }, [completeGoogleAuth, isProdEnvironment, location.hash, location.pathname, location.search, navigate, resolvePostAuthPath, setPortal, t]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,7 +122,7 @@ export default function Register() {
         <div className="absolute top-[30%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-primary/[0.04] rounded-full blur-[120px] animate-glow-pulse" />
       </div>
       <div className="absolute right-4 top-4 z-20">
-        <LanguageSwitcher />
+        <PreferenceControls />
       </div>
 
       <div className="w-full max-w-md relative z-10 animate-fade-up">
@@ -133,7 +151,7 @@ export default function Register() {
                 type="button"
                 variant="outline"
                 className="h-11 w-full border-border/60 bg-secondary/40"
-                onClick={() => startGoogleAuth(`/register${location.search}`)}
+                onClick={() => startGoogleAuth(isProdEnvironment ? '/?oauth_register=1' : oauthReturnPath)}
                 disabled={isLoading}
               >
                 {t('Продолжить с Google')}

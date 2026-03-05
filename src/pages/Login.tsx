@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
+import { getOAuthCallbackErrorMessage } from '@/lib/authApi';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,7 +9,7 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useI18n } from '@/i18n/useI18n';
-import LanguageSwitcher from '@/components/LanguageSwitcher';
+import PreferenceControls from '@/components/PreferenceControls';
 import { isBusinessPortalActive } from '@/lib/businessAccess';
 
 export default function Login() {
@@ -26,6 +27,10 @@ export default function Login() {
   const inviteToken = searchParams.get('invite');
   const nextPathParam = searchParams.get('next');
   const nextPath = nextPathParam && nextPathParam.startsWith('/') && !nextPathParam.startsWith('//') ? nextPathParam : null;
+  const oauthReturnParams = new URLSearchParams();
+  if (inviteToken) oauthReturnParams.set('invite', inviteToken);
+  if (nextPath) oauthReturnParams.set('next', nextPath);
+  const oauthReturnPath = oauthReturnParams.toString() ? `/login?${oauthReturnParams.toString()}` : '/login';
   const registerParams = new URLSearchParams();
   if (inviteToken) registerParams.set('invite', inviteToken);
   if (nextPath) registerParams.set('next', nextPath);
@@ -43,23 +48,33 @@ export default function Login() {
   );
 
   useEffect(() => {
-    const hasOAuthPayload = location.hash.includes('access_token') || location.hash.includes('error=');
+    const oauthError = getOAuthCallbackErrorMessage(location.search);
+    if (!oauthError) return;
+
+    setError(t(oauthError));
+    setIsLoading(false);
+    window.history.replaceState(null, '', oauthReturnPath);
+  }, [location.search, oauthReturnPath, t]);
+
+  useEffect(() => {
+    const oauthHash = location.hash;
+    const hasOAuthPayload = oauthHash.includes('access_token') || oauthHash.includes('refresh_token');
     if (!hasOAuthPayload) return;
 
     let isActive = true;
     setError('');
     setIsLoading(true);
+    window.history.replaceState(null, '', `${location.pathname}${location.search}`);
 
     void (async () => {
       try {
-        const success = await completeGoogleAuth(location.hash);
+        const success = await completeGoogleAuth(oauthHash);
         if (!success) return;
         navigate(resolvePostAuthPath());
       } catch (err) {
         const message = err instanceof Error ? t(err.message) : t('Произошла ошибка при входе');
         if (isActive) setError(message);
       } finally {
-        window.history.replaceState(null, '', `${location.pathname}${location.search}`);
         if (isActive) setIsLoading(false);
       }
     })();
@@ -96,7 +111,7 @@ export default function Login() {
         <div className="absolute top-[30%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-primary/[0.04] rounded-full blur-[120px] animate-glow-pulse" />
       </div>
       <div className="absolute right-4 top-4 z-20">
-        <LanguageSwitcher />
+        <PreferenceControls />
       </div>
 
       <div className="w-full max-w-md relative z-10 animate-fade-up">
@@ -123,7 +138,7 @@ export default function Login() {
                 type="button"
                 variant="outline"
                 className="h-11 w-full border-border/60 bg-secondary/40"
-                onClick={() => startGoogleAuth(`/login${location.search}`)}
+                onClick={() => startGoogleAuth(oauthReturnPath)}
                 disabled={isLoading}
               >
                 {t('Продолжить с Google')}

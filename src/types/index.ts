@@ -154,6 +154,25 @@ export interface BookingWithDetails extends Booking {
   userEmail?: string;
 }
 
+export interface ServiceBooking {
+  id: string;
+  serviceId: string;
+  venueId?: string;
+  providerId: string;
+  providerName?: string;
+  serviceName?: string;
+  servicePhotoUrl?: string | null;
+  userId: string;
+  userEmail?: string;
+  userFirstName?: string;
+  userLastName?: string;
+  bookingDate: string;
+  startTime: string;
+  endTime: string;
+  status: BookingStatus;
+  createdAt: string;
+}
+
 // Auth types
 export interface LoginCredentials {
   email: string;

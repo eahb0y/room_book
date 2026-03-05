@@ -31,11 +31,12 @@ import { getBookingViewStatus, type BookingViewStatus } from '@/lib/bookingStatu
 import type { Invitation, VenueMembership } from '@/types';
 import { canManageBusinessBookings, getAccessibleBusinessVenues, isBusinessPortalActive } from '@/lib/businessAccess';
 
-const DISPLAY_SLOT_STEP_MINUTES = 30;
+const DISPLAY_SLOT_STEP_MINUTES = 15;
 const EDIT_SLOT_STEP_SECONDS = 15 * 60;
 const MINUTES_IN_DAY = 24 * 60;
 const DEFAULT_DAY_START = 8 * 60;
 const DEFAULT_DAY_END = 22 * 60;
+const SCHEDULE_SLOT_ROW_HEIGHT_PX = 32;
 
 const toMinutes = (time: string) => {
   const [hour, minute] = time.split(':').map((part) => parseInt(part, 10));
@@ -57,33 +58,38 @@ const toDurationLabel = (minutes: number) => {
   return `${restMinutes}м`;
 };
 
-const buildDisplaySlots = (bookings: BookingViewItem[]) => {
-  if (bookings.length === 0) {
-    const slots: number[] = [];
-    for (let minute = DEFAULT_DAY_START; minute < DEFAULT_DAY_END; minute += DISPLAY_SLOT_STEP_MINUTES) {
-      slots.push(minute);
-    }
-    return slots;
-  }
+const buildDisplaySlots = (rooms: Array<{ availableFrom?: string; availableTo?: string }>) => {
+  const availableFromMinutes = rooms
+    .map((room) => room.availableFrom)
+    .filter((value): value is string => Boolean(value))
+    .map(toMinutes);
+  const availableToMinutes = rooms
+    .map((room) => room.availableTo)
+    .filter((value): value is string => Boolean(value))
+    .map(toMinutes);
 
-  const minStart = bookings.reduce((min, booking) => Math.min(min, booking.startMinutes), MINUTES_IN_DAY);
-  const maxEnd = bookings.reduce((max, booking) => Math.max(max, booking.endMinutes), 0);
+  const minStart = availableFromMinutes.length > 0 ? Math.min(...availableFromMinutes) : DEFAULT_DAY_START;
+  const maxEnd = availableToMinutes.length > 0 ? Math.max(...availableToMinutes) : DEFAULT_DAY_END;
 
   const startBoundary = Math.max(
     0,
-    Math.floor((Math.max(minStart - DISPLAY_SLOT_STEP_MINUTES, 0)) / DISPLAY_SLOT_STEP_MINUTES) * DISPLAY_SLOT_STEP_MINUTES,
+    Math.floor(minStart / DISPLAY_SLOT_STEP_MINUTES) * DISPLAY_SLOT_STEP_MINUTES,
   );
   const endBoundary = Math.min(
     MINUTES_IN_DAY,
-    Math.ceil((Math.min(maxEnd + DISPLAY_SLOT_STEP_MINUTES, MINUTES_IN_DAY)) / DISPLAY_SLOT_STEP_MINUTES) * DISPLAY_SLOT_STEP_MINUTES,
+    Math.ceil(maxEnd / DISPLAY_SLOT_STEP_MINUTES) * DISPLAY_SLOT_STEP_MINUTES,
   );
 
   const slots: number[] = [];
   for (let minute = startBoundary; minute < endBoundary; minute += DISPLAY_SLOT_STEP_MINUTES) {
     slots.push(minute);
   }
+
   return slots;
 };
+
+const getBookingSlotSpan = (booking: Pick<BookingViewItem, 'startMinutes' | 'endMinutes'>) =>
+  Math.max(1, Math.ceil((booking.endMinutes - booking.startMinutes) / DISPLAY_SLOT_STEP_MINUTES));
 
 const formatDateValue = (value: string, dateLocale: Locale) => {
   try {
@@ -173,8 +179,8 @@ function HorizontalDayScroller({
   onChange: (value: string) => void;
 }) {
   return (
-    <ScrollArea className="w-full whitespace-nowrap rounded-xl">
-      <div className="flex gap-2 pb-2">
+    <ScrollArea className="w-full max-w-full overflow-hidden whitespace-nowrap rounded-xl">
+      <div className="flex w-max min-w-full gap-2 pb-2">
         {dates.map((dateValue) => {
           const isSelected = dateValue === value;
 
@@ -184,7 +190,7 @@ function HorizontalDayScroller({
               type="button"
               onClick={() => onChange(dateValue)}
               className={cn(
-                'min-w-[104px] rounded-xl border px-3 py-3 text-left transition-colors',
+                'w-[104px] shrink-0 rounded-xl border px-3 py-3 text-left transition-colors',
                 isSelected
                   ? 'border-primary/60 bg-primary/10 text-primary'
                   : 'border-border/40 bg-muted/15 text-foreground hover:border-border/70 hover:bg-muted/25',
@@ -223,13 +229,13 @@ function BookingScheduleGrid({
   onEdit,
   onCreateSlot,
 }: {
-  rooms: Array<{ id: string; name: string }>;
+  rooms: Array<{ id: string; name: string; availableFrom?: string; availableTo?: string }>;
   bookings: BookingViewItem[];
   t: (value: string, params?: Record<string, string | number>) => string;
   onEdit?: (booking: BookingViewItem) => void;
   onCreateSlot?: (params: { roomId: string; slotStart: number }) => void;
 }) {
-  const slots = useMemo(() => buildDisplaySlots(bookings), [bookings]);
+  const slots = useMemo(() => buildDisplaySlots(rooms), [rooms]);
 
   const bookingsByRoom = useMemo(() => {
     const map = new Map<string, BookingViewItem[]>();
@@ -263,7 +269,7 @@ function BookingScheduleGrid({
         <ScrollArea className="w-full rounded-xl">
           <div className="min-w-[420px]">
             <table className="w-full border-collapse text-xs">
-              <thead className="sticky top-0 z-10 bg-[hsl(240,5%,8%)]">
+              <thead className="sticky top-0 z-10 bg-background/95 backdrop-blur">
                 <tr>
                   <th className="w-[88px] border-b border-border/40 px-3 py-3 text-left font-semibold text-foreground/85">
                     {t('Время')}
@@ -280,95 +286,90 @@ function BookingScheduleGrid({
               </thead>
               <tbody>
                 {slots.map((slotStart) => {
-                  const slotEnd = slotStart + DISPLAY_SLOT_STEP_MINUTES;
-
                   return (
-                    <tr key={slotStart} className="align-top">
-                      <td className="border-b border-border/35 px-3 py-2 font-mono text-[11px] text-muted-foreground">
+                    <tr key={slotStart} className="align-top" style={{ height: `${SCHEDULE_SLOT_ROW_HEIGHT_PX}px` }}>
+                      <td className="border-b border-border/35 px-3 py-1.5 font-mono text-[11px] text-muted-foreground">
                         {toTime(slotStart)}
                       </td>
                       {rooms.map((room) => {
                         const roomBookings = bookingsByRoom.get(room.id) ?? [];
-
-                        const bookingsStartingInSlot = roomBookings.filter(
-                          (booking) => booking.startMinutes >= slotStart && booking.startMinutes < slotEnd,
-                        );
-
-                        const bookingsCoveringSlot = roomBookings.filter(
-                          (booking) => booking.startMinutes < slotEnd && booking.endMinutes > slotStart,
-                        );
-
-                        const hasContinuation = roomBookings.some(
+                        const bookingStartingInSlot = roomBookings.find((booking) => booking.startMinutes === slotStart);
+                        const bookingCoveringSlot = roomBookings.find(
                           (booking) => booking.startMinutes < slotStart && booking.endMinutes > slotStart,
                         );
+
+                        if (bookingCoveringSlot) {
+                          return null;
+                        }
+
+                        if (bookingStartingInSlot) {
+                          const rowSpan = getBookingSlotSpan(bookingStartingInSlot);
+
+                          return (
+                            <td
+                              key={`${room.id}-${slotStart}`}
+                              rowSpan={rowSpan}
+                              className="border-b border-l border-border/35 p-2 align-top"
+                            >
+                              <div
+                                className={cn('flex h-full flex-col rounded-md border px-3 py-2', statusCellClassName[bookingStartingInSlot.viewStatus])}
+                                style={{ minHeight: `${Math.max(rowSpan * SCHEDULE_SLOT_ROW_HEIGHT_PX - 8, SCHEDULE_SLOT_ROW_HEIGHT_PX)}px` }}
+                              >
+                                <div className="flex items-center justify-between gap-1.5">
+                                  <span className="font-mono text-[11px] text-foreground/90">
+                                    {bookingStartingInSlot.startTime} - {bookingStartingInSlot.endTime}
+                                  </span>
+                                  <Badge className={cn('h-5 border text-[10px] font-medium', statusBadgeClassName[bookingStartingInSlot.viewStatus])}>
+                                    {bookingStartingInSlot.viewStatus === 'active'
+                                      ? t('Активно')
+                                      : bookingStartingInSlot.viewStatus === 'completed'
+                                        ? t('Завершено')
+                                        : t('Отменено')}
+                                  </Badge>
+                                </div>
+                                <p className="mt-2 truncate text-[10px] text-muted-foreground" title={bookingStartingInSlot.userLabel}>
+                                  {bookingStartingInSlot.userLabel}
+                                </p>
+                                {bookingStartingInSlot.description ? (
+                                  <p className="mt-1 break-words text-[10px] text-foreground/65" title={bookingStartingInSlot.description}>
+                                    {bookingStartingInSlot.description}
+                                  </p>
+                                ) : null}
+                                {onEdit && bookingStartingInSlot.viewStatus === 'active' && (
+                                  <div className="mt-auto flex justify-end pt-3">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-6 px-2 text-[10px]"
+                                      onClick={() => onEdit(bookingStartingInSlot)}
+                                    >
+                                      <Pencil className="mr-1 h-3 w-3" />
+                                      {t('Редактировать')}
+                                    </Button>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          );
+                        }
 
                         return (
                           <td
                             key={`${room.id}-${slotStart}`}
-                            className={cn(
-                              'border-b border-l border-border/35 px-2 py-1.5 align-top',
-                              bookingsCoveringSlot.length > 0 && 'bg-primary/5',
-                            )}
+                            className="border-b border-l border-border/35 px-2 py-0.5 align-top"
                           >
-                            {bookingsStartingInSlot.length > 0 ? (
-                              <div className="space-y-1.5">
-                                {bookingsStartingInSlot.map((booking) => (
-                                  <div
-                                    key={booking.id}
-                                    className={cn('rounded-md border px-2 py-1.5', statusCellClassName[booking.viewStatus])}
-                                  >
-                                    <div className="flex items-center justify-between gap-1.5">
-                                      <span className="font-mono text-[11px] text-foreground/90">
-                                        {booking.startTime} - {booking.endTime}
-                                      </span>
-                                      <Badge className={cn('h-5 border text-[10px] font-medium', statusBadgeClassName[booking.viewStatus])}>
-                                        {booking.viewStatus === 'active'
-                                          ? t('Активно')
-                                          : booking.viewStatus === 'completed'
-                                            ? t('Завершено')
-                                            : t('Отменено')}
-                                      </Badge>
-                                    </div>
-                                    <p className="mt-1 truncate text-[10px] text-muted-foreground" title={booking.userLabel}>
-                                      {booking.userLabel}
-                                    </p>
-                                    {booking.description ? (
-                                      <p className="mt-1 break-words text-[10px] text-foreground/65" title={booking.description}>
-                                        {booking.description}
-                                      </p>
-                                    ) : null}
-                                    {onEdit && booking.viewStatus === 'active' && (
-                                      <div className="mt-1.5 flex justify-end">
-                                        <Button
-                                          type="button"
-                                          size="sm"
-                                          variant="ghost"
-                                          className="h-6 px-2 text-[10px]"
-                                          onClick={() => onEdit(booking)}
-                                        >
-                                          <Pencil className="mr-1 h-3 w-3" />
-                                          {t('Редактировать')}
-                                        </Button>
-                                      </div>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            ) : hasContinuation ? (
-                              <div className="mx-auto mt-1 h-2 w-10 rounded-full bg-primary/35" />
+                            {onCreateSlot ? (
+                              <button
+                                type="button"
+                                className="flex h-7 w-full items-center justify-center rounded-sm text-[11px] text-muted-foreground/30 transition-colors hover:bg-primary/10 hover:text-primary"
+                                onClick={() => onCreateSlot({ roomId: room.id, slotStart })}
+                                aria-label={t('Создать бронь')}
+                              >
+                                +
+                              </button>
                             ) : (
-                              onCreateSlot ? (
-                                <button
-                                  type="button"
-                                  className="flex w-full items-center justify-center rounded-sm py-2 text-[11px] text-muted-foreground/30 transition-colors hover:bg-primary/10 hover:text-primary"
-                                  onClick={() => onCreateSlot({ roomId: room.id, slotStart })}
-                                  aria-label={t('Создать бронь')}
-                                >
-                                  +
-                                </button>
-                              ) : (
-                                <span className="text-[11px] text-muted-foreground/30">·</span>
-                              )
+                              <span className="text-[11px] text-muted-foreground/30">·</span>
                             )}
                           </td>
                         );
@@ -397,6 +398,7 @@ export default function AdminBookings() {
   const allBookings = useVenueStore((state) => state.bookings);
   const createBooking = useVenueStore((state) => state.createBooking);
   const updateBooking = useVenueStore((state) => state.updateBooking);
+  const loadRoomBookings = useVenueStore((state) => state.loadRoomBookings);
 
   const [selectedRoomId, setSelectedRoomId] = useState('');
   const [activeDate, setActiveDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
@@ -634,7 +636,7 @@ export default function AdminBookings() {
     if (isVenueDataLoading) return;
 
     if (ownedVenues.length === 0) {
-      navigate('/profile');
+      navigate('/my-venues');
     }
   }, [isVenueDataLoading, isBusinessPortal, navigate, ownedVenues.length, user]);
 
@@ -790,6 +792,14 @@ export default function AdminBookings() {
 
     const startMinute = toMinutes(startTime);
     const endMinute = toMinutes(endTime);
+    if (bookingDate === todayDate) {
+      const now = new Date();
+      const currentMinute = now.getHours() * 60 + now.getMinutes();
+      if (endMinute <= currentMinute) {
+        return t('Нельзя создавать уже завершённую бронь на сегодня');
+      }
+    }
+
     const availableFromMinutes = toMinutes(room.availableFrom);
     const availableToMinutes = toMinutes(room.availableTo);
 
@@ -842,7 +852,9 @@ export default function AdminBookings() {
       return;
     }
 
+    await loadRoomBookings(selectedRoom.id).catch(() => undefined);
     resetCreateDialog();
+    setActiveDate(createDate);
     setSaveMessage(t('Бронь создана: {start} — {end}', { start: createStartTime, end: createEndTime }));
     setTimeout(() => setSaveMessage(''), 3000);
   };
@@ -888,7 +900,13 @@ export default function AdminBookings() {
       return;
     }
 
+    await loadRoomBookings(editRoomId).catch(() => undefined);
     resetEditDialog();
+    if (editStatus === 'cancelled') {
+      setHistoryDate(editDate);
+    } else {
+      setActiveDate(editDate);
+    }
     setSaveMessage(t('Бронирование успешно обновлено'));
     setTimeout(() => setSaveMessage(''), 3000);
   };
@@ -998,7 +1016,12 @@ export default function AdminBookings() {
           </div>
 
           <BookingScheduleGrid
-            rooms={selectedRoom ? [{ id: selectedRoom.id, name: selectedRoom.name }] : []}
+            rooms={selectedRoom ? [{
+              id: selectedRoom.id,
+              name: selectedRoom.name,
+              availableFrom: selectedRoom.availableFrom,
+              availableTo: selectedRoom.availableTo,
+            }] : []}
             bookings={activeDateBookings}
             t={t}
             onEdit={canManageBookings ? openEditDialog : undefined}
@@ -1027,7 +1050,12 @@ export default function AdminBookings() {
           ) : null}
 
           <BookingScheduleGrid
-            rooms={selectedRoom ? [{ id: selectedRoom.id, name: selectedRoom.name }] : []}
+            rooms={selectedRoom ? [{
+              id: selectedRoom.id,
+              name: selectedRoom.name,
+              availableFrom: selectedRoom.availableFrom,
+              availableTo: selectedRoom.availableTo,
+            }] : []}
             bookings={historyDateBookings}
             t={t}
           />
@@ -1083,7 +1111,7 @@ export default function AdminBookings() {
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
+              <div className="min-w-0 space-y-2">
                 <Label htmlFor="create-start">{t('Начало')}</Label>
                 <Input
                   id="create-start"
@@ -1091,10 +1119,10 @@ export default function AdminBookings() {
                   step={EDIT_SLOT_STEP_SECONDS}
                   value={createStartTime}
                   onChange={(event) => setCreateStartTime(event.target.value)}
-                  className="h-10 border-border/50 bg-input/40"
+                  className="h-10 min-w-0 border-border/50 bg-input/40"
                 />
               </div>
-              <div className="space-y-2">
+              <div className="min-w-0 space-y-2">
                 <Label htmlFor="create-end">{t('Окончание')}</Label>
                 <Input
                   id="create-end"
@@ -1102,7 +1130,7 @@ export default function AdminBookings() {
                   step={EDIT_SLOT_STEP_SECONDS}
                   value={createEndTime}
                   onChange={(event) => setCreateEndTime(event.target.value)}
-                  className="h-10 border-border/50 bg-input/40"
+                  className="h-10 min-w-0 border-border/50 bg-input/40"
                 />
               </div>
             </div>
@@ -1185,7 +1213,7 @@ export default function AdminBookings() {
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="space-y-2">
+              <div className="min-w-0 space-y-2">
                 <Label htmlFor="edit-start">{t('Начало')}</Label>
                 <Input
                   id="edit-start"
@@ -1193,10 +1221,10 @@ export default function AdminBookings() {
                   step={EDIT_SLOT_STEP_SECONDS}
                   value={editStartTime}
                   onChange={(event) => setEditStartTime(event.target.value)}
-                  className="h-10 border-border/50 bg-input/40"
+                  className="h-10 min-w-0 border-border/50 bg-input/40"
                 />
               </div>
-              <div className="space-y-2">
+              <div className="min-w-0 space-y-2">
                 <Label htmlFor="edit-end">{t('Окончание')}</Label>
                 <Input
                   id="edit-end"
@@ -1204,7 +1232,7 @@ export default function AdminBookings() {
                   step={EDIT_SLOT_STEP_SECONDS}
                   value={editEndTime}
                   onChange={(event) => setEditEndTime(event.target.value)}
-                  className="h-10 border-border/50 bg-input/40"
+                  className="h-10 min-w-0 border-border/50 bg-input/40"
                 />
               </div>
             </div>

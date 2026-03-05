@@ -167,13 +167,12 @@ export default function ClientLanding() {
         >
           <Link
             to="/"
-            className="text-xl font-bold tracking-tight transition-colors duration-500 sm:text-2xl"
-            style={{ fontFamily: '"Outfit", "Inter", sans-serif' }}
+            className="brand-wordmark text-xl transition-colors duration-500 sm:text-2xl"
           >
             TezBron
           </Link>
           <div className="flex items-center gap-2 sm:gap-3">
-            <LanguageSwitcher className="hidden sm:flex" />
+            <LanguageSwitcher variant="dark" className="hidden sm:flex" />
           </div>
         </nav>
       </header>

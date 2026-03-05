@@ -99,6 +99,47 @@ const decodeOAuthError = (value: string) => {
   }
 };
 
+const normalizeOAuthErrorMessage = (message: string, errorCode?: string | null) => {
+  const normalizedCode = errorCode?.trim().toLowerCase() ?? '';
+  const normalizedMessage = message.trim().toLowerCase();
+
+  if (
+    normalizedCode === 'bad_oauth_state'
+    || normalizedMessage.includes('oauth state not found')
+    || normalizedMessage.includes('oauth state')
+    || normalizedMessage.includes('state not found or expired')
+  ) {
+    return 'Сессия входа через Google истекла или была прервана. Попробуйте войти ещё раз.';
+  }
+
+  if (normalizedMessage.includes('access denied')) {
+    return 'Вход через Google был отменён.';
+  }
+
+  if (normalizedMessage.includes('invalid request')) {
+    return 'Не удалось завершить вход через Google. Попробуйте ещё раз.';
+  }
+
+  return message.trim();
+};
+
+export const getOAuthCallbackErrorMessage = (value: string) => {
+  const normalizedValue = value.startsWith('#') || value.startsWith('?') ? value.slice(1) : value;
+  if (!normalizedValue) return null;
+
+  const params = new URLSearchParams(normalizedValue);
+  const rawError =
+    params.get('oauth_error')
+    ?? params.get('error_description')
+    ?? params.get('error');
+
+  if (!rawError) return null;
+
+  const decodedError = decodeOAuthError(rawError);
+  const errorCode = params.get('error_code');
+  return normalizeOAuthErrorMessage(decodedError, errorCode);
+};
+
 const mapProfileToUser = (profile: ProfileRow, businessAccess?: BusinessAccess | null): User => ({
   id: profile.id,
   email: profile.email,
@@ -291,11 +332,12 @@ export const completeGoogleAuthFromHash = async (hash: string) => {
   const normalizedHash = hash.startsWith('#') ? hash.slice(1) : hash;
   if (!normalizedHash) return null;
 
-  const params = new URLSearchParams(normalizedHash);
-  const oauthError = params.get('error_description') ?? params.get('error');
+  const oauthError = getOAuthCallbackErrorMessage(normalizedHash);
   if (oauthError) {
-    throw new Error(decodeOAuthError(oauthError));
+    throw new Error(oauthError);
   }
+
+  const params = new URLSearchParams(normalizedHash);
 
   const accessToken = params.get('access_token');
   const refreshToken = params.get('refresh_token');

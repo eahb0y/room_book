@@ -69,6 +69,7 @@ export default function BookingPage() {
   const loadRoomBookings = useVenueStore((state) => state.loadRoomBookings);
 
   const [date, setDate] = useState<Date>(startOfToday());
+  const [currentTimeMarker, setCurrentTimeMarker] = useState(() => Date.now());
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [dialogStartTime, setDialogStartTime] = useState('');
   const [dialogEndTime, setDialogEndTime] = useState('');
@@ -88,6 +89,17 @@ export default function BookingPage() {
   const availabilityEndMinutes = room ? toMinutes(room.availableTo) : MINUTES_IN_DAY;
   const roomMinBookingMinutes = room ? Math.max(SLOT_STEP_MINUTES, room.minBookingMinutes) : SLOT_STEP_MINUTES;
   const roomMaxBookingMinutes = room ? Math.max(roomMinBookingMinutes, room.maxBookingMinutes) : MINUTES_IN_DAY;
+  const now = useMemo(() => new Date(currentTimeMarker), [currentTimeMarker]);
+  const isSelectedDateToday = format(date, 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd');
+  const currentMinuteOfDay = now.getHours() * 60 + now.getMinutes();
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setCurrentTimeMarker(Date.now());
+    }, 30_000);
+
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -130,6 +142,11 @@ export default function BookingPage() {
     slotStartMinute < availabilityStartMinutes || slotStartMinute >= availabilityEndMinutes
   ), [availabilityEndMinutes, availabilityStartMinutes]);
 
+  const isPastTimeForSelectedDate = useCallback(
+    (slotStartMinute: number) => isSelectedDateToday && slotStartMinute < currentMinuteOfDay,
+    [currentMinuteOfDay, isSelectedDateToday],
+  );
+
   const getAvailableEndMinutes = useCallback((startMinute: number) => {
     if (startMinute < availabilityStartMinutes || startMinute >= availabilityEndMinutes) {
       return [];
@@ -151,11 +168,12 @@ export default function BookingPage() {
 
   const availableStartTimes = useMemo(() => (
     SLOT_START_MINUTES
+      .filter((minute) => !isPastTimeForSelectedDate(minute))
       .filter((minute) => !isOutsideAvailability(minute))
       .filter((minute) => !isSlotBusy(minute))
       .filter((minute) => getAvailableEndMinutes(minute).length > 0)
       .map((minute) => toTime(minute))
-  ), [getAvailableEndMinutes, isOutsideAvailability, isSlotBusy]);
+  ), [getAvailableEndMinutes, isOutsideAvailability, isPastTimeForSelectedDate, isSlotBusy]);
 
   const availableEndTimes = useMemo(() => {
     if (!dialogStartTime) return [];
@@ -177,6 +195,8 @@ export default function BookingPage() {
   };
 
   const openSlotDialog = (slotMinute: number) => {
+    if (isPastTimeForSelectedDate(slotMinute)) return;
+
     const selectedStart = toTime(slotMinute);
     const ends = getAvailableEndMinutes(slotMinute).map((minute) => toTime(minute));
     if (ends.length === 0) return;
@@ -209,6 +229,12 @@ export default function BookingPage() {
 
     const startMinute = toMinutes(dialogStartTime);
     const endMinute = toMinutes(dialogEndTime);
+
+    if (isSelectedDateToday && startMinute < currentMinuteOfDay) {
+      setError(t('Нельзя бронировать прошедшее время'));
+      return;
+    }
+
     if (startMinute < availabilityStartMinutes || endMinute > availabilityEndMinutes) {
       setError(
         t('Комната доступна только с {from} до {to}', { from: room?.availableFrom ?? '00:00', to: room?.availableTo ?? '24:00' }),
@@ -479,8 +505,9 @@ export default function BookingPage() {
                       {quarterSlots.map((minute) => {
                         const busy = isSlotBusy(minute);
                         const outsideAvailability = isOutsideAvailability(minute);
+                        const pastTime = isPastTimeForSelectedDate(minute);
                         const noAllowedDuration = !outsideAvailability && getAvailableEndMinutes(minute).length === 0;
-                        const disabledByRules = outsideAvailability || noAllowedDuration;
+                        const disabledByRules = outsideAvailability || noAllowedDuration || pastTime;
                         return (
                           <button
                             key={minute}

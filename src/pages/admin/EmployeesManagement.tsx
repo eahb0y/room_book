@@ -222,7 +222,7 @@ export default function EmployeesManagement() {
           <ShieldCheck className="h-7 w-7 text-muted-foreground/50" />
         </div>
         <p className="mb-4 text-muted-foreground">{t('Сначала создайте заведение')}</p>
-        <Button onClick={() => navigate('/profile')}>{t('Создать заведение')}</Button>
+        <Button onClick={() => navigate('/my-venues')}>{t('Создать заведение')}</Button>
       </div>
     );
   }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, Clock3, DoorOpen, Edit2, Globe, ListPlus, MapPin, Plus, ShieldCheck, Star, Trash2, Users, X } from 'lucide-react';
+import { AlertCircle, Building2, Clock3, DoorOpen, Edit2, Globe, ListPlus, MapPin, Plus, ShieldCheck, Star, Trash2, Users, X } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useVenueStore } from '@/store/venueStore';
 import { RoomPhotoGallery } from '@/components/RoomPhotoGallery';
@@ -128,8 +128,16 @@ export default function RoomManagement() {
   const businessVenues = useMemo(() => getAccessibleBusinessVenues(user, venues), [user, venues]);
   const canManageRooms = canManageBusinessResources(user);
   const ownedVenueIds = useMemo(() => new Set(businessVenues.map((venue) => venue.id)), [businessVenues]);
-  const rooms = useMemo(() => allRooms.filter((room) => ownedVenueIds.has(room.venueId)), [allRooms, ownedVenueIds]);
-  const defaultVenueId = businessVenues[0]?.id;
+  const [selectedVenueId, setSelectedVenueId] = useState('');
+  const [formVenueId, setFormVenueId] = useState('');
+  const selectedVenue = useMemo(
+    () => businessVenues.find((venue) => venue.id === selectedVenueId) ?? null,
+    [businessVenues, selectedVenueId],
+  );
+  const rooms = useMemo(
+    () => allRooms.filter((room) => room.venueId === selectedVenueId && ownedVenueIds.has(room.venueId)),
+    [allRooms, ownedVenueIds, selectedVenueId],
+  );
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
@@ -164,10 +172,22 @@ export default function RoomManagement() {
     });
   }, [photoUrls.length]);
 
+  useEffect(() => {
+    if (businessVenues.length === 0) {
+      setSelectedVenueId('');
+      return;
+    }
+
+    setSelectedVenueId((current) =>
+      current && businessVenues.some((venue) => venue.id === current) ? current : businessVenues[0]?.id ?? '',
+    );
+  }, [businessVenues]);
+
   const handleOpenDialog = (room?: Room) => {
     if (!canManageRooms) return;
     if (room) {
       setEditingRoom(room);
+      setFormVenueId(room.venueId);
       setName(room.name);
       setDescription(room.description ?? '');
       setLocationLabel(room.location ?? '');
@@ -181,6 +201,7 @@ export default function RoomManagement() {
       setPhotoUrls(getRoomPhotoUrls(room));
     } else {
       setEditingRoom(null);
+      setFormVenueId(selectedVenueId || (businessVenues[0]?.id ?? ''));
       setName('');
       setDescription('');
       setLocationLabel('');
@@ -202,6 +223,7 @@ export default function RoomManagement() {
   const handleCloseDialog = () => {
     setIsDialogOpen(false);
     setEditingRoom(null);
+    setFormVenueId('');
     setName('');
     setDescription('');
     setLocationLabel('');
@@ -402,7 +424,11 @@ export default function RoomManagement() {
       return;
     }
 
-    if (!defaultVenueId) return;
+    const targetVenueId = editingRoom?.venueId ?? formVenueId;
+    if (!targetVenueId) {
+      setError(t('Выберите заведение'));
+      return;
+    }
 
     const roomName = name.trim();
     const roomDescription = description.trim();
@@ -436,7 +462,7 @@ export default function RoomManagement() {
           maxBookingMinutes: maxBookingMinutesNum,
           capacity: capacityNum,
           services: normalizedServices,
-          venueId: defaultVenueId,
+          venueId: targetVenueId,
           photoUrls,
           photoUrl: photoUrls[0] ?? null,
         });
@@ -459,10 +485,10 @@ export default function RoomManagement() {
     return (
       <div className="flex flex-col items-center justify-center py-20">
         <div className="w-16 h-16 rounded-2xl bg-secondary/50 flex items-center justify-center mb-5">
-          <Building2Icon className="h-7 w-7 text-muted-foreground/50" />
+          <Building2 className="h-7 w-7 text-muted-foreground/50" />
         </div>
         <p className="text-muted-foreground mb-4">{t('Сначала создайте заведение')}</p>
-        <Button onClick={() => navigate('/profile')}>{t('Создать заведение')}</Button>
+        <Button onClick={() => navigate('/my-venues')}>{t('Создать заведение')}</Button>
       </div>
     );
   }
@@ -488,13 +514,37 @@ export default function RoomManagement() {
         ) : null}
       </div>
 
+      {businessVenues.length > 1 ? (
+        <Card className="border-border/40">
+          <CardContent className="pt-6">
+            <div className="space-y-2">
+              <Label className="text-sm text-muted-foreground">{t('Заведение')}</Label>
+              <Select value={selectedVenueId} onValueChange={setSelectedVenueId}>
+                <SelectTrigger className="h-11 border-border/50 bg-input/50">
+                  <SelectValue placeholder={t('Выберите заведение')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {businessVenues.map((venue) => (
+                    <SelectItem key={venue.id} value={venue.id}>
+                      {venue.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {rooms.length === 0 ? (
         <Card className="border-border/40 animate-fade-up">
           <CardContent className="flex flex-col items-center justify-center py-16">
             <div className="w-16 h-16 rounded-2xl bg-secondary/50 flex items-center justify-center mb-5">
               <DoorOpen className="h-7 w-7 text-muted-foreground/40" />
             </div>
-            <p className="text-muted-foreground mb-4">{t('У вас пока нет комнат')}</p>
+            <p className="text-muted-foreground mb-4">
+              {selectedVenue ? t('В этом заведении пока нет комнат') : t('У вас пока нет комнат')}
+            </p>
             {canManageRooms ? <Button onClick={() => handleOpenDialog()}>{t('Добавить первую комнату')}</Button> : null}
           </CardContent>
         </Card>
@@ -629,6 +679,30 @@ export default function RoomManagement() {
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               )}
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">{t('Заведение *')}</Label>
+                <Select
+                  value={editingRoom ? editingRoom.venueId : formVenueId}
+                  onValueChange={setFormVenueId}
+                  disabled={Boolean(editingRoom)}
+                >
+                  <SelectTrigger className="h-11 border-border/50 bg-input/50">
+                    <SelectValue placeholder={t('Выберите заведение')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {businessVenues.map((venue) => (
+                      <SelectItem key={venue.id} value={venue.id}>
+                        {venue.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {editingRoom ? (
+                  <p className="text-xs text-muted-foreground/70">
+                    {t('Для переноса существующей комнаты в другое заведение создайте новую комнату в нужном заведении.')}
+                  </p>
+                ) : null}
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="name" className="text-sm text-muted-foreground">{t('Название комнаты *')}</Label>
                 <Input
@@ -955,19 +1029,5 @@ export default function RoomManagement() {
         </DialogContent>
       </Dialog>
     </div>
-  );
-}
-
-function Building2Icon(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
-      <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/>
-      <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/>
-      <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/>
-      <path d="M10 6h4"/>
-      <path d="M10 10h4"/>
-      <path d="M10 14h4"/>
-      <path d="M10 18h4"/>
-    </svg>
   );
 }

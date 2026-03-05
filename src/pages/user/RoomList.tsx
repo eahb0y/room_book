@@ -219,6 +219,8 @@ export default function RoomList() {
   const resolveRoomLink = (roomId: string) =>
     isAuthenticated ? `/room/${roomId}` : `/login?next=${encodeURIComponent(`/room/${roomId}`)}`;
 
+  const resolveServiceLink = (serviceId: string) => `/service/${serviceId}`;
+
   const mapLink = venue ? buildMapsLink(venue.address) : '#';
   const isLoading = isPublicLoading && !venue;
 
@@ -638,30 +640,33 @@ export default function RoomList() {
               const categoryName = service.categoryId ? categoryNameById[service.categoryId] : '';
 
               return (
-                <Card key={service.id} className={`card-hover stagger-${Math.min(index + 1, 6)} overflow-hidden border-border/45 bg-[linear-gradient(180deg,rgba(22,22,26,0.96),rgba(12,12,16,0.98))] py-0`}>
+                <Card
+                  key={service.id}
+                  className={`group marketplace-service-card marketplace-service-showcase-card card-hover stagger-${Math.min(index + 1, 6)} overflow-hidden border-border/45 py-0`}
+                >
                   <div className="relative h-48 overflow-hidden">
                     {coverPhoto ? (
                       <img src={coverPhoto} alt={service.name} className="h-full w-full object-cover transition duration-700 group-hover:scale-105" />
                     ) : (
-                      <div className="h-full w-full bg-[radial-gradient(circle_at_0%_0%,rgba(204,88,51,0.24),transparent_34%),radial-gradient(circle_at_100%_0%,rgba(68,104,82,0.18),transparent_28%),linear-gradient(145deg,rgba(20,20,24,1),rgba(8,8,12,1))]" />
+                      <div className="marketplace-service-photo-fallback h-full w-full" />
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black via-black/25 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-900/16 to-transparent dark:from-black dark:via-black/25" />
 
                     <div className="absolute left-4 top-4 flex flex-wrap gap-2">
                       {categoryName ? (
-                        <Badge className="border border-white/15 bg-black/45 text-white hover:bg-black/45">
+                        <Badge className="border border-white/45 bg-white/78 text-slate-900 backdrop-blur-md hover:bg-white/78 dark:border-white/15 dark:bg-black/45 dark:text-white dark:hover:bg-black/45">
                           <Sparkles className="mr-1.5 h-3 w-3" />
                           {categoryName}
                         </Badge>
                       ) : null}
-                      <Badge variant="outline" className="border-white/20 bg-black/20 text-white">
+                      <Badge variant="outline" className="border-white/45 bg-white/72 text-slate-900 backdrop-blur-md dark:border-white/20 dark:bg-black/20 dark:text-white">
                         <Users className="mr-1.5 h-3 w-3" />
                         {t('{count} специалистов', { count: service.providers.length })}
                       </Badge>
                     </div>
 
                     <div className="absolute bottom-4 left-4 right-4">
-                      <p className="text-xs uppercase tracking-[0.16em] text-white/55">{venue.name}</p>
+                      <p className="text-xs uppercase tracking-[0.16em] text-white/70 dark:text-white/55">{venue.name}</p>
                       <h3 className="mt-2 text-2xl font-semibold leading-tight text-white">{service.name}</h3>
                     </div>
                   </div>
@@ -672,15 +677,21 @@ export default function RoomList() {
                       <span className="line-clamp-2">{locations.length > 0 ? locations.join(', ') : venue.address}</span>
                     </p>
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-2xl border border-border/60 bg-white/[0.03] p-3">
+                      <div className="rounded-2xl border border-border/60 bg-background/78 p-3 shadow-[0_16px_32px_-28px_rgba(18,44,87,0.18)] dark:bg-white/[0.03] dark:shadow-none">
                         <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{t('Команда')}</p>
                         <p className="mt-2 text-sm font-medium text-foreground">{service.providers.length}</p>
                       </div>
-                      <div className="rounded-2xl border border-border/60 bg-white/[0.03] p-3">
+                      <div className="rounded-2xl border border-border/60 bg-background/78 p-3 shadow-[0_16px_32px_-28px_rgba(18,44,87,0.18)] dark:bg-white/[0.03] dark:shadow-none">
                         <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{t('Локаций')}</p>
                         <p className="mt-2 text-sm font-medium text-foreground">{locations.length || 1}</p>
                       </div>
                     </div>
+                    <Button asChild className="w-full rounded-xl">
+                      <Link to={resolveServiceLink(service.id)}>
+                        {t('Забронировать услугу')}
+                        <ArrowRight className="ml-2 h-4 w-4" />
+                      </Link>
+                    </Button>
                   </CardContent>
                 </Card>
               );

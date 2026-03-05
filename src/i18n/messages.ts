@@ -18,7 +18,28 @@ const uzTranslations: Record<string, string> = {
   'Заведения': 'Maskanlar',
   'Мои бронирования': 'Mening bronlarim',
   'Профиль': 'Profil',
+  'Оформление': 'Ko‘rinish',
   'История': 'Tarix',
+  'Тема интерфейса': 'Interfeys mavzusi',
+  'Выберите тему интерфейса для TezBron. Настройка применяется ко всему приложению.':
+    'TezBron uchun interfeys mavzusini tanlang. Sozlama butun ilovaga qo‘llanadi.',
+  'Активная тема: {value}': 'Faol mavzu: {value}',
+  'Светлая тема': 'Yorug‘ mavzu',
+  'Тёмная тема': 'Qorong‘i mavzu',
+  'Системная тема': 'Tizim mavzusi',
+  'Светлая': 'Yorug‘',
+  'Тёмная': 'Qorong‘i',
+  'Воздушные карточки, мягкие синие акценты и светлый фон TezBron':
+    'Yengil kartalar, yumshoq ko‘k aksentlar va TezBron ning yorug‘ foni',
+  'Контрастная вечерняя палитра, которая уже используется в приложении':
+    'Ilovada allaqachon ishlatilayotgan kontrastli kechki palitra',
+  'TezBron автоматически повторяет светлый или тёмный режим устройства':
+    'TezBron qurilmadagi yorug‘ yoki qorong‘i rejimni avtomatik takrorlaydi',
+  'Светлая тема использует мягкие карточки, чистый фон и спокойные брендовые акценты без перегруза.':
+    'Yorug‘ mavzu yumshoq kartalar, toza fon va ortiqcha yuklamasiz sokin brend aksentlaridan foydalanadi.',
+  'Сейчас выбрана системная тема. Устройство сообщает режим: {value}.':
+    'Hozir tizim mavzusi tanlangan. Qurilma quyidagi rejimni bildiradi: {value}.',
+  'Сейчас выбрана опция: {value}.': 'Hozir tanlangan variant: {value}.',
   'Род деятельности': 'Faoliyat turi',
   'Выберите сферу бизнеса': 'Biznes yo‘nalishini tanlang',
   'Другое (указать вручную)': 'Boshqa (qo‘lda kiritish)',
@@ -47,6 +68,25 @@ const uzTranslations: Record<string, string> = {
   'Применить промокод': 'Promokodni qo‘llash',
   'Промокод применён. Доступ к заведению «{venue}» открыт':
     'Promokod qo‘llandi. «{venue}» maskaniga kirish ochildi',
+  'Telegram-бот для броней': 'Bronlar uchun Telegram-bot',
+  'Бот отправляет в Telegram уведомления о новых и изменённых бронях.':
+    'Bot Telegram orqali yangi va o‘zgartirilgan bronlar haqida xabar yuboradi.',
+  'Telegram пока не подключён': 'Telegram hali ulanmagan',
+  'Уведомления приходят в чат: {chat}': 'Xabarnomalar quyidagi chatga keladi: {chat}',
+  'Последнее уведомление: {value}': 'Oxirgi xabarnoma: {value}',
+  'Подключить Telegram-бота': 'Telegram-botni ulash',
+  'Переподключить Telegram-бота': 'Telegram-botni qayta ulash',
+  'Проверить статус': 'Holatni tekshirish',
+  'Не удалось загрузить статус Telegram-бота': 'Telegram-bot holatini yuklab bo‘lmadi',
+  'Не удалось создать ссылку для Telegram-бота': 'Telegram-bot uchun havola yaratib bo‘lmadi',
+  'Сначала сохраните заведение, затем подключите Telegram-бота':
+    'Avval maskanni saqlang, keyin Telegram-botni ulang',
+  'Укажите VITE_TELEGRAM_BOT_USERNAME, чтобы включить кнопку подключения':
+    'Ulanish tugmasini yoqish uchun VITE_TELEGRAM_BOT_USERNAME ni kiriting',
+  'Telegram открыт. Нажмите Start в боте, чтобы завершить подключение. Ссылка действует до {value}':
+    'Telegram ochildi. Ulanishni tugatish uchun botda Start ni bosing. Havola {value} gacha amal qiladi',
+  'После нажатия откроется Telegram. В боте нужно нажать Start, чтобы завершить подключение.':
+    'Bosilgandan keyin Telegram ochiladi. Ulanishni tugatish uchun botda Start ni bosing.',
   'Мои резидентские доступы': 'Mening rezident kirishlarim',
   'Площадки, которые открылись по промокоду': 'Promokod orqali ochilgan maskanlar',
   'Пока нет подключений по промокоду': 'Hozircha promokod orqali ulanishlar yo‘q',
@@ -239,6 +279,7 @@ const uzTranslations: Record<string, string> = {
   'Время окончания должно быть позже времени начала':
     'Tugash vaqti boshlanish vaqtidan keyin bo‘lishi kerak',
   'Нельзя бронировать на прошедшую дату': 'O‘tgan sana uchun bron qilib bo‘lmaydi',
+  'Нельзя бронировать прошедшее время': 'O‘tgan vaqtga bron qilib bo‘lmaydi',
   'Не удалось определить пользователя или комнату': 'Foydalanuvchi yoki xonani aniqlab bo‘lmadi',
   'Произошла ошибка при бронировании': 'Bron qilishda xatolik yuz berdi',
   'Бронь создана: {start} — {end}': 'Bron yaratildi: {start} — {end}',
@@ -341,6 +382,9 @@ const uzTranslations: Record<string, string> = {
     'Kategoriyalar faqat tartib uchun kerak. Servisni istalgan kategoriyadan darhol qo‘shish mumkin.',
   'Добавить категорию': 'Kategoriya qo‘shish',
   'Создать категорию': 'Kategoriya yaratish',
+  'Редактировать категорию': 'Kategoriyani tahrirlash',
+  'Измените название категории': 'Kategoriya nomini o‘zgartiring',
+  'Название категории': 'Kategoriya nomi',
   'Название категории обязательно': 'Kategoriya nomi majburiy',
   'Такая категория уже существует': 'Bunday kategoriya allaqachon mavjud',
   'Категория создана': 'Kategoriya yaratildi',
@@ -348,7 +392,10 @@ const uzTranslations: Record<string, string> = {
     'Kategoriya yaratildi. Endi birinchi servisni qo‘shing.',
   'Категория создана и выбрана для сервиса':
     'Kategoriya yaratildi va servis uchun tanlandi.',
+  'Категория обновлена': 'Kategoriya yangilandi',
+  'Категория не найдена': 'Kategoriya topilmadi',
   'Не удалось создать категорию': 'Kategoriyani yaratib bo‘lmadi',
+  'Не удалось обновить категорию': 'Kategoriyani yangilab bo‘lmadi',
   'Пока нет категорий. Сначала создайте первую категорию для сервисов.':
     'Hozircha kategoriyalar yo‘q. Avval servislar uchun birinchi kategoriyani yarating.',
   'Создайте первую категорию, чтобы начать добавлять сервисы.':
@@ -923,9 +970,25 @@ const uzTranslations: Record<string, string> = {
   'Укажите имя и фамилию сотрудника': 'Xodimning ism va familiyasini kiriting',
   'Укажите корректное время доступности комнаты':
     'Xonaning mavjudlik vaqtini to‘g‘ri kiriting',
+  'Если нужно другое заведение, смените его в селекторе над списком сервисов.':
+    'Boshqa maskan kerak bo‘lsa, uni xizmatlar ro‘yxati ustidagi tanlovdan almashtiring.',
+  'Для переноса существующей комнаты в другое заведение создайте новую комнату в нужном заведении.':
+    'Mavjud xonani boshqa maskanga ko‘chirish uchun kerakli maskanda yangi xona yarating.',
+  'Добавить первое заведение': 'Birinchi maskanni qo‘shish',
+  'Добавить заведение': 'Maskan qo‘shish',
+  'Заведение *': 'Maskan *',
+  'Заведения доступны только для просмотра. Создавать их может только роль business':
+    'Maskanlarni faqat ko‘rish mumkin. Ularni faqat business roli yaratishi mumkin',
+  'Комнат: {count}': 'Xonalar: {count}',
+  'Мои заведения': 'Mening maskanlarim',
+  'Создавайте и редактируйте все свои заведения в одном месте':
+    'Barcha maskanlaringizni bir joyda yarating va tahrirlang',
+  'У вас пока нет заведений': 'Sizda hozircha maskanlar yo‘q',
   'Управляйте всеми своими заведениями': 'Barcha maskanlaringizni boshqaring',
   'Услуги доступны только для просмотра. Менять их может только роль business':
     'Xizmatlarni faqat ko‘rish mumkin. Ularni faqat business roli o‘zgartira oladi',
+  'Добавьте первое заведение, чтобы затем привязывать к нему комнаты, услуги и сотрудников.':
+    'Keyin unga xonalar, xizmatlar va xodimlarni bog‘lash uchun birinchi maskanni qo‘shing.',
   'Формат': 'Format',
   'Цена по запросу': 'Narx so‘rov bo‘yicha',
   'Что предоставляет бизнес в этой комнате *': 'Biznes bu xonada nimani taqdim etadi *',

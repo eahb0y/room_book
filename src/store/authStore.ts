@@ -3,6 +3,10 @@ import type { AuthState, User } from '@/types';
 import * as authApi from '@/lib/authApi';
 import { hasBusinessAccess } from '@/lib/businessAccess';
 import { getAuthSession } from '@/lib/supabaseSession';
+import {
+  rememberThemePreferenceForOAuth,
+  restoreThemePreferenceAfterOAuth,
+} from '@/lib/themePreference';
 import { useVenueStore } from '@/store/venueStore';
 
 const AUTH_STATE_STORAGE_KEY = 'workspace-booking-auth-state';
@@ -182,6 +186,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const destination = redirectPath?.trim() ? redirectPath : '/login';
     const redirectTo = `${window.location.origin}${destination}`;
     const url = authApi.getGoogleAuthorizeUrl(redirectTo);
+    rememberThemePreferenceForOAuth();
     window.location.assign(url);
   },
 
@@ -194,6 +199,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   completeGoogleAuth: async (hash) => {
+    restoreThemePreferenceAfterOAuth();
     const user = await authApi.completeGoogleAuthFromHash(hash);
     if (!user) return false;
     const nextState = { user, isAuthenticated: true, portal: resolvePortalByRole(user) };

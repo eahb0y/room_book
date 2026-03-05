@@ -1,15 +1,18 @@
 import { create } from 'zustand';
-import type { Booking, Room, User, Venue, VenueMembership } from '@/types';
+import type { Booking, Room, ServiceBooking, User, Venue, VenueMembership } from '@/types';
 import * as venueApi from '@/lib/venueApi';
 import * as roomApi from '@/lib/roomApi';
 import * as bookingApi from '@/lib/bookingApi';
+import * as serviceBookingApi from '@/lib/serviceBookingApi';
 import * as membershipApi from '@/lib/membershipApi';
 import { getBusinessVenueScopeKey, hasBusinessAccess } from '@/lib/businessAccess';
+import { debugError, debugInfo } from '@/lib/frontendDebug';
 
 interface VenueState {
   venues: Venue[];
   rooms: Room[];
   bookings: Booking[];
+  serviceBookings: ServiceBooking[];
   memberships: VenueMembership[];
   isLoading: boolean;
   loadedFor: string | null;
@@ -32,6 +35,14 @@ interface VenueState {
 
   createBooking: (booking: Omit<Booking, 'id' | 'createdAt' | 'status'>) => Promise<{ success: boolean; error?: string }>;
   cancelBooking: (id: string) => Promise<void>;
+  createServiceBooking: (booking: {
+    serviceId: string;
+    providerId: string;
+    userId: string;
+    bookingDate: string;
+    startTime: string;
+  }) => Promise<{ success: boolean; booking?: ServiceBooking; error?: string }>;
+  cancelServiceBooking: (id: string) => Promise<void>;
   updateBooking: (
     id: string,
     booking: Pick<Booking, 'userId' | 'description' | 'bookingDate' | 'startTime' | 'endTime' | 'status'>,
@@ -51,6 +62,7 @@ export const useVenueStore = create<VenueState>((set, get) => ({
   venues: [],
   rooms: [],
   bookings: [],
+  serviceBookings: [],
   memberships: [],
   isLoading: false,
   loadedFor: null,
@@ -77,7 +89,14 @@ export const useVenueStore = create<VenueState>((set, get) => ({
         [],
         bookingResults.flatMap((result) => (result.status === 'fulfilled' ? result.value : [])),
       );
-      set({ venues, rooms, bookings, memberships: [], isLoading: false, loadedFor: key, settledFor: key });
+      const serviceBookingResults = await Promise.allSettled(
+        venueIds.map((venueId) => serviceBookingApi.listServiceBookings({ venueId })),
+      );
+      const serviceBookings = mergeById(
+        [],
+        serviceBookingResults.flatMap((result) => (result.status === 'fulfilled' ? result.value : [])),
+      );
+      set({ venues, rooms, bookings, serviceBookings, memberships: [], isLoading: false, loadedFor: key, settledFor: key });
     } catch (err) {
       set({ isLoading: false, settledFor: key });
       throw err;
@@ -88,13 +107,23 @@ export const useVenueStore = create<VenueState>((set, get) => ({
     const key = `user:${userId}`;
     set({ isLoading: true, loadedFor: null, settledFor: null });
     try {
-      const [memberships, venues, rooms, bookings] = await Promise.all([
+      const [memberships, venues, rooms, bookings, serviceBookings] = await Promise.all([
         membershipApi.listMemberships({ userId }),
         venueApi.listVenues({ publicAccess: true }),
         roomApi.listRooms({ publicAccess: true }),
         bookingApi.listBookings({ userId }),
+        serviceBookingApi.listServiceBookings({ userId }),
       ]);
-      set({ memberships, venues, rooms, bookings, isLoading: false, loadedFor: key, settledFor: key });
+      set({
+        memberships,
+        venues,
+        rooms,
+        bookings,
+        serviceBookings,
+        isLoading: false,
+        loadedFor: key,
+        settledFor: key,
+      });
     } catch (err) {
       set({ isLoading: false, settledFor: key });
       throw err;
@@ -182,6 +211,14 @@ export const useVenueStore = create<VenueState>((set, get) => ({
   },
 
   createBooking: async (bookingData) => {
+    debugInfo('booking.create.store.started', {
+      roomId: bookingData.roomId,
+      userId: bookingData.userId,
+      bookingDate: bookingData.bookingDate,
+      startTime: bookingData.startTime,
+      endTime: bookingData.endTime,
+    });
+
     try {
       const booking = await bookingApi.createBooking({
         roomId: bookingData.roomId,
@@ -192,19 +229,95 @@ export const useVenueStore = create<VenueState>((set, get) => ({
         endTime: bookingData.endTime,
       });
       set((state) => ({ bookings: mergeById(state.bookings, [booking]) }));
+      debugInfo('booking.create.store.succeeded', {
+        bookingId: booking.id,
+        roomId: booking.roomId,
+        userId: booking.userId,
+      });
       return { success: true };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Произошла ошибка при бронировании';
+      debugError('booking.create.store.failed', {
+        roomId: bookingData.roomId,
+        userId: bookingData.userId,
+        bookingDate: bookingData.bookingDate,
+        startTime: bookingData.startTime,
+        endTime: bookingData.endTime,
+        error: message,
+      });
       return { success: false, error: message };
     }
   },
 
   cancelBooking: async (id) => {
+    debugInfo('booking.cancel.store.started', {
+      bookingId: id,
+    });
     const booking = await bookingApi.cancelBooking(id);
     set((state) => ({ bookings: mergeById(state.bookings, [booking]) }));
+    debugInfo('booking.cancel.store.succeeded', {
+      bookingId: booking.id,
+      roomId: booking.roomId,
+      status: booking.status,
+    });
+  },
+
+  createServiceBooking: async (bookingData) => {
+    debugInfo('service-booking.create.store.started', {
+      serviceId: bookingData.serviceId,
+      providerId: bookingData.providerId,
+      userId: bookingData.userId,
+      bookingDate: bookingData.bookingDate,
+      startTime: bookingData.startTime,
+    });
+
+    try {
+      const booking = await serviceBookingApi.createServiceBooking(bookingData);
+      set((state) => ({ serviceBookings: mergeById(state.serviceBookings, [booking]) }));
+      debugInfo('service-booking.create.store.succeeded', {
+        bookingId: booking.id,
+        serviceId: booking.serviceId,
+        providerId: booking.providerId,
+        userId: booking.userId,
+      });
+      return { success: true, booking };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Произошла ошибка при бронировании услуги';
+      debugError('service-booking.create.store.failed', {
+        serviceId: bookingData.serviceId,
+        providerId: bookingData.providerId,
+        userId: bookingData.userId,
+        bookingDate: bookingData.bookingDate,
+        startTime: bookingData.startTime,
+        error: message,
+      });
+      return { success: false, error: message };
+    }
+  },
+
+  cancelServiceBooking: async (id) => {
+    debugInfo('service-booking.cancel.store.started', {
+      bookingId: id,
+    });
+    const booking = await serviceBookingApi.cancelServiceBooking(id);
+    set((state) => ({ serviceBookings: mergeById(state.serviceBookings, [booking]) }));
+    debugInfo('service-booking.cancel.store.succeeded', {
+      bookingId: booking.id,
+      serviceId: booking.serviceId,
+      status: booking.status,
+    });
   },
 
   updateBooking: async (id, bookingData) => {
+    debugInfo('booking.update.store.started', {
+      bookingId: id,
+      userId: bookingData.userId,
+      bookingDate: bookingData.bookingDate,
+      startTime: bookingData.startTime,
+      endTime: bookingData.endTime,
+      status: bookingData.status,
+    });
+
     try {
       const booking = await bookingApi.updateBooking(id, {
         userId: bookingData.userId,
@@ -215,14 +328,37 @@ export const useVenueStore = create<VenueState>((set, get) => ({
         status: bookingData.status,
       });
       set((state) => ({ bookings: mergeById(state.bookings, [booking]) }));
+      debugInfo('booking.update.store.succeeded', {
+        bookingId: booking.id,
+        roomId: booking.roomId,
+        status: booking.status,
+      });
       return { success: true };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Произошла ошибка при сохранении';
+      debugError('booking.update.store.failed', {
+        bookingId: id,
+        userId: bookingData.userId,
+        bookingDate: bookingData.bookingDate,
+        startTime: bookingData.startTime,
+        endTime: bookingData.endTime,
+        status: bookingData.status,
+        error: message,
+      });
       return { success: false, error: message };
     }
   },
 
   reset: () => {
-    set({ venues: [], rooms: [], bookings: [], memberships: [], isLoading: false, loadedFor: null, settledFor: null });
+    set({
+      venues: [],
+      rooms: [],
+      bookings: [],
+      serviceBookings: [],
+      memberships: [],
+      isLoading: false,
+      loadedFor: null,
+      settledFor: null,
+    });
   },
 }));

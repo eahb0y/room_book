@@ -10,6 +10,8 @@
     "prebuild": "npm run seo:generate",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "telegram:worker": "node scripts/telegram-booking-worker.mjs",
+    "telegram:worker:once": "node scripts/telegram-booking-worker.mjs --once",
     "smoke:e2e": "node scripts/smoke-e2e.mjs",
     "preview": "vite preview"
   },
