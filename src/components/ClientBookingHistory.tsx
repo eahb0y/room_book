@@ -1,7 +1,16 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
-import { Building2, CalendarDays, CheckCircle2, Clock, DoorOpen, XCircle } from 'lucide-react';
+import {
+  Building2,
+  CalendarDays,
+  CheckCircle2,
+  Clock,
+  DoorOpen,
+  Sparkles,
+  UserRound,
+  XCircle,
+} from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useVenueStore } from '@/store/venueStore';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -17,21 +26,30 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { getBookingStartDateTime, getBookingViewStatus } from '@/lib/bookingStatus';
-import type { Booking } from '@/types';
+import type { Booking, ServiceBooking } from '@/types';
 import { useI18n } from '@/i18n/useI18n';
 
 interface ClientBookingHistoryProps {
   showHeader?: boolean;
 }
 
-type BookingHistoryItem = Booking & {
-  roomName: string;
+type BookingHistoryItem = {
+  id: string;
+  kind: 'room' | 'service';
+  title: string;
+  subtitle?: string;
   venueName: string;
+  bookingDate: string;
+  startTime: string;
+  endTime: string;
+  status: 'active' | 'cancelled';
   viewStatus: ReturnType<typeof getBookingViewStatus>;
   sortStartAt: number;
 };
 
-const getSortStartAt = (booking: Pick<Booking, 'bookingDate' | 'startTime'>) => {
+const getSortStartAt = (
+  booking: Pick<Booking, 'bookingDate' | 'startTime'> | Pick<ServiceBooking, 'bookingDate' | 'startTime'>,
+) => {
   const startAt = getBookingStartDateTime(booking).getTime();
   return Number.isNaN(startAt) ? 0 : startAt;
 };
@@ -41,31 +59,62 @@ export default function ClientBookingHistory({ showHeader = true }: ClientBookin
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const cancelBooking = useVenueStore((state) => state.cancelBooking);
+  const cancelServiceBooking = useVenueStore((state) => state.cancelServiceBooking);
   const allBookings = useVenueStore((state) => state.bookings);
+  const allServiceBookings = useVenueStore((state) => state.serviceBookings);
   const allRooms = useVenueStore((state) => state.rooms);
   const allVenues = useVenueStore((state) => state.venues);
 
-  const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<BookingHistoryItem | null>(null);
   const [successMessage, setSuccessMessage] = useState('');
 
   const bookings = useMemo<BookingHistoryItem[]>(() => {
     if (!user) return [];
 
-    return allBookings
+    const roomItems = allBookings
       .filter((booking) => booking.userId === user.id)
-      .map((booking) => {
+      .map<BookingHistoryItem>((booking) => {
         const room = allRooms.find((item) => item.id === booking.roomId);
         const venue = room ? allVenues.find((item) => item.id === room.venueId) : undefined;
 
         return {
-          ...booking,
-          roomName: room?.name ?? t('Комната'),
+          id: booking.id,
+          kind: 'room',
+          title: room?.name ?? t('Комната'),
           venueName: venue?.name ?? t('Заведение'),
+          bookingDate: booking.bookingDate,
+          startTime: booking.startTime,
+          endTime: booking.endTime,
+          status: booking.status,
           viewStatus: getBookingViewStatus(booking),
           sortStartAt: getSortStartAt(booking),
         };
       });
-  }, [user, allBookings, allRooms, allVenues, t]);
+
+    const serviceItems = allServiceBookings
+      .filter((booking) => booking.userId === user.id)
+      .map<BookingHistoryItem>((booking) => {
+        const venue = booking.venueId
+          ? allVenues.find((item) => item.id === booking.venueId)
+          : undefined;
+
+        return {
+          id: booking.id,
+          kind: 'service',
+          title: booking.serviceName ?? t('Услуга'),
+          subtitle: booking.providerName ?? t('Специалист'),
+          venueName: venue?.name ?? t('Заведение'),
+          bookingDate: booking.bookingDate,
+          startTime: booking.startTime,
+          endTime: booking.endTime,
+          status: booking.status,
+          viewStatus: getBookingViewStatus(booking),
+          sortStartAt: getSortStartAt(booking),
+        };
+      });
+
+    return [...roomItems, ...serviceItems];
+  }, [user, allBookings, allServiceBookings, allRooms, allVenues, t]);
 
   const activeBookings = useMemo(
     () =>
@@ -85,9 +134,14 @@ export default function ClientBookingHistory({ showHeader = true }: ClientBookin
 
   if (!user) return null;
 
-  const handleCancel = async (bookingId: string) => {
-    await cancelBooking(bookingId);
-    setCancelConfirmId(null);
+  const handleCancel = async (booking: BookingHistoryItem) => {
+    if (booking.kind === 'service') {
+      await cancelServiceBooking(booking.id);
+    } else {
+      await cancelBooking(booking.id);
+    }
+
+    setCancelTarget(null);
     setSuccessMessage(t('Бронирование успешно отменено'));
     window.setTimeout(() => setSuccessMessage(''), 3000);
   };
@@ -98,6 +152,22 @@ export default function ClientBookingHistory({ showHeader = true }: ClientBookin
     } catch {
       return dateStr;
     }
+  };
+
+  const renderIcon = (booking: BookingHistoryItem) => {
+    if (booking.kind === 'service') {
+      return (
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+          <Sparkles className="h-4 w-4 text-primary" />
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+        <DoorOpen className="h-4 w-4 text-primary" />
+      </div>
+    );
   };
 
   return (
@@ -112,16 +182,16 @@ export default function ClientBookingHistory({ showHeader = true }: ClientBookin
       ) : null}
 
       {successMessage ? (
-        <Alert className="animate-scale-in border-emerald-800/40 bg-emerald-950/30">
-          <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-          <AlertDescription className="text-emerald-300">{successMessage}</AlertDescription>
+        <Alert className="animate-scale-in border-emerald-300/60 bg-emerald-50 text-emerald-800 dark:border-emerald-800/40 dark:bg-emerald-950/30 dark:text-emerald-300">
+          <CheckCircle2 className="h-4 w-4" />
+          <AlertDescription>{successMessage}</AlertDescription>
         </Alert>
       ) : null}
 
       <div>
         <h2 className="mb-5 flex items-center gap-2.5 text-xl font-semibold">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-950/50">
-            <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-100 dark:bg-emerald-950/50">
+            <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
           </div>
           <span className="font-body">{t('Активные ({count})', { count: activeBookings.length })}</span>
         </h2>
@@ -136,7 +206,7 @@ export default function ClientBookingHistory({ showHeader = true }: ClientBookin
                 variant="outline"
                 className="border-border/50 hover:border-primary/30"
               >
-                {t('Найти комнату')}
+                {t('Найти пространство или услугу')}
               </Button>
             </CardContent>
           </Card>
@@ -149,12 +219,15 @@ export default function ClientBookingHistory({ showHeader = true }: ClientBookin
               >
                 <CardContent className="p-5">
                   <div className="flex flex-col gap-3.5">
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-2.5">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                          <DoorOpen className="h-4 w-4 text-primary" />
+                        {renderIcon(booking)}
+                        <div className="min-w-0">
+                          <span className="block truncate font-medium text-foreground">{booking.title}</span>
+                          {booking.subtitle ? (
+                            <span className="block truncate text-xs text-muted-foreground">{booking.subtitle}</span>
+                          ) : null}
                         </div>
-                        <span className="font-medium text-foreground">{booking.roomName}</span>
                       </div>
                       <Badge variant="default" className="flex items-center gap-1 text-xs">
                         <CheckCircle2 className="h-3 w-3" />
@@ -167,6 +240,12 @@ export default function ClientBookingHistory({ showHeader = true }: ClientBookin
                         <Building2 className="h-3.5 w-3.5" />
                         <span>{booking.venueName}</span>
                       </div>
+                      {booking.subtitle ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <UserRound className="h-3.5 w-3.5" />
+                          <span>{booking.subtitle}</span>
+                        </div>
+                      ) : null}
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <CalendarDays className="h-3.5 w-3.5" />
                         <span>{formatDate(booking.bookingDate)}</span>
@@ -183,8 +262,8 @@ export default function ClientBookingHistory({ showHeader = true }: ClientBookin
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setCancelConfirmId(booking.id)}
-                        className="flex h-9 w-full items-center justify-center gap-2 border-red-900/30 text-red-400 hover:border-red-800/40 hover:bg-red-950/30 hover:text-red-300"
+                        onClick={() => setCancelTarget(booking)}
+                        className="flex h-9 w-full items-center justify-center gap-2 border-red-300/50 text-red-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700 dark:border-red-900/30 dark:text-red-400 dark:hover:border-red-800/40 dark:hover:bg-red-950/30 dark:hover:text-red-300"
                       >
                         <XCircle className="h-3.5 w-3.5" />
                         <span>{t('Отменить')}</span>
@@ -208,15 +287,26 @@ export default function ClientBookingHistory({ showHeader = true }: ClientBookin
           </h2>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {pastBookings.map((booking, index) => (
-              <Card key={booking.id} className={`animate-fade-up opacity-50 stagger-${Math.min(index + 1, 6)}`}>
+              <Card key={booking.id} className={`animate-fade-up opacity-65 stagger-${Math.min(index + 1, 6)}`}>
                 <CardContent className="p-5">
                   <div className="flex flex-col gap-3.5">
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-2.5">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary/50">
-                          <DoorOpen className="h-4 w-4 text-muted-foreground" />
+                        {booking.kind === 'service' ? (
+                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary/50">
+                            <Sparkles className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        ) : (
+                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary/50">
+                            <DoorOpen className="h-4 w-4 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <span className="block truncate font-medium text-foreground">{booking.title}</span>
+                          {booking.subtitle ? (
+                            <span className="block truncate text-xs text-muted-foreground">{booking.subtitle}</span>
+                          ) : null}
                         </div>
-                        <span className="font-medium text-foreground">{booking.roomName}</span>
                       </div>
                       <Badge variant="secondary" className="flex items-center gap-1 text-xs">
                         {booking.viewStatus === 'cancelled' ? (
@@ -238,6 +328,12 @@ export default function ClientBookingHistory({ showHeader = true }: ClientBookin
                         <Building2 className="h-3.5 w-3.5" />
                         <span>{booking.venueName}</span>
                       </div>
+                      {booking.subtitle ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <UserRound className="h-3.5 w-3.5" />
+                          <span>{booking.subtitle}</span>
+                        </div>
+                      ) : null}
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <CalendarDays className="h-3.5 w-3.5" />
                         <span>{formatDate(booking.bookingDate)}</span>
@@ -257,7 +353,7 @@ export default function ClientBookingHistory({ showHeader = true }: ClientBookin
         </div>
       ) : null}
 
-      <Dialog open={!!cancelConfirmId} onOpenChange={() => setCancelConfirmId(null)}>
+      <Dialog open={!!cancelTarget} onOpenChange={() => setCancelTarget(null)}>
         <DialogContent className="border-border/50">
           <DialogHeader>
             <DialogTitle>{t('Подтвердите отмену')}</DialogTitle>
@@ -268,14 +364,14 @@ export default function ClientBookingHistory({ showHeader = true }: ClientBookin
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setCancelConfirmId(null)}
+              onClick={() => setCancelTarget(null)}
               className="border-border/50"
             >
               {t('Нет, оставить')}
             </Button>
             <Button
               variant="destructive"
-              onClick={() => (cancelConfirmId ? handleCancel(cancelConfirmId) : undefined)}
+              onClick={() => (cancelTarget ? handleCancel(cancelTarget) : undefined)}
             >
               {t('Да, отменить')}
             </Button>

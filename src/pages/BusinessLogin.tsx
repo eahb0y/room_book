@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useI18n } from '@/i18n/useI18n';
-import LanguageSwitcher from '@/components/LanguageSwitcher';
+import PreferenceControls from '@/components/PreferenceControls';
 import { hasBusinessAccess } from '@/lib/businessAccess';
 
 export default function BusinessLogin() {
@@ -65,7 +65,7 @@ export default function BusinessLogin() {
       </div>
 
       <div className="absolute right-4 top-4 z-20">
-        <LanguageSwitcher />
+        <PreferenceControls />
       </div>
 
       <div className="relative z-10 w-full max-w-md animate-fade-up">

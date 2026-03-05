@@ -23,6 +23,7 @@ import {
   listBusinessServiceCategories,
   listBusinessServices,
   updateBusinessService,
+  updateBusinessServiceCategory,
 } from '@/lib/serviceApi';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
@@ -183,10 +184,16 @@ export default function ServicesManagement() {
   const ownedVenues = useMemo(() => getAccessibleBusinessVenues(user, venues), [user, venues]);
   const canManageServices = canManageBusinessResources(user);
   const [selectedVenueId, setSelectedVenueId] = useState('');
+  const selectedVenue = useMemo(
+    () => ownedVenues.find((venue) => venue.id === selectedVenueId) ?? null,
+    [ownedVenues, selectedVenueId],
+  );
   const [categories, setCategories] = useState<BusinessServiceCategory[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [categoryName, setCategoryName] = useState('');
   const [dialogCategoryName, setDialogCategoryName] = useState('');
+  const [editingCategory, setEditingCategory] = useState<BusinessServiceCategory | null>(null);
+  const [categoryEditName, setCategoryEditName] = useState('');
   const [services, setServices] = useState<BusinessService[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -195,6 +202,7 @@ export default function ServicesManagement() {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCategoryEditDialogOpen, setIsCategoryEditDialogOpen] = useState(false);
   const [editingService, setEditingService] = useState<BusinessService | null>(null);
   const [formCategoryId, setFormCategoryId] = useState('');
   const [isDialogCategoryCreateOpen, setIsDialogCategoryCreateOpen] = useState(false);
@@ -361,6 +369,15 @@ export default function ServicesManagement() {
     resetForm(nextCategoryId);
     setSuccessMessage('');
     setIsDialogOpen(true);
+  };
+
+  const openCategoryEditDialog = (category: BusinessServiceCategory) => {
+    if (!canManageServices) return;
+    setEditingCategory(category);
+    setCategoryEditName(category.name);
+    setError('');
+    setSuccessMessage('');
+    setIsCategoryEditDialogOpen(true);
   };
 
   const openEditDialog = (service: BusinessService) => {
@@ -583,6 +600,73 @@ export default function ServicesManagement() {
     setSuccessMessage(t('Категория создана'));
   };
 
+  const closeCategoryEditDialog = useCallback(() => {
+    setIsCategoryEditDialogOpen(false);
+    setEditingCategory(null);
+    setCategoryEditName('');
+  }, []);
+
+  const handleCategoryEditOpenChange = (open: boolean) => {
+    if (open) {
+      setIsCategoryEditDialogOpen(true);
+      return;
+    }
+
+    closeCategoryEditDialog();
+  };
+
+  const handleUpdateCategory = async (event: FormEvent) => {
+    event.preventDefault();
+    setError('');
+    setSuccessMessage('');
+
+    if (!canManageServices) {
+      setError(t('Только роль business может создавать, удалять и редактировать услуги'));
+      return;
+    }
+
+    if (!editingCategory || !selectedVenueId) {
+      setError(t('Категория не найдена'));
+      return;
+    }
+
+    const normalizedName = normalizeCategoryName(categoryEditName);
+
+    if (!normalizedName) {
+      setError(t('Название категории обязательно'));
+      return;
+    }
+
+    if (
+      categories.some((category) =>
+        category.id !== editingCategory.id && category.name.trim().toLowerCase() === normalizedName.toLowerCase(),
+      )
+    ) {
+      setError(t('Такая категория уже существует'));
+      return;
+    }
+
+    if (editingCategory.name.trim().toLowerCase() === normalizedName.toLowerCase()) {
+      closeCategoryEditDialog();
+      return;
+    }
+
+    setIsCategorySaving(true);
+
+    try {
+      await updateBusinessServiceCategory(editingCategory.id, { name: normalizedName });
+      await loadPageData(selectedVenueId);
+      setSelectedCategoryId(editingCategory.id);
+      closeCategoryEditDialog();
+      setSuccessMessage(t('Категория обновлена'));
+    } catch (err) {
+      const message = err instanceof Error ? t(err.message) : t('Не удалось обновить категорию');
+      setError(message);
+    } finally {
+      setIsCategorySaving(false);
+    }
+  };
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setError('');
@@ -739,6 +823,11 @@ export default function ServicesManagement() {
     }
   };
 
+  const normalizedCategoryEditName = normalizeCategoryName(categoryEditName);
+  const isCategoryEditUnchanged = editingCategory
+    ? editingCategory.name.trim().toLowerCase() === normalizedCategoryEditName.toLowerCase()
+    : true;
+
   if (ownedVenues.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
@@ -746,7 +835,7 @@ export default function ServicesManagement() {
           <Building2 className="h-7 w-7 text-muted-foreground/50" />
         </div>
         <p className="mb-4 text-muted-foreground">{t('Сначала создайте заведение')}</p>
-        <Button onClick={() => navigate('/profile')}>{t('Создать заведение')}</Button>
+        <Button onClick={() => navigate('/my-venues')}>{t('Создать заведение')}</Button>
       </div>
     );
   }
@@ -902,10 +991,23 @@ export default function ServicesManagement() {
                   {t('Сервисов: {count}', { count: selectedCategoryServices.length })}
                 </CardDescription>
               </div>
-              <Button type="button" className="h-10 shrink-0 self-start md:self-center" onClick={() => openCreateDialog(selectedCategory.id)} disabled={!canManageServices}>
-                <Plus className="mr-2 h-4 w-4" />
-                {t('Добавить сервис')}
-              </Button>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                {canManageServices ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 border-border/50"
+                    onClick={() => openCategoryEditDialog(selectedCategory)}
+                  >
+                    <Edit2 className="mr-2 h-4 w-4" />
+                    {t('Редактировать категорию')}
+                  </Button>
+                ) : null}
+                <Button type="button" className="h-10 shrink-0" onClick={() => openCreateDialog(selectedCategory.id)} disabled={!canManageServices}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  {t('Добавить сервис')}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {selectedCategoryServices.length > 0 ? (
@@ -1000,6 +1102,49 @@ export default function ServicesManagement() {
         ) : null}
       </div>
 
+      <Dialog open={isCategoryEditDialogOpen} onOpenChange={handleCategoryEditOpenChange}>
+        <DialogContent className="border-border/50 sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('Редактировать категорию')}</DialogTitle>
+            <DialogDescription>{t('Измените название категории')}</DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleUpdateCategory} className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="category-edit-name" className="text-sm text-muted-foreground">
+                {t('Название категории')}
+              </Label>
+              <Input
+                id="category-edit-name"
+                value={categoryEditName}
+                onChange={(event) => setCategoryEditName(event.target.value)}
+                placeholder={t('Например: Стрижка')}
+                disabled={isCategorySaving || !canManageServices}
+                className="h-11 border-border/50 bg-input/50 focus:border-primary/60"
+              />
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                className="border-border/50"
+                onClick={closeCategoryEditDialog}
+                disabled={isCategorySaving}
+              >
+                {t('Отмена')}
+              </Button>
+              <Button
+                type="submit"
+                disabled={isCategorySaving || !canManageServices || !normalizedCategoryEditName || isCategoryEditUnchanged}
+              >
+                {isCategorySaving ? t('Сохранение…') : t('Сохранить')}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
         <DialogContent className="max-h-[94vh] overflow-y-auto border-border/50 sm:max-w-3xl">
           <DialogHeader>
@@ -1011,12 +1156,24 @@ export default function ServicesManagement() {
 
           <form onSubmit={handleSubmit}>
             <div className="space-y-5 py-4">
-              {error ? (
-                <Alert variant="destructive" className="animate-scale-in">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              ) : null}
+            {error ? (
+              <Alert variant="destructive" className="animate-scale-in">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            ) : null}
+
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">{t('Заведение *')}</Label>
+                <div className="rounded-xl border border-border/45 bg-input/20 px-3 py-3 text-sm text-foreground">
+                  {selectedVenue?.name ?? t('Заведение')}
+                </div>
+                {ownedVenues.length > 1 ? (
+                  <p className="text-xs text-muted-foreground/70">
+                    {t('Если нужно другое заведение, смените его в селекторе над списком сервисов.')}
+                  </p>
+                ) : null}
+              </div>
 
               <div className="space-y-2">
                 <Label className="text-sm text-muted-foreground">{t('Категория сервиса *')}</Label>

@@ -64,6 +64,30 @@ npm run build
 npm run preview
 ```
 
+### Telegram notifications worker
+
+Уведомления в Telegram отправляет отдельный worker-процесс. SQL-триггер в Supabase только складывает события в очередь `telegram_booking_notifications`.
+
+Переменные окружения для worker:
+
+```bash
+APP_ENV=dev
+SUPABASE_SERVICE_ROLE_KEY=sb_service_role_xxx
+TELEGRAM_BOT_TOKEN=123456:ABCDEF
+```
+
+Запуск:
+
+```bash
+npm run telegram:worker
+```
+
+Разовый прогон:
+
+```bash
+npm run telegram:worker:once
+```
+
 ## Бизнес-правила
 
 ### Роли и доступ

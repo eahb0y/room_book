@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useI18n } from '@/i18n/useI18n';
-import LanguageSwitcher from '@/components/LanguageSwitcher';
+import PreferenceControls from '@/components/PreferenceControls';
 import BusinessActivityField from '@/components/BusinessActivityField';
 
 export default function BusinessRegister() {
@@ -122,7 +122,7 @@ export default function BusinessRegister() {
       </div>
 
       <div className="absolute right-4 top-4 z-20">
-        <LanguageSwitcher />
+        <PreferenceControls />
       </div>
 
       <div className="relative z-10 w-full max-w-lg animate-fade-up">

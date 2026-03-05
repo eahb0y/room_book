@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertCircle, Copy, QrCode, Trash2 } from 'lucide-react';
 import { useI18n } from '@/i18n/useI18n';
 import { canManageBusinessResidents, getAccessibleBusinessVenues, isBusinessPortalActive } from '@/lib/businessAccess';
@@ -36,9 +38,11 @@ export default function PeopleManagement() {
   const venues = useVenueStore((state) => state.venues);
   const rooms = useVenueStore((state) => state.rooms);
   const canManageResidents = canManageBusinessResidents(user);
-  const existingVenue = useMemo(
-    () => getAccessibleBusinessVenues(user, venues)[0],
-    [user, venues]
+  const ownedVenues = useMemo(() => getAccessibleBusinessVenues(user, venues), [user, venues]);
+  const [selectedVenueId, setSelectedVenueId] = useState('');
+  const selectedVenue = useMemo(
+    () => ownedVenues.find((venue) => venue.id === selectedVenueId) ?? null,
+    [ownedVenues, selectedVenueId],
   );
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [memberships, setMemberships] = useState<VenueMembership[]>([]);
@@ -108,7 +112,18 @@ export default function PeopleManagement() {
     }
   }, [isBusinessPortal, user, navigate]);
 
-  const existingVenueId = existingVenue?.id;
+  useEffect(() => {
+    if (ownedVenues.length === 0) {
+      setSelectedVenueId('');
+      return;
+    }
+
+    setSelectedVenueId((current) =>
+      current && ownedVenues.some((venue) => venue.id === current) ? current : ownedVenues[0]?.id ?? '',
+    );
+  }, [ownedVenues]);
+
+  const existingVenueId = selectedVenue?.id;
 
   useEffect(() => {
     if (!existingVenueId) {
@@ -171,11 +186,11 @@ export default function PeopleManagement() {
             fullName: fullName || t('Резидент #{id}', { id: fallbackId }),
             email: invitation?.inviteeEmail ?? '—',
             promoCode: invitation?.token ? formatResidentPromoCode(invitation.token) : '—',
-            promoTitle: getResidentPromoTitle(invitation?.venueName ?? existingVenue?.name, t),
+            promoTitle: getResidentPromoTitle(invitation?.venueName ?? selectedVenue?.name, t),
           };
         })
         .sort((a, b) => b.membership.joinedAt.localeCompare(a.membership.joinedAt)),
-    [existingVenue?.name, invitationById, memberships, t]
+    [invitationById, memberships, selectedVenue?.name, t]
   );
 
   const residentRoomCount = useMemo(
@@ -201,7 +216,7 @@ export default function PeopleManagement() {
   );
 
   const handleCreateSharedInvite = async (options?: { regenerate?: boolean }) => {
-    if (!existingVenue || !user) return;
+    if (!selectedVenue || !user) return;
     if (!canManageResidents) return;
     setInviteError('');
     setInviteSuccess('');
@@ -213,14 +228,14 @@ export default function PeopleManagement() {
 
       if (!sharedInvitation || options?.regenerate) {
         await createInvitation({
-          venueId: existingVenue.id,
-          venueName: existingVenue.name,
+          venueId: selectedVenue.id,
+          venueName: selectedVenue.name,
           createdByUserId: user.id,
           maxUses: null,
         });
       }
 
-      await refreshInvitations(existingVenue.id);
+      await refreshInvitations(selectedVenue.id);
       setInviteSuccess(options?.regenerate ? t('Общая ссылка обновлена') : t('Общая ссылка создана'));
     } catch {
       setInviteError(options?.regenerate ? t('Не удалось обновить общую ссылку') : t('Не удалось создать общую ссылку'));
@@ -242,14 +257,14 @@ export default function PeopleManagement() {
   };
 
   const handleRemoveResident = async (membershipId: string) => {
-    if (!existingVenue) return;
+    if (!selectedVenue) return;
     if (!canManageResidents) return;
     setDeletingMembershipId(membershipId);
     setInviteError('');
     setInviteSuccess('');
     try {
       await deleteMembership(membershipId);
-      await refreshResidents(existingVenue.id);
+      await refreshResidents(selectedVenue.id);
       setInviteSuccess(t('Резидент удалён'));
     } catch (err) {
       const message = err instanceof Error ? t(err.message) : t('Не удалось удалить резидента');
@@ -270,7 +285,29 @@ export default function PeopleManagement() {
         </p>
       </div>
 
-      {!existingVenue ? (
+      {ownedVenues.length > 1 ? (
+        <Card className="border-border/40">
+          <CardContent className="pt-6">
+            <div className="space-y-2">
+              <Label className="text-sm text-muted-foreground">{t('Заведение')}</Label>
+              <Select value={selectedVenueId} onValueChange={setSelectedVenueId}>
+                <SelectTrigger className="h-11 border-border/50 bg-input/50">
+                  <SelectValue placeholder={t('Выберите заведение')} />
+                </SelectTrigger>
+                <SelectContent>
+                  {ownedVenues.map((venue) => (
+                    <SelectItem key={venue.id} value={venue.id}>
+                      {venue.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {!selectedVenue ? (
         <Card className="border-border/40">
           <CardHeader>
             <CardTitle className="text-lg font-body font-semibold">{t('Сначала создайте заведение')}</CardTitle>
@@ -279,7 +316,7 @@ export default function PeopleManagement() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button onClick={() => navigate('/profile')}>{t('Перейти в профиль бизнеса')}</Button>
+            <Button onClick={() => navigate('/my-venues')}>{t('Перейти в «Мои заведения»')}</Button>
           </CardContent>
         </Card>
       ) : (
@@ -344,7 +381,7 @@ export default function PeopleManagement() {
                   <div className="rounded-2xl border border-border/50 bg-background/35 p-4">
                     <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">{t('Промокод')}</p>
                     <p className="mt-2 text-lg font-semibold text-foreground">
-                      {getResidentPromoTitle(existingVenue.name, t)}
+                      {getResidentPromoTitle(selectedVenue.name, t)}
                     </p>
                     <p className="mt-2 text-sm leading-6 text-muted-foreground">
                       {getResidentPromoDescription(t)}
@@ -450,7 +487,7 @@ export default function PeopleManagement() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => refreshResidents(existingVenue.id)}
+                onClick={() => refreshResidents(selectedVenue.id)}
                 disabled={memberLoading}
                 className="h-9 border-border/50 hover:border-primary/30"
               >

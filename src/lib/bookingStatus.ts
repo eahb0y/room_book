@@ -1,4 +1,9 @@
-import type { Booking } from '@/types';
+type TimeRangeBooking = {
+  bookingDate: string;
+  startTime: string;
+  endTime: string;
+  status: 'active' | 'cancelled';
+};
 
 export type BookingViewStatus = 'active' | 'completed' | 'cancelled';
 
@@ -7,14 +12,14 @@ const toDateTime = (date: string, time: string) => {
   return new Date(`${date}T${normalizedTime}`);
 };
 
-export const getBookingStartDateTime = (booking: Pick<Booking, 'bookingDate' | 'startTime'>) =>
+export const getBookingStartDateTime = (booking: Pick<TimeRangeBooking, 'bookingDate' | 'startTime'>) =>
   toDateTime(booking.bookingDate, booking.startTime);
 
-export const getBookingEndDateTime = (booking: Pick<Booking, 'bookingDate' | 'endTime'>) =>
+export const getBookingEndDateTime = (booking: Pick<TimeRangeBooking, 'bookingDate' | 'endTime'>) =>
   toDateTime(booking.bookingDate, booking.endTime);
 
 export const getBookingViewStatus = (
-  booking: Pick<Booking, 'bookingDate' | 'endTime' | 'status'>,
+  booking: Pick<TimeRangeBooking, 'bookingDate' | 'endTime' | 'status'>,
   now: Date = new Date(),
 ): BookingViewStatus => {
   if (booking.status === 'cancelled') return 'cancelled';

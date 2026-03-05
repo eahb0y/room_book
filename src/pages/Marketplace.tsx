@@ -1,5 +1,5 @@
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
   Building2,
@@ -27,7 +27,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { RoomAmenities } from '@/components/RoomAmenities';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import LanguageSwitcher from '@/components/LanguageSwitcher';
+import PreferenceControls from '@/components/PreferenceControls';
+import { getOAuthCallbackErrorMessage } from '@/lib/authApi';
 
 type CategoryId = 'all' | 'coworking' | 'beauty' | 'studio' | 'education' | 'health' | 'events' | 'other';
 
@@ -182,6 +183,8 @@ const mergeUniqueById = <T extends { id: string }>(...collections: T[][]) => {
 export default function Marketplace() {
   const { t, intlLocale } = useI18n();
   const { isAuthenticated, user, portal } = useAuthStore();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [catalogState, setCatalogState] = useState<MarketplaceCatalogState>({
     requestKey: null,
     venues: [],
@@ -195,6 +198,15 @@ export default function Marketplace() {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const deferredSearchQuery = useDeferredValue(searchQuery);
   const catalogRequestKey = isAuthenticated ? 'authenticated' : 'public';
+
+  useEffect(() => {
+    if (isAuthenticated) return;
+
+    const oauthError = getOAuthCallbackErrorMessage(location.search);
+    if (!oauthError) return;
+
+    navigate(`/login?oauth_error=${encodeURIComponent(oauthError)}`, { replace: true });
+  }, [isAuthenticated, location.search, navigate]);
 
   useEffect(() => {
     let isActive = true;
@@ -461,6 +473,10 @@ export default function Marketplace() {
     return `/venue/${venueId}`;
   };
 
+  const resolveServiceLink = (serviceId: string) => {
+    return `/service/${serviceId}`;
+  };
+
   const isBusinessPortal = isBusinessPortalActive(user, portal);
 
   const fullName = [user?.firstName, user?.lastName]
@@ -493,7 +509,7 @@ export default function Marketplace() {
                 className="h-10 w-10 shrink-0 rounded-2xl shadow-[0_10px_24px_rgba(210,135,58,0.38)]"
               />
               <div className="min-w-0">
-                <p className="truncate text-base font-semibold text-foreground">TezBron</p>
+                <p className="brand-wordmark truncate text-[1.06rem] leading-none text-foreground">TezBron</p>
               </div>
             </div>
 
@@ -537,7 +553,7 @@ export default function Marketplace() {
             </div>
 
             <div className="ml-auto flex items-center gap-2 sm:gap-3">
-              <LanguageSwitcher className="hidden sm:flex" />
+              <PreferenceControls className="hidden sm:flex" />
               {isAuthenticated ? (
                 <>
                   {isBusinessPortal ? (
@@ -608,25 +624,25 @@ export default function Marketplace() {
 
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-7 px-5 py-7 sm:px-6 sm:py-9 lg:px-8">
         {!isAuthenticated ? (
-          <section className="marketplace-hero-panel group relative overflow-hidden rounded-3xl border border-white/10 p-6 sm:p-8 lg:p-10">
+          <section className="marketplace-hero-panel group relative overflow-hidden rounded-3xl border border-border/60 p-6 sm:p-8 lg:p-10 dark:border-white/10">
             <div className="pointer-events-none absolute inset-0">
-              <div className="absolute -left-16 top-10 h-36 w-36 rounded-full bg-white/5 blur-2xl transition-transform duration-700 group-hover:scale-110" />
-              <div className="absolute -right-10 bottom-0 h-40 w-40 rounded-full bg-amber-300/10 blur-2xl transition-transform duration-700 group-hover:translate-y-[-6px]" />
+              <div className="absolute -left-16 top-10 h-36 w-36 rounded-full bg-primary/10 blur-2xl transition-transform duration-700 group-hover:scale-110 dark:bg-white/5" />
+              <div className="absolute -right-10 bottom-0 h-40 w-40 rounded-full bg-[#E87052]/14 blur-2xl transition-transform duration-700 group-hover:translate-y-[-6px] dark:bg-amber-300/10" />
             </div>
 
             <div className="relative">
               <div>
-                <h1 className="max-w-3xl text-3xl font-semibold leading-tight text-white sm:text-5xl">
+                <h1 className="max-w-3xl text-3xl font-semibold leading-tight text-foreground sm:text-5xl dark:text-white">
                   {t('Находите, сравнивайте и бронируйте пространство за минуты в TezBron')}
                 </h1>
-                <p className="mt-4 max-w-2xl text-sm text-white/75 sm:text-base">
+                <p className="mt-4 max-w-2xl text-sm text-muted-foreground sm:text-base dark:text-white/75">
                   {t('Мы делаем поиск и бронирование пространств простыми: один каталог, понятные фильтры и быстрый путь до подтверждённого слота.')}
                 </p>
                 <Button
                   asChild
                   size="sm"
                   variant="outline"
-                  className="mt-6 h-10 rounded-lg border-white/30 bg-transparent px-4 text-white transition hover:bg-white/10"
+                  className="mt-6 h-10 rounded-lg border-border/70 bg-background/72 px-4 text-foreground transition hover:bg-background dark:border-white/30 dark:bg-transparent dark:text-white dark:hover:bg-white/10"
                 >
                   <Link to="/about">
                     {t('Узнайте о нас больше')}
@@ -723,7 +739,7 @@ export default function Marketplace() {
                                 key={room.id}
                                 className={`group marketplace-service-card card-hover stagger-${Math.min(index + 1, 6)} animate-fade-up w-[320px] shrink-0 snap-start overflow-hidden sm:w-[340px] ${
                                   room.accessType === 'residents_only'
-                                    ? 'border-primary/30 bg-[linear-gradient(180deg,rgba(48,31,17,0.3),rgba(18,18,22,0.98))] shadow-[0_18px_42px_-28px_rgba(214,138,62,0.35)]'
+                                    ? 'marketplace-room-card-resident'
                                     : 'border-border/50'
                                 }`}
                               >
@@ -731,7 +747,7 @@ export default function Marketplace() {
                                   {photo ? (
                                     <img src={photo} alt={room.name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
                                   ) : (
-                                    <div className="h-full w-full bg-[radial-gradient(circle_at_20%_0%,hsl(29_67%_53%_/_0.35),transparent_55%),linear-gradient(135deg,hsl(240_8%_18%),hsl(240_8%_8%))]" />
+                                    <div className="marketplace-room-photo-fallback h-full w-full" />
                                   )}
                                   <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/15 to-transparent" />
                                   <div className="absolute left-3 top-3 flex items-center gap-2">
@@ -823,7 +839,7 @@ export default function Marketplace() {
                           {group.services.map((entry, index) => (
                             <Card
                               key={entry.service.id}
-                              className={`group marketplace-service-card card-hover stagger-${Math.min(index + 1, 6)} animate-fade-up w-[340px] shrink-0 snap-start overflow-hidden border-border/50 bg-[linear-gradient(180deg,rgba(22,22,26,0.94),rgba(16,16,18,0.98))] py-0 sm:w-[380px]`}
+                              className={`group marketplace-service-card marketplace-service-showcase-card card-hover stagger-${Math.min(index + 1, 6)} animate-fade-up w-[340px] shrink-0 snap-start overflow-hidden border-border/50 py-0 sm:w-[380px]`}
                             >
                               <div className="relative h-52 overflow-hidden">
                                 {entry.coverPhoto ? (
@@ -833,17 +849,17 @@ export default function Marketplace() {
                                     className="h-full w-full object-cover transition duration-700 group-hover:scale-105"
                                   />
                                 ) : (
-                                  <div className="h-full w-full bg-[radial-gradient(circle_at_20%_0%,hsl(29_67%_53%_/_0.35),transparent_52%),radial-gradient(circle_at_100%_100%,rgba(255,255,255,0.1),transparent_30%),linear-gradient(140deg,hsl(240_8%_18%),hsl(240_10%_8%))]" />
+                                  <div className="marketplace-service-photo-fallback h-full w-full" />
                                 )}
 
-                                <div className="absolute inset-0 bg-gradient-to-t from-black via-black/35 to-transparent" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-slate-900/16 to-transparent dark:from-black dark:via-black/35" />
 
                                 <div className="absolute left-4 top-4 flex flex-wrap gap-2">
-                                  <Badge className="border border-white/15 bg-black/45 text-white hover:bg-black/45">
+                                  <Badge className="border border-white/45 bg-white/78 text-slate-900 backdrop-blur-md hover:bg-white/78 dark:border-white/15 dark:bg-black/45 dark:text-white dark:hover:bg-black/45">
                                     <Sparkles className="h-3 w-3" />
                                     {entry.categoryLabel}
                                   </Badge>
-                                  <Badge variant="outline" className="border-white/20 bg-black/20 text-white">
+                                  <Badge variant="outline" className="border-white/45 bg-white/72 text-slate-900 backdrop-blur-md dark:border-white/20 dark:bg-black/20 dark:text-white">
                                     <Users className="h-3 w-3" />
                                     {t('{count} специалистов', { count: entry.providerCount })}
                                   </Badge>
@@ -872,15 +888,15 @@ export default function Marketplace() {
                                 </div>
 
                                 <div className="grid grid-cols-3 gap-2">
-                                  <div className="rounded-2xl border border-border/60 bg-white/[0.03] p-3">
+                                  <div className="rounded-2xl border border-border/60 bg-background/78 p-3 shadow-[0_16px_32px_-28px_rgba(18,44,87,0.18)] dark:bg-white/[0.03] dark:shadow-none">
                                     <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{t('Цена')}</p>
                                     <p className="mt-2 text-sm font-medium text-foreground">{entry.priceLabel}</p>
                                   </div>
-                                  <div className="rounded-2xl border border-border/60 bg-white/[0.03] p-3">
+                                  <div className="rounded-2xl border border-border/60 bg-background/78 p-3 shadow-[0_16px_32px_-28px_rgba(18,44,87,0.18)] dark:bg-white/[0.03] dark:shadow-none">
                                     <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{t('Формат')}</p>
                                     <p className="mt-2 text-sm font-medium text-foreground">{entry.durationLabel}</p>
                                   </div>
-                                  <div className="rounded-2xl border border-border/60 bg-white/[0.03] p-3">
+                                  <div className="rounded-2xl border border-border/60 bg-background/78 p-3 shadow-[0_16px_32px_-28px_rgba(18,44,87,0.18)] dark:bg-white/[0.03] dark:shadow-none">
                                     <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{t('Команда')}</p>
                                     <p className="mt-2 text-sm font-medium text-foreground">{entry.providerCount}</p>
                                   </div>
@@ -888,8 +904,8 @@ export default function Marketplace() {
 
                                 <div className="mt-auto flex gap-3">
                                   <Button asChild className="flex-1 rounded-xl">
-                                    <Link to={resolveVenueLink(entry.venue.id)}>
-                                      {t('Подробнее о заведении')}
+                                    <Link to={resolveServiceLink(entry.service.id)}>
+                                      {t('Открыть услугу')}
                                       <ArrowRight className="h-4 w-4" />
                                     </Link>
                                   </Button>

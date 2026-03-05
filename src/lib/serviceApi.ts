@@ -215,6 +215,37 @@ export const createBusinessServiceCategory = async (payload: { venueId: string; 
   }
 };
 
+export const updateBusinessServiceCategory = async (
+  id: string,
+  payload: {
+    name?: string;
+  },
+) => {
+  const patch: Record<string, unknown> = {};
+
+  if (payload.name !== undefined) patch.name = payload.name.trim();
+
+  try {
+    const rows = await supabaseDbRequest<BusinessServiceCategoryRow[]>(
+      `business_service_categories?id=eq.${encodeURIComponent(id)}`,
+      {
+        method: 'PATCH',
+        headers: {
+          Prefer: 'return=representation',
+        },
+        body: JSON.stringify(patch),
+      },
+    );
+
+    const updated = rows[0];
+    if (!updated) throw new Error('Категория не найдена');
+
+    return mapBusinessServiceCategory(updated);
+  } catch (error) {
+    throw normalizeBusinessServicesTableError(error);
+  }
+};
+
 export const listBusinessServices = async (params: { venueId?: string; publicAccess?: boolean } = {}) => {
   try {
     const filters = ['select=*', 'order=created_at.desc'];
@@ -232,6 +263,27 @@ export const listBusinessServices = async (params: { venueId?: string; publicAcc
     );
 
     return rows.map(mapBusinessService);
+  } catch (error) {
+    throw normalizeBusinessServicesTableError(error);
+  }
+};
+
+export const getBusinessServiceById = async (id: string, params: { publicAccess?: boolean } = {}) => {
+  try {
+    const rows = await supabaseDbRequest<BusinessServiceRow[]>(
+      `business_services?id=eq.${encodeURIComponent(id)}&select=*&limit=1`,
+      {
+        method: 'GET',
+      },
+      { requireAuth: !params.publicAccess },
+    );
+
+    const service = rows[0];
+    if (!service) {
+      throw new Error('Сервис не найден');
+    }
+
+    return mapBusinessService(service);
   } catch (error) {
     throw normalizeBusinessServicesTableError(error);
   }

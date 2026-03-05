@@ -10,7 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useI18n } from '@/i18n/useI18n';
 import { hasBusinessAccess } from '@/lib/businessAccess';
-import LanguageSwitcher from '@/components/LanguageSwitcher';
+import PreferenceControls from '@/components/PreferenceControls';
 import {
   formatResidentPromoCode,
   getResidentPromoDescription,
@@ -128,7 +128,7 @@ export default function Invite() {
         <div className="absolute top-[30%] left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-primary/[0.04] rounded-full blur-[120px] animate-glow-pulse" />
       </div>
       <div className="absolute right-4 top-4 z-20">
-        <LanguageSwitcher />
+        <PreferenceControls />
       </div>
 
       <div className="w-full max-w-lg relative z-10 animate-fade-up">
