@@ -1,97 +1,13 @@
 import type { Invitation } from '@/types';
-import { supabaseDbRequest } from '@/lib/supabaseHttp';
-
-interface InvitationRow {
-  id: string;
-  venue_id: string;
-  venue_name: string | null;
-  token: string;
-  created_by_user_id: string;
-  invitee_user_id: string | null;
-  invitee_first_name: string | null;
-  invitee_last_name: string | null;
-  invitee_email: string | null;
-  created_at: string;
-  expires_at: string | null;
-  max_uses: number | null;
-  uses: number;
-  revoked_at: string | null;
-  status: 'pending' | 'connected' | null;
-  connected_at: string | null;
-  connected_user_id: string | null;
-}
+import { backendRequest } from '@/lib/backendHttp';
 
 type RedeemResponse = { success: boolean; venueId?: string; invitationId?: string };
-type RedeemRpcResponse = {
-  success?: boolean;
-  venueId?: string;
-  invitationId?: string;
-  venue_id?: string;
-  invitation_id?: string;
-};
-type InvitationPreviewRpcResponse = {
-  id?: string;
-  venueId?: string;
-  venueName?: string | null;
-  token?: string;
-  createdAt?: string;
-  expiresAt?: string | null;
-  maxUses?: number | null;
-  uses?: number;
-  revokedAt?: string | null;
-  status?: 'pending' | 'connected' | null;
-  connectedAt?: string | null;
-  connectedUserId?: string | null;
-};
-
-const normalizeEmail = (value?: string) => {
-  const normalized = value?.trim().toLowerCase();
-  return normalized && normalized.length > 0 ? normalized : null;
-};
 
 const normalizeToken = (value: string) => value.trim().toLowerCase();
 
-const mapInvitation = (row: InvitationRow): Invitation => ({
-  id: row.id,
-  venueId: row.venue_id,
-  venueName: row.venue_name ?? undefined,
-  token: row.token,
-  createdByUserId: row.created_by_user_id,
-  inviteeUserId: row.invitee_user_id ?? undefined,
-  inviteeFirstName: row.invitee_first_name ?? undefined,
-  inviteeLastName: row.invitee_last_name ?? undefined,
-  inviteeEmail: row.invitee_email ?? undefined,
-  createdAt: row.created_at,
-  expiresAt: row.expires_at ?? undefined,
-  maxUses: row.max_uses ?? undefined,
-  uses: row.uses,
-  revokedAt: row.revoked_at ?? undefined,
-  status: row.status ?? undefined,
-  connectedAt: row.connected_at ?? undefined,
-  connectedUserId: row.connected_user_id ?? undefined,
-});
-
-const generateToken = (length = 32) => {
-  const alphabet = 'abcdef0123456789';
-  const bytes = new Uint8Array(length);
-  if (typeof crypto !== 'undefined' && 'getRandomValues' in crypto) {
-    crypto.getRandomValues(bytes);
-  } else {
-    for (let i = 0; i < length; i += 1) {
-      bytes[i] = Math.floor(Math.random() * 256);
-    }
-  }
-
-  return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join('');
-};
-
 export const listInvitations = async (venueId: string) => {
-  const rows = await supabaseDbRequest<InvitationRow[]>(
-    `invitations?select=*&venue_id=eq.${encodeURIComponent(venueId)}&order=created_at.desc`,
-    { method: 'GET' },
-  );
-
-  return rows.map(mapInvitation);
+  const searchParams = new URLSearchParams({ venueId });
+  return backendRequest<Invitation[]>(`/api/invitations?${searchParams.toString()}`, { method: 'GET' });
 };
 
 export const createInvitation = async (payload: {
@@ -105,143 +21,52 @@ export const createInvitation = async (payload: {
   expiresAt?: string;
   maxUses?: number | null;
 }) => {
-  const rows = await supabaseDbRequest<InvitationRow[]>(
-    'invitations',
+  return backendRequest<Invitation>(
+    '/api/invitations',
     {
       method: 'POST',
-      headers: {
-        Prefer: 'return=representation',
-      },
-      body: JSON.stringify([
-        {
-          venue_id: payload.venueId,
-          venue_name: payload.venueName,
-          token: generateToken(40),
-          created_by_user_id: payload.createdByUserId,
-          invitee_user_id: payload.inviteeUserId ?? null,
-          invitee_first_name: payload.inviteeFirstName?.trim() || null,
-          invitee_last_name: payload.inviteeLastName?.trim() || null,
-          invitee_email: normalizeEmail(payload.inviteeEmail),
-          expires_at: payload.expiresAt ?? null,
-          max_uses: payload.maxUses === undefined ? 1 : payload.maxUses,
-          uses: 0,
-          status: 'pending',
-        },
-      ]),
+      body: payload,
     },
   );
-
-  const created = rows[0];
-  if (!created) throw new Error('Не удалось создать приглашение');
-
-  return mapInvitation(created);
 };
 
 export const updateInvitation = async (
   id: string,
   updates: { expiresAt?: string | null; maxUses?: number | null },
 ) => {
-  const patch: Record<string, unknown> = {};
-  if (updates.expiresAt !== undefined) patch.expires_at = updates.expiresAt;
-  if (updates.maxUses !== undefined) patch.max_uses = updates.maxUses;
-
-  const rows = await supabaseDbRequest<InvitationRow[]>(
-    `invitations?id=eq.${encodeURIComponent(id)}`,
+  return backendRequest<Invitation>(
+    `/api/invitations/${encodeURIComponent(id)}`,
     {
       method: 'PATCH',
-      headers: {
-        Prefer: 'return=representation',
-      },
-      body: JSON.stringify(patch),
+      body: updates,
     },
   );
-
-  const updated = rows[0];
-  if (!updated) throw new Error('Приглашение не найдено');
-
-  return mapInvitation(updated);
 };
 
 export const revokeInvitation = async (id: string) => {
-  const rows = await supabaseDbRequest<InvitationRow[]>(
-    `invitations?id=eq.${encodeURIComponent(id)}`,
+  return backendRequest<Invitation>(
+    `/api/invitations/${encodeURIComponent(id)}/revoke`,
     {
-      method: 'PATCH',
-      headers: {
-        Prefer: 'return=representation',
-      },
-      body: JSON.stringify({
-        revoked_at: new Date().toISOString(),
-      }),
+      method: 'POST',
     },
   );
-
-  const updated = rows[0];
-  if (!updated) throw new Error('Приглашение не найдено');
-
-  return mapInvitation(updated);
 };
 
 export const getInvitationByToken = async (token: string) => {
-  const response = await supabaseDbRequest<InvitationPreviewRpcResponse>(
-    'rpc/preview_invitation_by_token',
-    {
-      method: 'POST',
-      body: JSON.stringify({
-        p_token: normalizeToken(token),
-      }),
-    },
+  const searchParams = new URLSearchParams({ token: normalizeToken(token) });
+  return backendRequest<Invitation>(
+    `/api/invitations/preview?${searchParams.toString()}`,
+    { method: 'GET' },
     { requireAuth: false },
   );
-
-  if (!response.id || !response.venueId || !response.token || !response.createdAt || typeof response.uses !== 'number') {
-    throw new Error('Приглашение не найдено');
-  }
-
-  return {
-    id: response.id,
-    venueId: response.venueId,
-    venueName: response.venueName ?? undefined,
-    token: response.token,
-    createdByUserId: '',
-    createdAt: response.createdAt,
-    expiresAt: response.expiresAt ?? undefined,
-    maxUses: response.maxUses ?? undefined,
-    uses: response.uses,
-    revokedAt: response.revokedAt ?? undefined,
-    status: response.status ?? undefined,
-    connectedAt: response.connectedAt ?? undefined,
-    connectedUserId: response.connectedUserId ?? undefined,
-  };
 };
 
 export const redeemInvitation = async (token: string): Promise<RedeemResponse> => {
-  const normalizedToken = normalizeToken(token);
-  if (!normalizedToken) {
-    throw new Error('Не удалось применить приглашение');
-  }
-
-  const response = await supabaseDbRequest<RedeemRpcResponse>(
-    'rpc/redeem_invitation',
+  return backendRequest<RedeemResponse>(
+    '/api/invitations/redeem',
     {
       method: 'POST',
-      body: JSON.stringify({
-        p_token: normalizedToken,
-      }),
+      body: { token: normalizeToken(token) },
     },
   );
-
-  const venueId = response.venueId ?? response.venue_id;
-  const invitationId = response.invitationId ?? response.invitation_id;
-  const success = response.success === true;
-
-  if (!success || !venueId || !invitationId) {
-    throw new Error('Не удалось применить приглашение');
-  }
-
-  return {
-    success,
-    venueId,
-    invitationId,
-  };
 };

@@ -26,7 +26,7 @@ import SeoRouteManager from '@/components/SeoRouteManager';
 import ContactTelegramWidget from '@/components/ContactTelegramWidget';
 import { isBusinessPortalActive } from '@/lib/businessAccess';
 import { getOAuthCallbackErrorMessage } from '@/lib/authApi';
-import { getSupabaseEnvironment } from '@/lib/supabaseConfig';
+import { getAppEnvironment } from '@/lib/apiConfig';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
@@ -65,7 +65,7 @@ function OAuthCallbackBridge() {
   const location = useLocation();
   const navigate = useNavigate();
   const completeGoogleAuth = useAuthStore((state) => state.completeGoogleAuth);
-  const isProdEnvironment = getSupabaseEnvironment() === 'prod';
+  const isProdEnvironment = getAppEnvironment() === 'prod';
 
   useEffect(() => {
     const preBootstrapWindow = window as Window & { __TEZBRON_OAUTH_HASH__?: string };

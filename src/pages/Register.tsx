@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { getOAuthCallbackErrorMessage } from '@/lib/authApi';
-import { getSupabaseEnvironment } from '@/lib/supabaseConfig';
+import { getAppEnvironment } from '@/lib/apiConfig';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,7 +14,7 @@ import PreferenceControls from '@/components/PreferenceControls';
 
 export default function Register() {
   const { t } = useI18n();
-  const isProdEnvironment = getSupabaseEnvironment() === 'prod';
+  const isProdEnvironment = getAppEnvironment() === 'prod';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
