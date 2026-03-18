@@ -9,6 +9,7 @@ interface BusinessStaffAccountRow {
   first_name: string;
   last_name: string;
   role: BusinessStaffRole;
+  is_active: boolean;
   created_by_user_id: string;
   created_at: string;
   venues: {
@@ -40,7 +41,11 @@ const getErrorMessage = (error: unknown) => {
 const isMissingBusinessStaffSchemaError = (error: unknown) => {
   const message = getErrorMessage(error).toLowerCase();
   return (
-    (message.includes('business_staff_accounts') || message.includes('create_business_staff_account'))
+    (
+      message.includes('business_staff_accounts')
+      || message.includes('create_business_staff_account')
+      || message.includes('update_business_staff_account_active_state')
+    )
     && (
       message.includes('schema cache')
       || message.includes('could not find the table')
@@ -73,6 +78,7 @@ const mapBusinessStaffAccount = (row: BusinessStaffAccountRow): BusinessStaffAcc
   firstName: row.first_name,
   lastName: row.last_name,
   role: row.role,
+  isActive: row.is_active,
   createdByUserId: row.created_by_user_id,
   createdAt: row.created_at,
 });
@@ -85,6 +91,7 @@ const mapCreatedBusinessStaffAccount = (row: CreateBusinessStaffAccountRpcRow): 
   firstName: row.first_name,
   lastName: row.last_name,
   role: row.role,
+  isActive: row.is_active,
   createdByUserId: row.created_by_user_id,
   createdAt: row.created_at,
   temporaryPassword: row.temporary_password,
@@ -162,6 +169,33 @@ export const updateBusinessStaffAccountRole = async (payload: { accountId: strin
     const updated = rows[0];
     if (!updated) {
       throw new Error('Не удалось обновить роль сотрудника');
+    }
+
+    return mapBusinessStaffAccount({ ...updated, venues: null });
+  } catch (error) {
+    throw normalizeBusinessStaffError(error);
+  }
+};
+
+export const updateBusinessStaffAccountActiveState = async (payload: { accountId: string; isActive: boolean }) => {
+  try {
+    const rows = await supabaseDbRequest<BusinessStaffAccountRow[]>(
+      'rpc/update_business_staff_account_active_state',
+      {
+        method: 'POST',
+        headers: {
+          Prefer: 'return=representation',
+        },
+        body: JSON.stringify({
+          p_staff_account_id: payload.accountId,
+          p_is_active: payload.isActive,
+        }),
+      },
+    );
+
+    const updated = rows[0];
+    if (!updated) {
+      throw new Error('Не удалось обновить статус сотрудника');
     }
 
     return mapBusinessStaffAccount({ ...updated, venues: null });

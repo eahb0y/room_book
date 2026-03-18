@@ -133,8 +133,16 @@ const normalizeCategoryName = (value: string) => value.trim().replace(/\s+/g, ' 
 const normalizePersonName = (value: string) => value.trim().replace(/\s+/g, ' ');
 const normalizeInteger = (value: string) => value.replace(/[^\d]/g, '');
 const normalizePriceInput = (value: string) => value.replace(/[^\d.,]/g, '').replace(',', '.');
-const formatPriceLabel = (value: number) => `${value.toLocaleString('ru-RU')} ${'сум'}`;
-const buildServicePriceSummary = (providers: BusinessServiceProvider[]) => {
+const formatPriceLabel = (
+  value: number,
+  intlLocale: string,
+  t: (value: string, params?: Record<string, string | number>) => string,
+) => `${value.toLocaleString(intlLocale)} ${t('сум')}`;
+const buildServicePriceSummary = (
+  providers: BusinessServiceProvider[],
+  intlLocale: string,
+  t: (value: string, params?: Record<string, string | number>) => string,
+) => {
   const prices = providers
     .map((provider) => provider.price)
     .filter((value) => Number.isFinite(value) && value > 0);
@@ -145,8 +153,8 @@ const buildServicePriceSummary = (providers: BusinessServiceProvider[]) => {
   const maxPrice = Math.max(...prices);
 
   return minPrice === maxPrice
-    ? formatPriceLabel(minPrice)
-    : `${formatPriceLabel(minPrice)} - ${formatPriceLabel(maxPrice)}`;
+    ? formatPriceLabel(minPrice, intlLocale, t)
+    : `${formatPriceLabel(minPrice, intlLocale, t)} - ${formatPriceLabel(maxPrice, intlLocale, t)}`;
 };
 const normalizeTimeValue = (value: string) => value.trim().slice(0, 5);
 const toTimeMinutes = (value: string) => {
@@ -175,7 +183,7 @@ const prepareImageFile = async (file: File) => {
 };
 
 export default function ServicesManagement() {
-  const { t } = useI18n();
+  const { t, intlLocale } = useI18n();
   const { user, portal } = useAuthStore();
   const navigate = useNavigate();
   const isBusinessPortal = isBusinessPortalActive(user, portal);
@@ -1015,7 +1023,7 @@ export default function ServicesManagement() {
                   <ScrollArea className="h-[420px] xl:h-[620px]">
                     <div className="space-y-3 p-3">
                       {selectedCategoryServices.map((service) => {
-                        const priceSummary = buildServicePriceSummary(service.providers);
+                        const priceSummary = buildServicePriceSummary(service.providers, intlLocale, t);
 
                         return (
                           <div

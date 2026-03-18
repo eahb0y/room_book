@@ -1,13 +1,16 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import { useI18n } from '@/i18n/useI18n';
 import { applySeo, getSiteUrl } from '@/lib/seo';
+import type { AppLocale } from '@/store/localeStore';
 
 const INDEX_ROBOTS = 'index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1';
 const NO_INDEX_ROBOTS = 'noindex,nofollow,noarchive,nosnippet';
 
-const createWebsiteSchema = (path: string, title: string, description: string) => {
+const createMarketingSchema = (path: string, title: string, description: string, locale: AppLocale) => {
   const siteUrl = getSiteUrl();
   const pageUrl = `${siteUrl}${path}`;
+  const language = locale === 'uz' ? 'uz' : 'ru';
 
   return [
     {
@@ -22,11 +25,19 @@ const createWebsiteSchema = (path: string, title: string, description: string) =
       '@type': 'WebSite',
       name: 'TezBron',
       url: siteUrl,
-      inLanguage: 'ru',
-      potentialAction: {
-        '@type': 'SearchAction',
-        target: `${siteUrl}/?q={search_term_string}`,
-        'query-input': 'required name=search_term_string',
+      inLanguage: language,
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      name: 'TezBron',
+      url: pageUrl,
+      applicationCategory: 'BusinessApplication',
+      operatingSystem: 'Web',
+      description,
+      brand: {
+        '@type': 'Brand',
+        name: 'TezBron',
       },
     },
     {
@@ -44,52 +55,97 @@ const createWebsiteSchema = (path: string, title: string, description: string) =
   ];
 };
 
-const resolveSeoByPath = (pathname: string) => {
+const resolveSeoByPath = (
+  pathname: string,
+  t: (value: string) => string,
+  locale: AppLocale,
+) => {
+  const localeCode = locale === 'uz' ? 'uz_UZ' : 'ru_RU';
+
   if (pathname === '/') {
-    const title = 'Бронирование пространств и переговорных | TezBron';
-    const description =
-      'TezBron — маркетплейс для бронирования переговорных, коворкингов, студий и других пространств по времени.';
+    const title = t('Платформа онлайн-бронирования для бизнеса | TezBron');
+    const description = t(
+      'TezBron — B2B-платформа онлайн-бронирования для владельцев, менеджеров и команд: без маркетплейса, с акцентом на управление и рост.',
+    );
 
     return {
       title,
       description,
       path: '/',
       robots: INDEX_ROBOTS,
-      keywords:
-        'бронирование переговорных, бронирование коворкинга, аренда пространства, каталог комнат, TezBron',
-      structuredData: createWebsiteSchema('/', title, description),
+      keywords: t(
+        'B2B онлайн-бронирование, booking software для бизнеса, управление бронированиями, SaaS для сервисного бизнеса, TezBron',
+      ),
+      locale: localeCode,
+      structuredData: createMarketingSchema('/', title, description, locale),
     };
   }
 
-  if (pathname === '/business/landing') {
-    const title = 'Добавить бизнес на платформу бронирования | TezBron';
-    const description =
-      'Подключите бизнес к TezBron: создайте карточку, добавьте комнаты, управляйте слотами и бронированиями в одном кабинете.';
+  if (pathname === '/features') {
+    const title = t('Функции платформы онлайн-бронирования | TezBron');
+    const description = t(
+      'Изучите B2B-функции TezBron: запись, роли, площадки, история бронирований, уведомления и единый операционный контур.',
+    );
 
     return {
       title,
       description,
-      path: '/business/landing',
+      path: '/features',
       robots: INDEX_ROBOTS,
-      keywords:
-        'добавить бизнес, управление бронированиями, кабинет бизнеса, подключение площадки, TezBron',
-      structuredData: createWebsiteSchema('/business/landing', title, description),
+      keywords: t('функции TezBron, booking software features, B2B SaaS, управление записью, роли команды, TezBron'),
+      locale: localeCode,
+      structuredData: createMarketingSchema('/features', title, description, locale),
+    };
+  }
+
+  if (pathname === '/pricing') {
+    const title = t('Тарифы для бизнеса | TezBron');
+    const description = t(
+      'Сравните тарифы TezBron для B2B-команд: запуск, рост, мульти-локации, роли, уведомления и поддержка внедрения.',
+    );
+
+    return {
+      title,
+      description,
+      path: '/pricing',
+      robots: INDEX_ROBOTS,
+      keywords: t('pricing TezBron, тарифы booking software, цена платформы бронирования, B2B SaaS pricing, TezBron'),
+      locale: localeCode,
+      structuredData: createMarketingSchema('/pricing', title, description, locale),
     };
   }
 
   if (pathname === '/about') {
-    const title = 'Как работает TezBron для клиентов | TezBron';
-    const description =
-      'Узнайте, кто такой TezBron, как работает бронирование пространств и что увидит клиент от каталога до подтверждённого слота.';
+    const title = t('О платформе TezBron | TezBron');
+    const description = t(
+      'Узнайте, как TezBron помогает бизнесу заменить маркетплейс собственным B2B-сайтом и единым контуром управления бронированиями.',
+    );
 
     return {
       title,
       description,
       path: '/about',
       robots: INDEX_ROBOTS,
-      keywords:
-        'как работает TezBron, бронирование комнат, каталог пространств, слоты бронирования, TezBron для клиентов',
-      structuredData: createWebsiteSchema('/about', title, description),
+      keywords: t('о TezBron, B2B платформа записи, SaaS для сервисного бизнеса, управление локациями, TezBron'),
+      locale: localeCode,
+      structuredData: createMarketingSchema('/about', title, description, locale),
+    };
+  }
+
+  if (pathname === '/blog') {
+    const title = t('B2B блог о записи и операциях | TezBron');
+    const description = t(
+      'Материалы TezBron о записи, управлении командами, ролях, росте сервисного бизнеса и переходе от маркетплейса к собственному B2B-сайту.',
+    );
+
+    return {
+      title,
+      description,
+      path: '/blog',
+      robots: INDEX_ROBOTS,
+      keywords: t('B2B blog booking software, блог о записях, growth для сервисного бизнеса, operations blog, TezBron'),
+      locale: localeCode,
+      structuredData: createMarketingSchema('/blog', title, description, locale),
     };
   }
 
@@ -98,31 +154,35 @@ const resolveSeoByPath = (pathname: string) => {
     pathname === '/register' ||
     pathname === '/business/login' ||
     pathname === '/business/register' ||
+    pathname === '/business/landing' ||
     pathname.startsWith('/invite/')
   ) {
     return {
-      title: 'Вход в TezBron',
-      description: 'Авторизация и регистрация в TezBron.',
+      title: t('Вход в TezBron'),
+      description: t('Авторизация и регистрация в TezBron.'),
       path: pathname.startsWith('/invite/') ? '/invite' : pathname,
       robots: NO_INDEX_ROBOTS,
+      locale: localeCode,
     };
   }
 
   return {
     title: 'TezBron',
-    description: 'Платформа для бронирования пространств.',
+    description: t('Платформа для бронирования пространств.'),
     path: pathname,
     robots: NO_INDEX_ROBOTS,
+    locale: localeCode,
   };
 };
 
 export default function SeoRouteManager() {
   const location = useLocation();
+  const { locale, t } = useI18n();
 
   useEffect(() => {
-    const seo = resolveSeoByPath(location.pathname);
+    const seo = resolveSeoByPath(location.pathname, t, locale);
     applySeo(seo);
-  }, [location.pathname]);
+  }, [location.pathname, locale, t]);
 
   return null;
 }

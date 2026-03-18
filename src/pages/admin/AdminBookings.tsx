@@ -30,6 +30,7 @@ import { useI18n } from '@/i18n/useI18n';
 import { getBookingViewStatus, type BookingViewStatus } from '@/lib/bookingStatus';
 import type { Invitation, VenueMembership } from '@/types';
 import { canManageBusinessBookings, getAccessibleBusinessVenues, isBusinessPortalActive } from '@/lib/businessAccess';
+import { formatDurationLabel } from '@/lib/formatDurationLabel';
 
 const DISPLAY_SLOT_STEP_MINUTES = 15;
 const EDIT_SLOT_STEP_SECONDS = 15 * 60;
@@ -48,14 +49,6 @@ const toTime = (minutes: number) => {
   const hour = Math.floor(safeMinutes / 60).toString().padStart(2, '0');
   const minute = (safeMinutes % 60).toString().padStart(2, '0');
   return `${hour}:${minute}`;
-};
-
-const toDurationLabel = (minutes: number) => {
-  const hours = Math.floor(minutes / 60);
-  const restMinutes = minutes % 60;
-  if (hours > 0 && restMinutes > 0) return `${hours}ч ${restMinutes}м`;
-  if (hours > 0) return `${hours}ч`;
-  return `${restMinutes}м`;
 };
 
 const buildDisplaySlots = (rooms: Array<{ availableFrom?: string; availableTo?: string }>) => {
@@ -809,11 +802,15 @@ export default function AdminBookings() {
 
     const durationMinutes = endMinute - startMinute;
     if (durationMinutes < room.minBookingMinutes) {
-      return t('Минимальная длительность брони: {duration}', { duration: toDurationLabel(room.minBookingMinutes) });
+      return t('Минимальная длительность брони: {duration}', {
+        duration: formatDurationLabel(room.minBookingMinutes, t),
+      });
     }
 
     if (durationMinutes > room.maxBookingMinutes) {
-      return t('Максимальная длительность брони: {duration}', { duration: toDurationLabel(room.maxBookingMinutes) });
+      return t('Максимальная длительность брони: {duration}', {
+        duration: formatDurationLabel(room.maxBookingMinutes, t),
+      });
     }
 
     return '';

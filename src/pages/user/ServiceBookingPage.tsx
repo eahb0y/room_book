@@ -28,6 +28,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import type { BusinessService, BusinessServiceCategory, Venue } from '@/types';
 import { useI18n } from '@/i18n/useI18n';
+import { formatDurationLabel } from '@/lib/formatDurationLabel';
 
 const SLOT_STEP_MINUTES = 15;
 const MINUTES_IN_DAY = 24 * 60;
@@ -47,19 +48,26 @@ const toTime = (totalMinutes: number) => {
   return `${hour}:${minute}`;
 };
 
-const toDurationLabel = (minutes: number) => {
-  const hours = Math.floor(minutes / 60);
-  const restMinutes = minutes % 60;
-  if (hours > 0 && restMinutes > 0) return `${hours}ч ${restMinutes}м`;
-  if (hours > 0) return `${hours}ч`;
-  return `${restMinutes}м`;
-};
-
 const buildServiceCoverPhoto = (service: BusinessService) =>
   service.photoUrl ?? service.providers.find((provider) => provider.photoUrl)?.photoUrl ?? null;
 
 const isOverlapping = (startA: string, endA: string, startB: string, endB: string) =>
   startA < endB && endA > startB;
+
+const translateServiceBookingError = (
+  message: string,
+  t: (value: string, params?: Record<string, string | number>) => string,
+) => {
+  const availabilityMatch = message.match(/^Услуга доступна только с (.+) до (.+)$/);
+  if (availabilityMatch) {
+    return t('Услуга доступна только с {from} до {to}', {
+      from: availabilityMatch[1] ?? '',
+      to: availabilityMatch[2] ?? '',
+    });
+  }
+
+  return t(message);
+};
 
 interface ServicePageState {
   requestKey: string | null;
@@ -136,7 +144,10 @@ export default function ServiceBookingPage() {
           service: null,
           venue: null,
           categories: [],
-          pageError: error instanceof Error ? t(error.message) : t('Не удалось загрузить услугу'),
+          pageError:
+            error instanceof Error
+              ? translateServiceBookingError(error.message, t)
+              : t('Не удалось загрузить услугу'),
         });
       }
     })();
@@ -177,7 +188,11 @@ export default function ServiceBookingPage() {
       } catch (error) {
         if (!isActive) return;
         setBusySlots([]);
-        setAvailabilityError(error instanceof Error ? t(error.message) : t('Не удалось загрузить доступные слоты'));
+        setAvailabilityError(
+          error instanceof Error
+            ? translateServiceBookingError(error.message, t)
+            : t('Не удалось загрузить доступные слоты'),
+        );
       } finally {
         if (isActive) setIsBusySlotsLoading(false);
       }
@@ -293,7 +308,11 @@ export default function ServiceBookingPage() {
     setIsSubmitting(false);
 
     if (!result.success || !result.booking) {
-      setBookingError(result.error ? t(result.error) : t('Не удалось создать бронирование услуги'));
+      setBookingError(
+        result.error
+          ? translateServiceBookingError(result.error, t)
+          : t('Не удалось создать бронирование услуги'),
+      );
       return;
     }
 
@@ -313,7 +332,11 @@ export default function ServiceBookingPage() {
       });
       setBusySlots(refreshedBusySlots);
     } catch (error) {
-      setAvailabilityError(error instanceof Error ? t(error.message) : t('Не удалось обновить занятые слоты'));
+      setAvailabilityError(
+        error instanceof Error
+          ? translateServiceBookingError(error.message, t)
+          : t('Не удалось обновить занятые слоты'),
+      );
     }
   };
 
@@ -398,7 +421,7 @@ export default function ServiceBookingPage() {
                 </p>
                 <p className="flex items-center gap-2">
                   <Clock3 className="h-4 w-4 text-primary" />
-                  <span>{t('Фиксированный формат {duration}', { duration: toDurationLabel(durationMinutes || 0) })}</span>
+                  <span>{t('Фиксированный формат {duration}', { duration: formatDurationLabel(durationMinutes || 0, t) })}</span>
                 </p>
                 {priceLabel ? (
                   <p className="flex items-center gap-2">
@@ -416,7 +439,9 @@ export default function ServiceBookingPage() {
               </div>
               <div className="rounded-[1.6rem] border border-border/60 bg-background/82 p-4 shadow-[0_18px_40px_-34px_rgba(18,44,87,0.28)] dark:bg-white/[0.03] dark:shadow-none">
                 <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{t('Длительность')}</p>
-                <p className="mt-2 text-lg font-semibold text-foreground">{durationMinutes > 0 ? toDurationLabel(durationMinutes) : '—'}</p>
+                <p className="mt-2 text-lg font-semibold text-foreground">
+                  {durationMinutes > 0 ? formatDurationLabel(durationMinutes, t) : '—'}
+                </p>
               </div>
               <div className="rounded-[1.6rem] border border-border/60 bg-background/82 p-4 shadow-[0_18px_40px_-34px_rgba(18,44,87,0.28)] dark:bg-white/[0.03] dark:shadow-none">
                 <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{t('Команда')}</p>
@@ -508,7 +533,9 @@ export default function ServiceBookingPage() {
                     </div>
                     <div className="rounded-2xl border border-border/60 bg-background/80 p-3">
                       <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{t('Формат')}</p>
-                      <p className="mt-2 text-sm font-medium text-foreground">{toDurationLabel(provider.durationMinutes)}</p>
+                      <p className="mt-2 text-sm font-medium text-foreground">
+                        {formatDurationLabel(provider.durationMinutes, t)}
+                      </p>
                     </div>
                   </div>
 
@@ -529,7 +556,9 @@ export default function ServiceBookingPage() {
                 <CardTitle>{t('Выберите дату и время')}</CardTitle>
                 <CardDescription>
                   {selectedProvider
-                    ? t('Сервис будет забронирован на {duration}', { duration: toDurationLabel(selectedProvider.durationMinutes) })
+                    ? t('Сервис будет забронирован на {duration}', {
+                        duration: formatDurationLabel(selectedProvider.durationMinutes, t),
+                      })
                     : t('Сначала выберите специалиста')}
                 </CardDescription>
               </div>

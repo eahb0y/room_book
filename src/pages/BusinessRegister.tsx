@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useVenueStore } from '@/store/venueStore';
@@ -14,6 +14,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useI18n } from '@/i18n/useI18n';
 import PreferenceControls from '@/components/PreferenceControls';
 import BusinessActivityField from '@/components/BusinessActivityField';
+import { changeVenueSubscriptionPlan } from '@/lib/subscriptionApi';
+import { getSubscriptionBillingModeForPlanId, isKnownPlanId } from '@/lib/pricingCatalog';
 
 export default function BusinessRegister() {
   const { t } = useI18n();
@@ -24,6 +26,7 @@ export default function BusinessRegister() {
   const setPortal = useAuthStore((state) => state.setPortal);
   const createVenue = useVenueStore((state) => state.createVenue);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [businessName, setBusinessName] = useState('');
   const [address, setAddress] = useState('');
@@ -96,13 +99,22 @@ export default function BusinessRegister() {
         return;
       }
 
-      await createVenue({
+      const createdVenue = await createVenue({
         adminId: currentUser.id,
         name: businessName.trim(),
         address: address.trim(),
         activityType: normalizedActivityType,
         description: description.trim(),
       });
+
+      const selectedPlanId = searchParams.get('plan');
+      if (isKnownPlanId(selectedPlanId)) {
+        await changeVenueSubscriptionPlan({
+          venueId: createdVenue.id,
+          planId: selectedPlanId,
+          billingCycle: getSubscriptionBillingModeForPlanId(selectedPlanId),
+        });
+      }
 
       await refreshBusinessAccess();
       setPortal('business');

@@ -2,6 +2,8 @@
 export type UserRole = 'admin' | 'user';
 export type BusinessAccessRole = 'business' | 'manager' | 'staff';
 export type BusinessStaffRole = Exclude<BusinessAccessRole, 'business'>;
+export type SubscriptionBillingMode = 'monthly' | 'annual';
+export type SubscriptionPlanFamily = 'free' | 'plus' | 'pro';
 
 export interface BusinessAccess {
   venueId: string;
@@ -122,12 +124,28 @@ export interface BusinessStaffAccount {
   firstName: string;
   lastName: string;
   role: BusinessStaffRole;
+  isActive: boolean;
   createdByUserId: string;
   createdAt: string;
 }
 
 export interface CreatedBusinessStaffAccount extends BusinessStaffAccount {
   temporaryPassword: string;
+}
+
+export interface VenueSubscription {
+  id: string;
+  venueId: string;
+  planId: string;
+  planName: string;
+  planFamily: SubscriptionPlanFamily;
+  billingCycle: SubscriptionBillingMode;
+  maxCalendars: number | null;
+  priceMonthly: number;
+  priceAnnually: number;
+  currentCalendarsCount: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Booking types

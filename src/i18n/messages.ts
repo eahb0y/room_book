@@ -1,6 +1,7 @@
 import type { Locale as DateFnsLocale } from 'date-fns';
 import { ru, uz } from 'date-fns/locale';
 import type { AppLocale } from '@/store/localeStore';
+import { uzExtraMessages } from '@/i18n/uzExtraMessages';
 
 const uzTranslations: Record<string, string> = {
   'Язык интерфейса': 'Interfeys tili',
@@ -1098,6 +1099,7 @@ const uzTranslations: Record<string, string> = {
   'Если вы ещё не вошли, заведение можно изучить сейчас, а авторизация понадобится только перед самой бронью.':
     'Agar siz hali tizimga kirmagan bo‘lsangiz, maskanni hozir o‘rganishingiz mumkin, avtorizatsiya esa faqat bron qilishdan oldin kerak bo‘ladi.',
   'В этом заведении пока нет публичных услуг': 'Bu maskanda hozircha ochiq xizmatlar yo‘q',
+  ...uzExtraMessages,
 };
 
 const interpolate = (value: string, params?: Record<string, string | number>) => {

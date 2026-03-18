@@ -39,7 +39,7 @@ export default function Login() {
   const resolveDefaultPostAuthPath = useCallback(() => {
     const { portal, user } = useAuthStore.getState();
     if (isBusinessPortalActive(user, portal)) return '/my-venue';
-    return '/';
+    return '/profile';
   }, []);
 
   const resolvePostAuthPath = useCallback(
