@@ -13,6 +13,14 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
+interface BusinessNavItem {
+  path: string;
+  icon: typeof Home;
+  label: string;
+}
+
+const HIDDEN_BUSINESS_NAV_PATHS = new Set(['/people', '/rooms', '/bookings']);
+
 export default function Layout({ children }: LayoutProps) {
   const { user, isAuthenticated, logout, portal } = useAuthStore();
   const { t } = useI18n();
@@ -69,6 +77,19 @@ export default function Layout({ children }: LayoutProps) {
         : 'border-transparent text-muted-foreground hover:border-border/70 hover:bg-background/70 hover:text-foreground'
     }`;
 
+  const businessNavItems = [
+    { path: '/my-venue', icon: Home, label: t('Главная') },
+    { path: '/my-venues', icon: Building2, label: t('Мои заведения') },
+    { path: '/people', icon: Users, label: t('Резиденты') },
+    canManageBusinessStaff(user)
+      ? { path: '/employees', icon: Users, label: t('Сотрудники') }
+      : null,
+    { path: '/rooms', icon: DoorOpen, label: t('Комнаты') },
+    { path: '/services', icon: Sparkles, label: t('Услуги') },
+    { path: '/bookings', icon: List, label: t('Бронирования') },
+    { path: '/profile', icon: UserRound, label: t('Профиль') },
+  ].filter((item): item is BusinessNavItem => item !== null && !HIDDEN_BUSINESS_NAV_PATHS.has(item.path));
+
   return (
     <div className="min-h-screen bg-transparent">
       <div className="h-[3px] bg-gradient-to-r from-transparent via-primary to-transparent opacity-70" />
@@ -123,40 +144,15 @@ export default function Layout({ children }: LayoutProps) {
             <aside className="lg:w-64 lg:shrink-0">
               <div className="rounded-[2rem] border border-border/55 bg-card/74 p-3 shadow-[0_20px_44px_-32px_rgba(15,23,42,0.28)] backdrop-blur-xl lg:sticky lg:top-24">
                 <nav className="space-y-1">
-                  <Link to="/my-venue" className={navLink('/my-venue')}>
-                    <Home className="h-4 w-4" />
-                    <span>{t('Главная')}</span>
-                  </Link>
-                  <Link to="/my-venues" className={navLink('/my-venues')}>
-                    <Building2 className="h-4 w-4" />
-                    <span>{t('Мои заведения')}</span>
-                  </Link>
-                  <Link to="/people" className={navLink('/people')}>
-                    <Users className="h-4 w-4" />
-                    <span>{t('Резиденты')}</span>
-                  </Link>
-                  {canManageBusinessStaff(user) ? (
-                    <Link to="/employees" className={navLink('/employees')}>
-                      <Users className="h-4 w-4" />
-                      <span>{t('Сотрудники')}</span>
-                    </Link>
-                  ) : null}
-                  <Link to="/rooms" className={navLink('/rooms')}>
-                    <DoorOpen className="h-4 w-4" />
-                    <span>{t('Комнаты')}</span>
-                  </Link>
-                  <Link to="/services" className={navLink('/services')}>
-                    <Sparkles className="h-4 w-4" />
-                    <span>{t('Услуги')}</span>
-                  </Link>
-                  <Link to="/bookings" className={navLink('/bookings')}>
-                    <List className="h-4 w-4" />
-                    <span>{t('Бронирования')}</span>
-                  </Link>
-                  <Link to="/profile" className={navLink('/profile')}>
-                    <UserRound className="h-4 w-4" />
-                    <span>{t('Профиль')}</span>
-                  </Link>
+                  {businessNavItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <Link key={item.path} to={item.path} className={navLink(item.path)}>
+                        <Icon className="h-4 w-4" />
+                        <span>{item.label}</span>
+                      </Link>
+                    );
+                  })}
                 </nav>
               </div>
             </aside>

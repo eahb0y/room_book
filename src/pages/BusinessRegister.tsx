@@ -8,7 +8,6 @@ import { BUSINESS_ACTIVITY_CUSTOM_ID, encodeBusinessActivityValue } from '@/lib/
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useI18n } from '@/i18n/useI18n';
@@ -29,7 +28,6 @@ export default function BusinessRegister() {
   const [address, setAddress] = useState('');
   const [activityType, setActivityType] = useState('');
   const [customActivityType, setCustomActivityType] = useState('');
-  const [description, setDescription] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -101,7 +99,7 @@ export default function BusinessRegister() {
         name: businessName.trim(),
         address: address.trim(),
         activityType: normalizedActivityType,
-        description: description.trim(),
+        description: '',
       });
 
       await refreshBusinessAccess();
@@ -116,7 +114,7 @@ export default function BusinessRegister() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4">
+    <div className="relative flex min-h-screen items-start justify-center overflow-x-hidden bg-background px-4 py-8 sm:items-center sm:py-10">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute left-1/2 top-[30%] h-[440px] w-[680px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/[0.05] blur-[150px]" />
       </div>
@@ -188,20 +186,6 @@ export default function BusinessRegister() {
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="description" className="text-sm text-muted-foreground">
-                  {t('Описание')}
-                </Label>
-                <Textarea
-                  id="description"
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  rows={3}
-                  placeholder={t('Коротко опишите, что можно бронировать')}
-                  className="border-border/50 bg-input/50 focus:border-primary/60"
-                />
-              </div>
-
               {!isAuthenticated && (
                 <>
                   <div className="space-y-2">
@@ -252,7 +236,7 @@ export default function BusinessRegister() {
                 </>
               )}
 
-              <div className="rounded-xl border border-emerald-800/40 bg-emerald-950/20 px-3 py-2 text-xs text-emerald-200">
+              <div className="rounded-xl border border-[hsl(var(--success)/0.24)] bg-[hsl(var(--success)/0.12)] px-4 py-3 text-sm text-[hsl(var(--success-foreground))] shadow-[0_12px_30px_-24px_hsl(var(--success)/0.45)]">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-3.5 w-3.5" />
                   <span>{t('После регистрации вы сразу попадете в бизнес-кабинет')}</span>
@@ -260,7 +244,7 @@ export default function BusinessRegister() {
               </div>
             </CardContent>
 
-            <CardFooter className="flex flex-col gap-4 pb-6">
+            <CardFooter className="flex flex-col gap-4 pt-2 pb-6">
               <Button type="submit" className="h-11 w-full font-medium tracking-wide" disabled={isLoading}>
                 {isLoading ? t('Регистрация...') : t('Зарегистрировать бизнес')}
               </Button>

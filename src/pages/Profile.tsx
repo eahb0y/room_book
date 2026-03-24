@@ -2,8 +2,10 @@ import { type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from '
 import {
   AlertCircle,
   ArrowLeft,
+  CalendarDays,
   Camera,
   CheckCircle2,
+  DoorOpen,
   History,
   MapPin,
   MessageCircle,
@@ -11,6 +13,7 @@ import {
   MoonStar,
   Palette,
   ShieldCheck,
+  Sparkles,
   SunMedium,
   Trash2,
   UserRound,
@@ -33,12 +36,14 @@ import ClientBookingHistory from '@/components/ClientBookingHistory';
 import BusinessActivityField from '@/components/BusinessActivityField';
 import { useI18n } from '@/i18n/useI18n';
 import { canManageBusinessResources, getAccessibleBusinessVenues, isBusinessPortalActive } from '@/lib/businessAccess';
+import { getBusinessCalendarStats } from '@/lib/businessCalendar';
 import { getInvitationByToken, redeemInvitation } from '@/lib/inviteApi';
 import {
   BUSINESS_ACTIVITY_CUSTOM_ID,
   decodeBusinessActivityValue,
   encodeBusinessActivityValue,
 } from '@/lib/businessActivity';
+import { listBusinessServices } from '@/lib/serviceApi';
 import {
   getResidentPromoDescription,
   normalizeResidentPromoCode,
@@ -124,6 +129,7 @@ export default function Profile() {
   const { t, intlLocale } = useI18n();
   const { user, portal, updateProfile, refreshBusinessAccess } = useAuthStore();
   const venues = useVenueStore((state) => state.venues);
+  const rooms = useVenueStore((state) => state.rooms);
   const memberships = useVenueStore((state) => state.memberships);
   const createVenue = useVenueStore((state) => state.createVenue);
   const updateVenue = useVenueStore((state) => state.updateVenue);
@@ -157,6 +163,9 @@ export default function Profile() {
   const [telegramError, setTelegramError] = useState('');
   const [telegramSuccess, setTelegramSuccess] = useState('');
   const [isThemeReady, setIsThemeReady] = useState(false);
+  const [businessServices, setBusinessServices] = useState<Awaited<ReturnType<typeof listBusinessServices>>>([]);
+  const [isBusinessCalendarsLoading, setIsBusinessCalendarsLoading] = useState(false);
+  const [businessCalendarsError, setBusinessCalendarsError] = useState('');
 
   useEffect(() => {
     setFirstName(user?.firstName ?? '');
@@ -178,6 +187,10 @@ export default function Profile() {
   const isBusinessPortal = isBusinessPortalActive(user, portal);
   const isSimpleUser = !isBusinessPortal;
   const accessibleBusinessVenues = useMemo(() => getAccessibleBusinessVenues(user, venues), [user, venues]);
+  const accessibleVenueIds = useMemo(
+    () => new Set(accessibleBusinessVenues.map((venue) => venue.id)),
+    [accessibleBusinessVenues],
+  );
   const existingVenue = useMemo(
     () => accessibleBusinessVenues.find((venue) => venue.id === selectedVenueId) ?? accessibleBusinessVenues[0] ?? null,
     [accessibleBusinessVenues, selectedVenueId],
@@ -203,6 +216,26 @@ export default function Profile() {
         ? t('Тёмная тема')
         : t('Системная тема');
   const systemThemeLabel = systemTheme === 'dark' ? t('Тёмная') : t('Светлая');
+  const accessibleRooms = useMemo(
+    () => rooms.filter((room) => accessibleVenueIds.has(room.venueId)),
+    [accessibleVenueIds, rooms],
+  );
+  const selectedVenueRooms = useMemo(
+    () => existingVenue ? accessibleRooms.filter((room) => room.venueId === existingVenue.id) : [],
+    [accessibleRooms, existingVenue],
+  );
+  const selectedVenueServices = useMemo(
+    () => existingVenue ? businessServices.filter((service) => service.venueId === existingVenue.id) : [],
+    [businessServices, existingVenue],
+  );
+  const businessCalendarStats = useMemo(
+    () => getBusinessCalendarStats({ rooms: accessibleRooms, services: businessServices }),
+    [accessibleRooms, businessServices],
+  );
+  const selectedVenueCalendarStats = useMemo(
+    () => getBusinessCalendarStats({ rooms: selectedVenueRooms, services: selectedVenueServices }),
+    [selectedVenueRooms, selectedVenueServices],
+  );
   const themeOptions = [
     {
       value: 'light' as const,
@@ -235,6 +268,43 @@ export default function Profile() {
       surfaceClassName: 'bg-white/80 border-[#D7E0EE]',
     },
   ];
+
+  useEffect(() => {
+    if (!isBusinessPortal || accessibleBusinessVenues.length === 0) {
+      setBusinessServices([]);
+      setBusinessCalendarsError('');
+      setIsBusinessCalendarsLoading(false);
+      return;
+    }
+
+    let isActive = true;
+
+    void (async () => {
+      setIsBusinessCalendarsLoading(true);
+      setBusinessCalendarsError('');
+
+      try {
+        const servicesByVenue = await Promise.all(
+          accessibleBusinessVenues.map((venue) => listBusinessServices({ venueId: venue.id })),
+        );
+
+        if (!isActive) return;
+        setBusinessServices(servicesByVenue.flat());
+      } catch (error) {
+        if (!isActive) return;
+        setBusinessServices([]);
+        setBusinessCalendarsError(error instanceof Error ? t(error.message) : t('Не удалось загрузить календари бизнеса'));
+      } finally {
+        if (isActive) {
+          setIsBusinessCalendarsLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [accessibleBusinessVenues, isBusinessPortal, t]);
 
   useEffect(() => {
     if (!isBusinessPortal) {
@@ -818,6 +888,64 @@ export default function Profile() {
                   {t('Только роль business может изменять данные заведения')}
                 </p>
               )}
+
+              <div className="rounded-2xl border border-border/50 bg-background/35 p-4 space-y-4">
+                <div className="space-y-1">
+                  <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <CalendarDays className="h-4 w-4 text-primary" />
+                    <span>{t('Календари бронирования')}</span>
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {t('1 комната = 1 календарь. 1 специалист внутри сервиса = 1 календарь услуги.')}
+                  </p>
+                </div>
+
+                {businessCalendarsError ? (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{businessCalendarsError}</AlertDescription>
+                  </Alert>
+                ) : null}
+
+                {isBusinessCalendarsLoading ? (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    {Array.from({ length: 3 }).map((_, index) => (
+                      <div key={index} className="h-24 animate-pulse rounded-2xl border border-border/50 bg-background/55" />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="rounded-2xl border border-border/50 bg-background/55 p-4">
+                      <p className="flex items-center gap-2 text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                        <CalendarDays className="h-3.5 w-3.5" />
+                        <span>{t('Всего в бизнесе')}</span>
+                      </p>
+                      <p className="mt-2 text-2xl font-semibold text-foreground">{businessCalendarStats.totalCalendars}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {t('В выбранном заведении: {count}', { count: selectedVenueCalendarStats.totalCalendars })}
+                      </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-border/50 bg-background/55 p-4">
+                      <p className="flex items-center gap-2 text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                        <DoorOpen className="h-3.5 w-3.5" />
+                        <span>{t('Календари комнат')}</span>
+                      </p>
+                      <p className="mt-2 text-2xl font-semibold text-foreground">{selectedVenueCalendarStats.roomCalendars}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{t('Для выбранного заведения')}</p>
+                    </div>
+
+                    <div className="rounded-2xl border border-border/50 bg-background/55 p-4">
+                      <p className="flex items-center gap-2 text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                        <Sparkles className="h-3.5 w-3.5" />
+                        <span>{t('Календари услуг')}</span>
+                      </p>
+                      <p className="mt-2 text-2xl font-semibold text-foreground">{selectedVenueCalendarStats.serviceCalendars}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{t('Для выбранного заведения')}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <div className="rounded-2xl border border-border/50 bg-background/35 p-4 space-y-4">
                 <div className="space-y-1">

@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
+import { addDays, format, isBefore, parseISO, startOfToday, type Locale } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
 import {
   AlertCircle,
   Building2,
   Check,
+  CheckCircle2,
+  Clock3,
   Edit2,
   ImagePlus,
   Plus,
@@ -25,6 +28,7 @@ import {
   updateBusinessService,
   updateBusinessServiceCategory,
 } from '@/lib/serviceApi';
+import { listServiceBookingBusySlots, type ServiceBookingBusySlot } from '@/lib/serviceBookingApi';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   AlertDialog,
@@ -50,12 +54,23 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useI18n } from '@/i18n/useI18n';
 import { canManageBusinessResources, getAccessibleBusinessVenues, isBusinessPortalActive } from '@/lib/businessAccess';
+import { cn } from '@/lib/utils';
 
 const MAX_SERVICE_PHOTO_SIDE = 1400;
 const MAX_SERVICE_PHOTO_BYTES = 1_500_000;
 const SERVICE_PHOTO_QUALITY = 0.82;
+const SLOT_STEP_MINUTES = 15;
+const MINUTES_IN_DAY = 24 * 60;
+
+interface ServiceSlotItem {
+  startTime: string;
+  endTime: string;
+  isBusy: boolean;
+  bookingUserLabel?: string;
+}
 
 interface ServiceProviderDraft {
   id: string;
@@ -158,6 +173,96 @@ const toTimeMinutes = (value: string) => {
   return parsedHour * 60 + parsedMinute;
 };
 
+const toTimeLabel = (totalMinutes: number) => {
+  const safeMinutes = Math.max(0, Math.min(totalMinutes, MINUTES_IN_DAY));
+  if (safeMinutes >= MINUTES_IN_DAY) return '24:00';
+
+  const hour = Math.floor(safeMinutes / 60).toString().padStart(2, '0');
+  const minute = (safeMinutes % 60).toString().padStart(2, '0');
+  return `${hour}:${minute}`;
+};
+
+const isOverlapping = (startA: string, endA: string, startB: string, endB: string) =>
+  startA < endB && endA > startB;
+
+const buildFutureDateOptions = (selectedValue: string, count = 10) => {
+  const today = startOfToday();
+  const parsed = parseISO(selectedValue);
+  const selectedDate = Number.isNaN(parsed.getTime()) ? today : parsed;
+  const anchor = isBefore(selectedDate, today) ? today : selectedDate;
+  const candidateStart = addDays(anchor, -3);
+  const startDate = isBefore(candidateStart, today) ? today : candidateStart;
+
+  return Array.from({ length: count }, (_, index) => format(addDays(startDate, index), 'yyyy-MM-dd'));
+};
+
+const resolveUserName = (firstName?: string, lastName?: string) => {
+  const normalizedFirstName = firstName?.trim();
+  const normalizedLastName = lastName?.trim();
+  const fullName = [normalizedFirstName, normalizedLastName].filter((part) => Boolean(part)).join(' ').trim();
+  return fullName.length > 0 ? fullName : undefined;
+};
+
+const getServiceBookingUserLabel = (params: {
+  userId: string;
+  userEmail?: string;
+  userFirstName?: string;
+  userLastName?: string;
+  t: (value: string, inputParams?: Record<string, string | number>) => string;
+}) => {
+  const fullName = resolveUserName(params.userFirstName, params.userLastName);
+  const email = params.userEmail?.trim();
+
+  if (fullName && email) return `${fullName} (${email})`;
+  if (fullName) return fullName;
+  if (email) return email;
+
+  return `${params.t('Пользователь')} #${params.userId.slice(0, 8)}`;
+};
+
+function HorizontalDayScroller({
+  value,
+  dates,
+  dateLocale,
+  onChange,
+}: {
+  value: string;
+  dates: string[];
+  dateLocale: Locale;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <ScrollArea className="w-full max-w-full overflow-hidden whitespace-nowrap rounded-xl">
+      <div className="flex w-max min-w-full gap-2 pb-2">
+        {dates.map((dateValue) => {
+          const isSelected = dateValue === value;
+
+          return (
+            <button
+              key={dateValue}
+              type="button"
+              onClick={() => onChange(dateValue)}
+              className={cn(
+                'w-[104px] shrink-0 rounded-xl border px-3 py-3 text-left transition-colors',
+                isSelected
+                  ? 'border-primary/60 bg-primary/10 text-primary'
+                  : 'border-border/40 bg-muted/15 text-foreground hover:border-border/70 hover:bg-muted/25',
+              )}
+            >
+              <p className={cn('text-[11px] uppercase tracking-[0.18em]', isSelected ? 'text-primary/80' : 'text-muted-foreground')}>
+                {format(parseISO(dateValue), 'EEE', { locale: dateLocale })}
+              </p>
+              <p className="mt-1 text-sm font-medium">
+                {format(parseISO(dateValue), 'd MMM', { locale: dateLocale })}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+    </ScrollArea>
+  );
+}
+
 const prepareImageFile = async (file: File) => {
   if (!file.type.startsWith('image/')) {
     throw new Error('Можно загружать только изображения');
@@ -175,11 +280,12 @@ const prepareImageFile = async (file: File) => {
 };
 
 export default function ServicesManagement() {
-  const { t } = useI18n();
+  const { t, dateLocale } = useI18n();
   const { user, portal } = useAuthStore();
   const navigate = useNavigate();
   const isBusinessPortal = isBusinessPortalActive(user, portal);
   const venues = useVenueStore((state) => state.venues);
+  const serviceBookings = useVenueStore((state) => state.serviceBookings);
 
   const ownedVenues = useMemo(() => getAccessibleBusinessVenues(user, venues), [user, venues]);
   const canManageServices = canManageBusinessResources(user);
@@ -210,6 +316,12 @@ export default function ServicesManagement() {
   const [servicePhotoUrl, setServicePhotoUrl] = useState<string | null>(null);
   const [providers, setProviders] = useState<ServiceProviderDraft[]>([]);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [selectedSlotServiceId, setSelectedSlotServiceId] = useState('');
+  const [selectedSlotProviderId, setSelectedSlotProviderId] = useState('');
+  const [selectedSlotDate, setSelectedSlotDate] = useState(() => format(startOfToday(), 'yyyy-MM-dd'));
+  const [busySlots, setBusySlots] = useState<ServiceBookingBusySlot[]>([]);
+  const [isBusySlotsLoading, setIsBusySlotsLoading] = useState(false);
+  const [slotError, setSlotError] = useState('');
 
   useEffect(() => {
     if (!user || !isBusinessPortal) {
@@ -303,6 +415,17 @@ export default function ServicesManagement() {
     );
   }, [categories]);
 
+  useEffect(() => {
+    if (services.length === 0) {
+      setSelectedSlotServiceId('');
+      return;
+    }
+
+    setSelectedSlotServiceId((current) =>
+      current && services.some((service) => service.id === current) ? current : services[0]?.id ?? '',
+    );
+  }, [services]);
+
   const categoryServiceCount = useMemo(() => {
     const counts = new Map<string, number>();
     services.forEach((service) => {
@@ -331,9 +454,143 @@ export default function ServicesManagement() {
     [categories, selectedCategoryId],
   );
 
+  const selectedSlotService = useMemo(
+    () => services.find((service) => service.id === selectedSlotServiceId) ?? null,
+    [selectedSlotServiceId, services],
+  );
+
+  useEffect(() => {
+    if (!selectedSlotService || selectedSlotService.providers.length === 0) {
+      setSelectedSlotProviderId('');
+      return;
+    }
+
+    setSelectedSlotProviderId((current) =>
+      current && selectedSlotService.providers.some((provider) => provider.id === current)
+        ? current
+        : selectedSlotService.providers[0]?.id ?? '',
+    );
+  }, [selectedSlotService]);
+
+  const selectedSlotProvider = useMemo(
+    () => selectedSlotService?.providers.find((provider) => provider.id === selectedSlotProviderId) ?? null,
+    [selectedSlotProviderId, selectedSlotService],
+  );
+
   const selectedCategoryServices = useMemo(
     () => (selectedCategory ? servicesByCategory.get(selectedCategory.id) ?? [] : []),
     [selectedCategory, servicesByCategory],
+  );
+
+  const slotDateOptions = useMemo(() => buildFutureDateOptions(selectedSlotDate), [selectedSlotDate]);
+
+  const selectedDateServiceBookings = useMemo(
+    () =>
+      serviceBookings
+        .filter((booking) => booking.serviceId === selectedSlotServiceId)
+        .filter((booking) => booking.providerId === selectedSlotProviderId)
+        .filter((booking) => booking.bookingDate === selectedSlotDate)
+        .sort((first, second) => first.startTime.localeCompare(second.startTime)),
+    [selectedSlotDate, selectedSlotProviderId, selectedSlotServiceId, serviceBookings],
+  );
+
+  const activeDateServiceBookings = useMemo(
+    () => selectedDateServiceBookings.filter((booking) => booking.status === 'active'),
+    [selectedDateServiceBookings],
+  );
+
+  const cancelledDateServiceBookings = useMemo(
+    () => selectedDateServiceBookings.filter((booking) => booking.status === 'cancelled'),
+    [selectedDateServiceBookings],
+  );
+
+  useEffect(() => {
+    if (!selectedSlotServiceId || !selectedSlotProviderId || !selectedSlotDate) {
+      setBusySlots([]);
+      setSlotError('');
+      return;
+    }
+
+    let isActive = true;
+
+    void (async () => {
+      setIsBusySlotsLoading(true);
+      setSlotError('');
+
+      try {
+        const loadedBusySlots = await listServiceBookingBusySlots({
+          serviceId: selectedSlotServiceId,
+          providerId: selectedSlotProviderId,
+          bookingDate: selectedSlotDate,
+        });
+
+        if (!isActive) return;
+        setBusySlots(loadedBusySlots);
+      } catch (err) {
+        if (!isActive) return;
+        setBusySlots([]);
+        setSlotError(err instanceof Error ? t(err.message) : t('Не удалось загрузить доступные слоты'));
+      } finally {
+        if (isActive) {
+          setIsBusySlotsLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
+  }, [selectedSlotDate, selectedSlotProviderId, selectedSlotServiceId, t]);
+
+  const slotItems = useMemo<ServiceSlotItem[]>(() => {
+    if (!selectedSlotProvider) return [];
+
+    const durationMinutes = selectedSlotProvider.durationMinutes;
+    if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) return [];
+
+    const workFromMinutes = toTimeMinutes(selectedSlotProvider.workFrom?.trim() || '00:00') ?? 0;
+    const workToMinutes = toTimeMinutes(selectedSlotProvider.workTo?.trim() || '24:00') ?? MINUTES_IN_DAY;
+    const slotStartMinutes: number[] = [];
+
+    for (let minute = workFromMinutes; minute + durationMinutes <= workToMinutes; minute += SLOT_STEP_MINUTES) {
+      slotStartMinutes.push(minute);
+    }
+
+    return slotStartMinutes.map((minute) => {
+      const startTime = toTimeLabel(minute);
+      const endTime = toTimeLabel(minute + durationMinutes);
+      const exactBooking = activeDateServiceBookings.find((booking) =>
+        isOverlapping(startTime, endTime, booking.startTime, booking.endTime),
+      );
+      const busyByRpc = busySlots.some((slot) =>
+        isOverlapping(startTime, endTime, slot.startTime, slot.endTime),
+      );
+
+      return {
+        startTime,
+        endTime,
+        isBusy: Boolean(exactBooking) || busyByRpc,
+        bookingUserLabel: exactBooking
+          ? getServiceBookingUserLabel({
+            userId: exactBooking.userId,
+            userEmail: exactBooking.userEmail,
+            userFirstName: exactBooking.userFirstName,
+            userLastName: exactBooking.userLastName,
+            t,
+          })
+          : undefined,
+      };
+    });
+  }, [activeDateServiceBookings, busySlots, selectedSlotProvider, t]);
+
+  const availableSlotCount = useMemo(
+    () => slotItems.filter((slot) => !slot.isBusy).length,
+    [slotItems],
+  );
+
+  const busySlotCount = useMemo(
+    () => slotItems.filter((slot) => slot.isBusy).length,
+    [slotItems],
   );
 
   const existingStaffOptions = useMemo<ExistingStaffOption[]>(() => {
@@ -889,218 +1146,487 @@ export default function ServicesManagement() {
         </div>
       ) : null}
 
-      <div className="space-y-6">
-        <Card className="border-border/40">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold">{t('Категории сервисов')}</CardTitle>
-            <CardDescription>
-              {t('Категории нужны только для структуры. Сервис можно добавить сразу из любой категории.')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <form onSubmit={handleCreateCategory} className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
-              <Input
-                value={categoryName}
-                onChange={(event) => setCategoryName(event.target.value)}
-                placeholder={t('Например: Стрижка')}
-                disabled={!canManageServices}
-                className="h-11 border-border/50 bg-input/50 focus:border-primary/60"
-              />
-              <Button type="submit" className="h-11 w-full" disabled={isCategorySaving || !canManageServices}>
-                <Plus className="mr-2 h-4 w-4" />
-                {isCategorySaving ? t('Создание…') : t('Создать категорию')}
-              </Button>
-            </form>
+      <Tabs defaultValue="catalog" className="space-y-6">
+        <TabsList className="grid h-11 w-full max-w-[420px] grid-cols-2">
+          <TabsTrigger value="catalog">{t('Каталог услуг')}</TabsTrigger>
+          <TabsTrigger value="slots">{t('Слоты бронирования')}</TabsTrigger>
+        </TabsList>
 
-            {categories.length > 0 ? (
-              <div className="overflow-x-auto pb-1">
-                <div className="flex min-w-max gap-3">
-                  {categories.map((category) => {
-                    const isSelected = category.id === selectedCategoryId;
-                    const count = categoryServiceCount.get(category.id) ?? 0;
-
-                    return (
-                      <button
-                        key={category.id}
-                        type="button"
-                        onClick={() => setSelectedCategoryId(category.id)}
-                        className={`w-[240px] shrink-0 rounded-2xl border p-4 text-left transition-all ${
-                          isSelected
-                            ? 'border-primary/60 bg-primary/10 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]'
-                            : 'border-border/45 bg-muted/10 hover:border-primary/35 hover:bg-primary/5'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-foreground">{category.name}</p>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              {t('Сервисов: {count}', { count })}
-                            </p>
-                          </div>
-                          {isSelected ? (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2.5 py-1 text-[11px] font-medium text-primary">
-                              <Check className="h-3.5 w-3.5" />
-                              {t('По умолчанию')}
-                            </span>
-                          ) : (
-                            <span className="rounded-full border border-border/50 px-2.5 py-1 text-[11px] text-muted-foreground">
-                              {t('Сделать основной')}
-                            </span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : (
-              <div className="rounded-xl border border-dashed border-border/50 bg-muted/10 px-4 py-4 text-sm text-muted-foreground">
-                {t('Создайте первую категорию, чтобы начать добавлять сервисы.')}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {isLoading ? (
+        <TabsContent value="catalog" className="space-y-6">
           <Card className="border-border/40">
-            <CardContent className="py-16 text-center text-sm text-muted-foreground">
-              {t('Загружаем сервисы…')}
-            </CardContent>
-          </Card>
-        ) : categories.length === 0 ? (
-          <Card className="border-border/40">
-            <CardContent className="py-16 text-center">
-              <div className="mx-auto max-w-md space-y-3">
-                <p className="text-lg font-medium text-foreground">{t('Сначала создайте категорию сервиса')}</p>
-                <p className="text-sm text-muted-foreground">
-                  {t('Сначала создайте категорию или добавьте её прямо в форме создания сервиса.')}
-                </p>
-                <Button type="button" className="mt-2 h-10" onClick={() => openCreateDialog()} disabled={!canManageServices}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  {t('Добавить сервис')}
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ) : selectedCategory ? (
-          <Card className="border-border/40">
-            <CardHeader className="gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="space-y-1">
-                <CardTitle className="text-xl">{selectedCategory.name}</CardTitle>
-                <CardDescription>
-                  {t('Сервисов: {count}', { count: selectedCategoryServices.length })}
-                </CardDescription>
-              </div>
-              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-                {canManageServices ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="h-10 border-border/50"
-                    onClick={() => openCategoryEditDialog(selectedCategory)}
-                  >
-                    <Edit2 className="mr-2 h-4 w-4" />
-                    {t('Редактировать категорию')}
-                  </Button>
-                ) : null}
-                <Button type="button" className="h-10 shrink-0" onClick={() => openCreateDialog(selectedCategory.id)} disabled={!canManageServices}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  {t('Добавить сервис')}
-                </Button>
-              </div>
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">{t('Категории сервисов')}</CardTitle>
+              <CardDescription>
+                {t('Категории нужны только для структуры. Сервис можно добавить сразу из любой категории.')}
+              </CardDescription>
             </CardHeader>
-            <CardContent>
-              {selectedCategoryServices.length > 0 ? (
-                <div className="overflow-hidden rounded-2xl border border-border/45 bg-muted/5">
-                  <ScrollArea className="h-[420px] xl:h-[620px]">
-                    <div className="space-y-3 p-3">
-                      {selectedCategoryServices.map((service) => {
-                        const priceSummary = buildServicePriceSummary(service.providers);
+            <CardContent className="space-y-5">
+              <form onSubmit={handleCreateCategory} className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+                <Input
+                  value={categoryName}
+                  onChange={(event) => setCategoryName(event.target.value)}
+                  placeholder={t('Например: Стрижка')}
+                  disabled={!canManageServices}
+                  className="h-11 border-border/50 bg-input/50 focus:border-primary/60"
+                />
+                <Button type="submit" className="h-11 w-full" disabled={isCategorySaving || !canManageServices}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  {isCategorySaving ? t('Создание…') : t('Создать категорию')}
+                </Button>
+              </form>
 
-                        return (
-                          <div
-                            key={service.id}
-                            className="flex flex-col rounded-2xl border border-border/45 bg-background/60 p-3"
-                          >
-                            {service.photoUrl ? (
-                              <img
-                                src={service.photoUrl}
-                                alt={t('Фото сервиса {serviceName}', { serviceName: service.name })}
-                                className="h-40 w-full rounded-xl object-cover"
-                              />
-                            ) : (
-                              <div className="flex h-28 w-full items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 via-secondary/25 to-muted/25">
-                                <Sparkles className="h-6 w-6 text-primary/70" />
-                              </div>
-                            )}
+              {categories.length > 0 ? (
+                <div className="overflow-x-auto pb-1">
+                  <div className="flex min-w-max gap-3">
+                    {categories.map((category) => {
+                      const isSelected = category.id === selectedCategoryId;
+                      const count = categoryServiceCount.get(category.id) ?? 0;
 
-                            <div className="mt-3 space-y-3">
-                              <div className="space-y-2">
-                                <p className="break-words text-sm font-semibold leading-snug text-foreground">
-                                  {service.name}
-                                </p>
-                                <span className="inline-flex rounded-full border border-border/45 bg-input/20 px-2.5 py-1 text-[11px] text-muted-foreground">
-                                  {t('Специалистов: {count}', { count: service.providers.length })}
-                                </span>
-                              </div>
-
-                              <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                                {priceSummary ? (
-                                  <span className="rounded-full border border-border/45 bg-input/20 px-2.5 py-1">
-                                    {t('Цена: {value}', { value: priceSummary })}
-                                  </span>
-                                ) : null}
-                                {service.providers[0]?.name ? (
-                                  <span className="rounded-full border border-border/45 bg-input/20 px-2.5 py-1">
-                                    {service.providers[0].name}
-                                  </span>
-                                ) : null}
-                                {service.providers.length > 1 ? (
-                                  <span className="rounded-full border border-border/45 bg-input/20 px-2.5 py-1">
-                                    {t('Ещё {count}', { count: service.providers.length - 1 })}
-                                  </span>
-                                ) : null}
-                              </div>
+                      return (
+                        <button
+                          key={category.id}
+                          type="button"
+                          onClick={() => setSelectedCategoryId(category.id)}
+                          className={`w-[240px] shrink-0 rounded-2xl border p-4 text-left transition-all ${
+                            isSelected
+                              ? 'border-primary/60 bg-primary/10 shadow-[0_0_0_1px_rgba(255,255,255,0.02)]'
+                              : 'border-border/45 bg-muted/10 hover:border-primary/35 hover:bg-primary/5'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-foreground">{category.name}</p>
+                              <p className="mt-1 text-xs text-muted-foreground">
+                                {t('Сервисов: {count}', { count })}
+                              </p>
                             </div>
-
-                            {canManageServices ? (
-                              <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-9 w-full border-border/50 hover:border-primary/30 sm:flex-1"
-                                  onClick={() => openEditDialog(service)}
-                                >
-                                  <Edit2 className="mr-2 h-3.5 w-3.5" />
-                                  {t('Редактировать')}
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-9 w-full border-red-900/30 px-3 text-red-400 hover:border-red-800/40 hover:bg-red-950/30 hover:text-red-300 sm:w-auto"
-                                  onClick={() => setDeleteConfirmId(service.id)}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </Button>
-                              </div>
-                            ) : null}
+                            {isSelected ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2.5 py-1 text-[11px] font-medium text-primary">
+                                <Check className="h-3.5 w-3.5" />
+                                {t('По умолчанию')}
+                              </span>
+                            ) : (
+                              <span className="rounded-full border border-border/50 px-2.5 py-1 text-[11px] text-muted-foreground">
+                                {t('Сделать основной')}
+                              </span>
+                            )}
                           </div>
-                        );
-                      })}
-                    </div>
-                  </ScrollArea>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               ) : (
-                <div className="rounded-2xl border border-dashed border-border/50 bg-muted/10 px-5 py-5">
-                  <p className="text-sm text-muted-foreground">{t('В этой категории пока нет сервисов.')}</p>
+                <div className="rounded-xl border border-dashed border-border/50 bg-muted/10 px-4 py-4 text-sm text-muted-foreground">
+                  {t('Создайте первую категорию, чтобы начать добавлять сервисы.')}
                 </div>
               )}
             </CardContent>
           </Card>
-        ) : null}
-      </div>
+
+          {isLoading ? (
+            <Card className="border-border/40">
+              <CardContent className="py-16 text-center text-sm text-muted-foreground">
+                {t('Загружаем сервисы…')}
+              </CardContent>
+            </Card>
+          ) : categories.length === 0 ? (
+            <Card className="border-border/40">
+              <CardContent className="py-16 text-center">
+                <div className="mx-auto max-w-md space-y-3">
+                  <p className="text-lg font-medium text-foreground">{t('Сначала создайте категорию сервиса')}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {t('Сначала создайте категорию или добавьте её прямо в форме создания сервиса.')}
+                  </p>
+                  <Button type="button" className="mt-2 h-10" onClick={() => openCreateDialog()} disabled={!canManageServices}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    {t('Добавить сервис')}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : selectedCategory ? (
+            <Card className="border-border/40">
+              <CardHeader className="gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="space-y-1">
+                  <CardTitle className="text-xl">{selectedCategory.name}</CardTitle>
+                  <CardDescription>
+                    {t('Сервисов: {count}', { count: selectedCategoryServices.length })}
+                  </CardDescription>
+                </div>
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                  {canManageServices ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10 border-border/50"
+                      onClick={() => openCategoryEditDialog(selectedCategory)}
+                    >
+                      <Edit2 className="mr-2 h-4 w-4" />
+                      {t('Редактировать категорию')}
+                    </Button>
+                  ) : null}
+                  <Button type="button" className="h-10 shrink-0" onClick={() => openCreateDialog(selectedCategory.id)} disabled={!canManageServices}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    {t('Добавить сервис')}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {selectedCategoryServices.length > 0 ? (
+                  <div className="overflow-hidden rounded-2xl border border-border/45 bg-muted/5">
+                    <ScrollArea className="h-[420px] xl:h-[620px]">
+                      <div className="space-y-3 p-3">
+                        {selectedCategoryServices.map((service) => {
+                          const priceSummary = buildServicePriceSummary(service.providers);
+
+                          return (
+                            <div
+                              key={service.id}
+                              className="flex flex-col rounded-2xl border border-border/45 bg-background/60 p-3"
+                            >
+                              {service.photoUrl ? (
+                                <img
+                                  src={service.photoUrl}
+                                  alt={t('Фото сервиса {serviceName}', { serviceName: service.name })}
+                                  className="h-40 w-full rounded-xl object-cover"
+                                />
+                              ) : (
+                                <div className="flex h-28 w-full items-center justify-center rounded-xl bg-gradient-to-br from-primary/15 via-secondary/25 to-muted/25">
+                                  <Sparkles className="h-6 w-6 text-primary/70" />
+                                </div>
+                              )}
+
+                              <div className="mt-3 space-y-3">
+                                <div className="space-y-2">
+                                  <p className="break-words text-sm font-semibold leading-snug text-foreground">
+                                    {service.name}
+                                  </p>
+                                  <span className="inline-flex rounded-full border border-border/45 bg-input/20 px-2.5 py-1 text-[11px] text-muted-foreground">
+                                    {t('Специалистов: {count}', { count: service.providers.length })}
+                                  </span>
+                                </div>
+
+                                <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                                  {priceSummary ? (
+                                    <span className="rounded-full border border-border/45 bg-input/20 px-2.5 py-1">
+                                      {t('Цена: {value}', { value: priceSummary })}
+                                    </span>
+                                  ) : null}
+                                  {service.providers[0]?.name ? (
+                                    <span className="rounded-full border border-border/45 bg-input/20 px-2.5 py-1">
+                                      {service.providers[0].name}
+                                    </span>
+                                  ) : null}
+                                  {service.providers.length > 1 ? (
+                                    <span className="rounded-full border border-border/45 bg-input/20 px-2.5 py-1">
+                                      {t('Ещё {count}', { count: service.providers.length - 1 })}
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </div>
+
+                              {canManageServices ? (
+                                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-9 w-full border-border/50 hover:border-primary/30 sm:flex-1"
+                                    onClick={() => openEditDialog(service)}
+                                  >
+                                    <Edit2 className="mr-2 h-3.5 w-3.5" />
+                                    {t('Редактировать')}
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-9 w-full border-red-900/30 px-3 text-red-400 hover:border-red-800/40 hover:bg-red-950/30 hover:text-red-300 sm:w-auto"
+                                    onClick={() => setDeleteConfirmId(service.id)}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-border/50 bg-muted/10 px-5 py-5">
+                    <p className="text-sm text-muted-foreground">{t('В этой категории пока нет сервисов.')}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
+        </TabsContent>
+
+        <TabsContent value="slots" className="space-y-6">
+          {isLoading ? (
+            <Card className="border-border/40">
+              <CardContent className="py-16 text-center text-sm text-muted-foreground">
+                {t('Загружаем сервисы…')}
+              </CardContent>
+            </Card>
+          ) : services.length === 0 ? (
+            <Card className="border-border/40">
+              <CardContent className="py-16 text-center">
+                <div className="mx-auto max-w-md space-y-3">
+                  <p className="text-lg font-medium text-foreground">{t('Сначала добавьте сервис')}</p>
+                  <p className="text-sm text-muted-foreground">
+                    {t('После этого здесь появятся слоты бронирования по специалистам и датам.')}
+                  </p>
+                  <Button type="button" className="mt-2 h-10" onClick={() => openCreateDialog()} disabled={!canManageServices}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    {t('Добавить сервис')}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              <Card className="border-border/40">
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold">{t('Слоты бронирования')}</CardTitle>
+                  <CardDescription>
+                    {t('Выберите сервис, специалиста и дату, чтобы посмотреть занятые и свободные слоты.')}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-5">
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label className="text-sm text-muted-foreground">{t('Сервис')}</Label>
+                      <Select value={selectedSlotServiceId} onValueChange={setSelectedSlotServiceId}>
+                        <SelectTrigger className="h-11 border-border/50 bg-input/50">
+                          <SelectValue placeholder={t('Выберите сервис')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {services.map((service) => (
+                            <SelectItem key={service.id} value={service.id}>
+                              {service.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-sm text-muted-foreground">{t('Специалист')}</Label>
+                      <Select
+                        value={selectedSlotProviderId}
+                        onValueChange={setSelectedSlotProviderId}
+                        disabled={!selectedSlotService || selectedSlotService.providers.length === 0}
+                      >
+                        <SelectTrigger className="h-11 border-border/50 bg-input/50">
+                          <SelectValue placeholder={t('Выберите специалиста')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(selectedSlotService?.providers ?? []).map((provider) => (
+                            <SelectItem key={provider.id} value={provider.id}>
+                              {provider.location ? `${provider.name} · ${provider.location}` : provider.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">{t('Дата')}</Label>
+                    <HorizontalDayScroller
+                      value={selectedSlotDate}
+                      dates={slotDateOptions}
+                      dateLocale={dateLocale}
+                      onChange={setSelectedSlotDate}
+                    />
+                  </div>
+
+                  {selectedSlotService && selectedSlotProvider ? (
+                    <>
+                      <div className="grid gap-3 md:grid-cols-3">
+                        <div className="rounded-2xl border border-border/50 bg-background/55 p-4">
+                          <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{t('Свободных слотов')}</p>
+                          <p className="mt-2 text-2xl font-semibold text-foreground">{availableSlotCount}</p>
+                        </div>
+                        <div className="rounded-2xl border border-border/50 bg-background/55 p-4">
+                          <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{t('Занятых слотов')}</p>
+                          <p className="mt-2 text-2xl font-semibold text-foreground">{busySlotCount}</p>
+                        </div>
+                        <div className="rounded-2xl border border-border/50 bg-background/55 p-4">
+                          <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{t('Активных броней')}</p>
+                          <p className="mt-2 text-2xl font-semibold text-foreground">{activeDateServiceBookings.length}</p>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-3 md:grid-cols-3">
+                        <div className="rounded-2xl border border-border/50 bg-muted/10 p-4">
+                          <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{t('Сервис')}</p>
+                          <p className="mt-2 text-sm font-medium text-foreground">{selectedSlotService.name}</p>
+                        </div>
+                        <div className="rounded-2xl border border-border/50 bg-muted/10 p-4">
+                          <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{t('График')}</p>
+                          <p className="mt-2 text-sm font-medium text-foreground">
+                            {t('Доступно: {from} — {to}', {
+                              from: selectedSlotProvider.workFrom?.trim() || '00:00',
+                              to: selectedSlotProvider.workTo?.trim() || '24:00',
+                            })}
+                          </p>
+                        </div>
+                        <div className="rounded-2xl border border-border/50 bg-muted/10 p-4">
+                          <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{t('Длительность')}</p>
+                          <p className="mt-2 text-sm font-medium text-foreground">
+                            {selectedSlotProvider.durationMinutes > 0
+                              ? t('{count} мин', { count: selectedSlotProvider.durationMinutes })
+                              : '—'}
+                          </p>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="rounded-2xl border border-dashed border-border/50 bg-muted/10 px-5 py-5 text-sm text-muted-foreground">
+                      {t('Выберите сервис, чтобы посмотреть персонал, график и цены.')}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {slotError ? (
+                <Alert variant="destructive" className="animate-scale-in">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{slotError}</AlertDescription>
+                </Alert>
+              ) : null}
+
+              <div className="grid gap-6 xl:grid-cols-[minmax(0,1.4fr)_380px]">
+                <Card className="border-border/40">
+                  <CardHeader>
+                    <CardTitle className="text-lg font-semibold">{t('Сетка слотов')}</CardTitle>
+                    <CardDescription>
+                      {t('Свободные слоты отображаются автоматически')}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {isBusySlotsLoading ? (
+                      <div className="py-16 text-center text-sm text-muted-foreground">{t('Загружаем доступные слоты…')}</div>
+                    ) : slotItems.length > 0 ? (
+                      <div className="overflow-hidden rounded-2xl border border-border/45 bg-muted/5">
+                        <ScrollArea className="h-[460px]">
+                          <div className="space-y-2 p-3">
+                            {slotItems.map((slot) => (
+                              <div
+                                key={`${slot.startTime}-${slot.endTime}`}
+                                className={cn(
+                                  'flex flex-col gap-3 rounded-2xl border p-4 transition-colors sm:flex-row sm:items-center sm:justify-between',
+                                  slot.isBusy
+                                    ? 'border-primary/25 bg-primary/[0.08]'
+                                    : 'border-[hsl(var(--success)/0.24)] bg-[hsl(var(--success)/0.10)]',
+                                )}
+                              >
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <Clock3 className="h-4 w-4 text-muted-foreground" />
+                                    <p className="text-sm font-semibold text-foreground">
+                                      {slot.startTime} - {slot.endTime}
+                                    </p>
+                                  </div>
+                                  <p className="mt-1 text-sm text-muted-foreground">
+                                    {slot.bookingUserLabel ?? t('Свободный слот')}
+                                  </p>
+                                </div>
+                                <span
+                                  className={cn(
+                                    'inline-flex w-fit items-center rounded-full border px-3 py-1 text-xs font-medium',
+                                    slot.isBusy
+                                      ? 'border-primary/25 bg-primary/10 text-primary'
+                                      : 'border-[hsl(var(--success)/0.24)] bg-[hsl(var(--success)/0.12)] text-[hsl(var(--success-foreground))]',
+                                  )}
+                                >
+                                  {slot.isBusy ? t('Занято') : t('Доступно')}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </ScrollArea>
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-border/50 bg-muted/10 px-5 py-8 text-center text-sm text-muted-foreground">
+                        {t('На выбранную дату слоты пока не найдены')}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="border-border/40">
+                  <CardHeader>
+                    <CardTitle className="text-lg font-semibold">{t('Брони на выбранную дату')}</CardTitle>
+                    <CardDescription>
+                      {t('Здесь собраны активные и отменённые записи по выбранному специалисту.')}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {activeDateServiceBookings.length > 0 ? (
+                      <div className="space-y-2">
+                        {activeDateServiceBookings.map((booking) => (
+                          <div key={booking.id} className="rounded-2xl border border-border/50 bg-background/55 p-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-sm font-medium text-foreground">
+                                {getServiceBookingUserLabel({
+                                  userId: booking.userId,
+                                  userEmail: booking.userEmail,
+                                  userFirstName: booking.userFirstName,
+                                  userLastName: booking.userLastName,
+                                  t,
+                                })}
+                              </p>
+                              <span className="inline-flex items-center rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">
+                                <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                                {booking.startTime} - {booking.endTime}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-xs text-muted-foreground">{booking.userEmail ?? t('Пользователь')}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="rounded-2xl border border-dashed border-border/50 bg-muted/10 px-4 py-4 text-sm text-muted-foreground">
+                        {t('Активных броней на выбранную дату пока нет')}
+                      </div>
+                    )}
+
+                    {cancelledDateServiceBookings.length > 0 ? (
+                      <div className="space-y-2">
+                        <p className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{t('Отменённые')}</p>
+                        {cancelledDateServiceBookings.map((booking) => (
+                          <div key={booking.id} className="rounded-2xl border border-border/50 bg-muted/10 p-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="text-sm font-medium text-foreground">
+                                {getServiceBookingUserLabel({
+                                  userId: booking.userId,
+                                  userEmail: booking.userEmail,
+                                  userFirstName: booking.userFirstName,
+                                  userLastName: booking.userLastName,
+                                  t,
+                                })}
+                              </p>
+                              <span className="inline-flex items-center rounded-full border border-border/50 bg-background/55 px-2.5 py-1 text-[11px] text-muted-foreground">
+                                {booking.startTime} - {booking.endTime}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </CardContent>
+                </Card>
+              </div>
+            </>
+          )}
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={isCategoryEditDialogOpen} onOpenChange={handleCategoryEditOpenChange}>
         <DialogContent className="border-border/50 sm:max-w-md">

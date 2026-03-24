@@ -435,16 +435,34 @@ const uzTranslations: Record<string, string> = {
   'Основная категория': 'Asosiy kategoriya',
   'Категорий': 'Kategoriyalar',
   'Сервисов': 'Servislar',
+  'Сервис': 'Servis',
   'Специалистов': 'Mutaxassislar',
   'Список сервисов': 'Servislar ro‘yxati',
+  'Каталог услуг': 'Xizmatlar katalogi',
+  'Слоты бронирования': 'Bron slotlari',
+  'Выберите сервис': 'Servisni tanlang',
   'Выберите сервис, чтобы посмотреть персонал, график и цены.':
     'Personal, jadval va narxlarni ko‘rish uchun servisni tanlang.',
+  'Выберите сервис, специалиста и дату, чтобы посмотреть занятые и свободные слоты.':
+    'Band va bo‘sh slotlarni ko‘rish uchun servis, mutaxassis va sanani tanlang.',
   'Ещё {count}': 'Yana {count}',
   'Без категории': 'Kategoriyasiz',
   'Эти сервисы ещё не привязаны к категории.':
     'Bu servislar hali kategoriyaga biriktirilmagan.',
   'Цена: {value}': 'Narx: {value}',
   'Специалистов: {count}': 'Mutaxassislar: {count}',
+  'Свободных слотов': 'Bo‘sh slotlar',
+  'Занятых слотов': 'Band slotlar',
+  'Активных броней': 'Faol bronlar',
+  'Свободный слот': 'Bo‘sh slot',
+  'Занято': 'Band',
+  'Доступно': 'Mavjud',
+  'На выбранную дату слоты пока не найдены': 'Tanlangan sana uchun slotlar hozircha topilmadi',
+  'Брони на выбранную дату': 'Tanlangan sanadagi bronlar',
+  'Здесь собраны активные и отменённые записи по выбранному специалисту.':
+    'Bu yerda tanlangan mutaxassis bo‘yicha faol va bekor qilingan yozuvlar jamlangan.',
+  'Активных броней на выбранную дату пока нет': 'Tanlangan sanada faol bronlar hozircha yo‘q',
+  'Загружаем доступные слоты…': 'Mavjud slotlar yuklanmoqda…',
   'Персонал сервиса': 'Servis personali',
   'Раскройте сервис, чтобы быстро посмотреть персонал, график и цены без длинного скролла.':
     'Uzoq skrollsiz personal, jadval va narxlarni tez ko‘rish uchun servisni oching.',
@@ -501,6 +519,9 @@ const uzTranslations: Record<string, string> = {
   'Название сервиса обязательно': 'Servis nomi majburiy',
   'Добавьте хотя бы одного человека для сервиса': 'Servis uchun kamida bitta odam qo‘shing',
   'Добавьте хотя бы одного специалиста для сервиса': 'Servis uchun kamida bitta mutaxassis qo‘shing',
+  'Сначала добавьте сервис': 'Avval servis qo‘shing',
+  'После этого здесь появятся слоты бронирования по специалистам и датам.':
+    'Shundan keyin bu yerda mutaxassislar va sanalar bo‘yicha bron slotlari paydo bo‘ladi.',
   'Выберите человека для каждой строки сервиса': 'Servisning har bir qatori uchun odam tanlang',
   'Один и тот же человек не должен повторяться в сервисе':
     'Bir odam servis ichida takrorlanmasligi kerak',
@@ -525,12 +546,23 @@ const uzTranslations: Record<string, string> = {
   'Сервис не найден': 'Servis topilmadi',
   'Сервис удалён': 'Servis o‘chirildi',
   'Не удалось удалить сервис': 'Servisni o‘chirib bo‘lmadi',
+  'Не удалось загрузить календари бизнеса': 'Biznes kalendarlarini yuklab bo‘lmadi',
   'Удалить сервис': 'Servisni o‘chirish',
   'Вы уверены, что хотите удалить этот сервис?':
     'Haqiqatan ham bu servisni o‘chirmoqchimisiz?',
   'Фото сервиса {serviceName}': 'Servis rasmi {serviceName}',
   'Фото специалиста {personName}': 'Mutaxassis rasmi {personName}',
   'Специалистов в сервисе: {count}': 'Servisdagi mutaxassislar: {count}',
+  'Календари бронирования': 'Bron kalendarlari',
+  '1 комната = 1 календарь. 1 специалист внутри сервиса = 1 календарь услуги.':
+    '1 xona = 1 kalendar. Servis ichidagi 1 mutaxassis = 1 xizmat kalendari.',
+  'Всего в бизнесе': 'Biznes bo‘yicha jami',
+  'В выбранном заведении: {count}': 'Tanlangan maskanda: {count}',
+  'Календари комнат': 'Xonalar kalendarlari',
+  'Календари услуг': 'Xizmatlar kalendarlari',
+  'Для выбранного заведения': 'Tanlangan maskan uchun',
+  'Выберите дату в календаре и свободный слот специалиста на {duration}':
+    'Kalendardan sana va {duration} ga mos bo‘sh mutaxassis slotini tanlang',
   'Добавляйте и управляйте переговорными комнатами': 'Muzokara xonalarini qo‘shing va boshqaring',
   'Редактирование заведения': 'Maskanni tahrirlash',
   'Создание заведения': 'Maskan yaratish',

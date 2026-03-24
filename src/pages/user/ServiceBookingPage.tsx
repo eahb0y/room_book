@@ -8,6 +8,8 @@ import {
   Building2,
   Calendar as CalendarIcon,
   CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   MapPin,
   Sparkles,
@@ -261,6 +263,13 @@ export default function ServiceBookingPage() {
     () => Array.from({ length: 7 }, (_, index) => addDays(date, index - 3)),
     [date],
   );
+
+  const pickDate = (nextDate: Date) => {
+    setDate(nextDate);
+    resetBookingSelection();
+  };
+
+  const canGoToPreviousDay = !isBefore(addDays(date, -1), startOfToday());
 
   const handleBooking = async () => {
     setBookingError('');
@@ -526,37 +535,68 @@ export default function ServiceBookingPage() {
           <CardHeader className="space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <CardTitle>{t('Выберите дату и время')}</CardTitle>
+                <CardTitle>{t('Выберите день')}</CardTitle>
                 <CardDescription>
                   {selectedProvider
-                    ? t('Сервис будет забронирован на {duration}', { duration: toDurationLabel(selectedProvider.durationMinutes) })
+                    ? t('Выберите дату в календаре и свободный слот специалиста на {duration}', {
+                      duration: toDurationLabel(selectedProvider.durationMinutes),
+                    })
                     : t('Сначала выберите специалиста')}
                 </CardDescription>
               </div>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="border-border/55 sm:w-auto">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {format(date, 'd MMM', { locale: dateLocale })}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="end" className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={(nextDate) => {
-                      if (!nextDate) return;
-                      setDate(nextDate);
-                      resetBookingSelection();
-                    }}
-                    disabled={(day) => isBefore(day, startOfToday())}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  disabled={!canGoToPreviousDay}
+                  onClick={() => pickDate(addDays(date, -1))}
+                  className="h-9 w-9 border-border/50"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => pickDate(addDays(date, 1))}
+                  className="h-9 w-9 border-border/50"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => pickDate(startOfToday())}
+                  className="h-9 border-border/50"
+                >
+                  {t('Сегодня')}
+                </Button>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="h-9 border-border/55 sm:w-auto">
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {format(date, 'd MMM yyyy', { locale: dateLocale })}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="w-auto border-border/50 p-0">
+                    <Calendar
+                      mode="single"
+                      selected={date}
+                      onSelect={(nextDate) => {
+                        if (!nextDate) return;
+                        pickDate(nextDate);
+                      }}
+                      locale={dateLocale}
+                      disabled={(day) => isBefore(day, startOfToday())}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
 
-            <div className="flex gap-2 overflow-x-auto pb-1">
+            <div className="grid grid-cols-4 gap-2 sm:grid-cols-7">
               {dayTabs.map((day) => {
                 const isSelected = format(day, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
                 const isDisabled = isBefore(day, startOfToday());
@@ -566,20 +606,19 @@ export default function ServiceBookingPage() {
                     type="button"
                     onClick={() => {
                       if (isDisabled) return;
-                      setDate(day);
-                      resetBookingSelection();
+                      pickDate(day);
                     }}
                     disabled={isDisabled}
                     className={cn(
-                      'min-w-[88px] rounded-2xl border px-3 py-2 text-left transition-all',
+                      'rounded-lg border px-2 py-2 text-left transition-all',
                       isSelected
-                        ? 'border-primary/40 bg-primary/[0.08] text-foreground'
-                        : 'border-border/55 bg-card/55 text-muted-foreground hover:border-primary/25 hover:text-foreground',
-                      isDisabled && 'cursor-not-allowed opacity-45 hover:border-border/55 hover:text-muted-foreground',
+                        ? 'border-primary/70 bg-primary/12 text-foreground'
+                        : 'border-border/50 bg-muted/20 text-muted-foreground hover:border-primary/30 hover:text-foreground',
+                      isDisabled && 'cursor-not-allowed opacity-40',
                     )}
                   >
-                    <p className="text-[11px] uppercase tracking-[0.14em]">{format(day, 'EEE', { locale: dateLocale })}</p>
-                    <p className="mt-1 text-sm font-medium">{format(day, 'd MMM', { locale: dateLocale })}</p>
+                    <p className="text-[11px] uppercase tracking-wide">{format(day, 'EEE', { locale: dateLocale })}</p>
+                    <p className="mt-1 text-sm font-semibold">{format(day, 'd MMM', { locale: dateLocale })}</p>
                   </button>
                 );
               })}
