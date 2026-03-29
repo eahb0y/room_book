@@ -48,6 +48,7 @@ const uzTranslations: Record<string, string> = {
   'Например: стоматология, языковая школа, барбершоп':
     'Masalan: stomatologiya, til maktabi, barbershop',
   'Выберите род деятельности': 'Faoliyat turini tanlang',
+  'Рестораны': 'Restoranlar',
   'Коворкинг и офисы': 'Kovorking va ofislar',
   'Медицина': 'Tibbiyot',
   'Красота и уход': 'Go‘zallik va parvarish',
@@ -696,6 +697,35 @@ const uzTranslations: Record<string, string> = {
   'Перейти к управлению бизнесом': 'Biznes boshqaruviga o‘tish',
   'Вернуться в каталог': 'Katalogga qaytish',
   'Какие бизнесы можно подключить': 'Qaysi bizneslarni ulash mumkin',
+  'Ресторанный бизнес': 'Restoran biznesi',
+  'Когда брони столов, посадка и изменения по залам ведутся вручную, команда теряет ритм уже в пиковые часы.':
+    'Stollar bronlari, joylashtirish va zallar bo‘yicha o‘zgarishlar qo‘lda yuritilganda, jamoa aynan pik soatlarda ritmni yo‘qotadi.',
+  'TezBron собирает столы, слоты, подтверждения и рабочие сценарии в один понятный поток без хаоса в звонках и мессенджерах.':
+    'TezBron stollar, slotlar, tasdiqlar va ish ssenariylarini qo‘ng‘iroqlar hamda messenjerlardagi tartibsizliksiz yagona tushunarli oqimga jamlaydi.',
+  'Администратор и менеджер видят актуальную загрузку по залам и времени, а гость получает понятный путь до бронирования.':
+    'Administrator va menejer zallar hamda vaqt bo‘yicha dolzarb yuklamani ko‘radi, mehmon esa bron qilishgacha bo‘lgan tushunarli yo‘lni oladi.',
+  'Посмотреть сценарий для ресторанов': 'Restoranlar uchun ssenariyni ko‘rish',
+  'Залы, столы и брони без ручной координации': 'Zallar, stollar va bronlar qo‘lda muvofiqlashtirishsiz',
+  'Гости бронируют заранее, а команда держит под контролем посадку и загрузку смен.':
+    'Mehmonlar oldindan bron qiladi, jamoa esa joylashtirish va smena yuklamasini nazoratda ushlab turadi.',
+  'Бронь столов по слотам': 'Stollarni slotlar bo‘yicha bron qilish',
+  'Гость выбирает время сам без звонка в ресторан': 'Mehmon restoranga qo‘ng‘iroq qilmasdan vaqtni o‘zi tanlaydi',
+  'Зал': 'Zal',
+  'Переносы и изменения без потерь': 'Ko‘chirishlar va o‘zgarishlar yo‘qotishsiz',
+  'Команда быстрее обрабатывает обновления по броням': 'Jamoa bronlar bo‘yicha yangilanishlarni tezroq qayta ishlaydi',
+  'Смена': 'Smena',
+  'Основной зал': 'Asosiy zal',
+  'Посадка по слотам и прозрачная загрузка смен.': 'Joylashtirish slotlar bo‘yicha yuradi va smena yuklamasi shaffof ko‘rinadi.',
+  'Летняя терраса': 'Yozgi terasa',
+  'Отдельные зоны и брони без путаницы между столами.': 'Alohida zonalar va bronlar stollar o‘rtasidagi chalkashliksiz.',
+  'Банкеты': 'Banketlar',
+  'События, предзаказы и командные подтверждения в одном потоке.': 'Tadbirlar, oldindan buyurtmalar va jamoa tasdiqlari bitta oqimda.',
+  'Частные комнаты': 'Xususiy xonalar',
+  'Отдельные пространства и правила брони под формат гостей.': 'Alohida makonlar va mehmonlar formatiga mos bron qoidalari.',
+  'Список ожидания': 'Kutish ro‘yxati',
+  'Команда быстрее обрабатывает пиковые часы и изменения.': 'Jamoa pik soatlar va o‘zgarishlarni tezroq boshqaradi.',
+  'Сеть ресторанов': 'Restoranlar tarmog‘i',
+  'Единый подход к слотам, ролям и загрузке по точкам.': 'Slotlar, rollar va nuqtalar bo‘yicha yuklamaga yagona yondashuv.',
   'Коворкинги': 'Kovorkinglar',
   'Рабочие места, переговорные и гибкие офисы по слотам.':
     'Ish joylari, muzokara xonalari va moslashuvchan ofislar slotlar bo‘yicha.',

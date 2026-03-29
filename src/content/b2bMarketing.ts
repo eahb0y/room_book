@@ -82,8 +82,6 @@ export interface BlogPost {
 }
 
 export const marketingNavItems: MarketingNavItem[] = [
-  { label: 'Возможности', to: '/features' },
-  { label: 'Тарифы', to: '/pricing' },
 ];
 
 export const heroStats: MarketingStat[] = [
@@ -128,12 +126,7 @@ export const walkthroughSteps: WalkthroughStep[] = [
 ];
 
 export const fitSegments = [
-  'Салоны и студии',
-  'Коворкинги',
-  'Клиники и оздоровление',
-  'Учебные центры',
-  'Сервисные команды',
-  'Мульти-локации',
+  'Рестораны',
 ];
 
 export const homeFeatureCards: FeatureCard[] = [

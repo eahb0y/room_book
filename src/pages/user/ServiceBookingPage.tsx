@@ -5,7 +5,6 @@ import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
-  Building2,
   Calendar as CalendarIcon,
   CheckCircle2,
   Clock3,
@@ -78,7 +77,7 @@ interface ServicePageState {
 }
 
 export default function ServiceBookingPage() {
-  const { t, dateLocale, intlLocale } = useI18n();
+  const { t, dateLocale } = useI18n();
   const { serviceId } = useParams<{ serviceId: string }>();
   const { user, isAuthenticated } = useAuthStore();
   const createServiceBooking = useVenueStore((state) => state.createServiceBooking);
@@ -214,11 +213,6 @@ export default function ServiceBookingPage() {
 
   const categoryName = service?.categoryId ? categoryNameById[service.categoryId] : '';
   const coverPhoto = service ? buildServiceCoverPhoto(service) : null;
-
-  const priceLabel = useMemo(() => {
-    if (!selectedProvider) return null;
-    return `${new Intl.NumberFormat(intlLocale).format(selectedProvider.price)} ${t('сум')}`;
-  }, [intlLocale, selectedProvider, t]);
 
   const workFrom = selectedProvider?.workFrom?.trim() || '00:00';
   const workTo = selectedProvider?.workTo?.trim() || '24:00';
@@ -423,20 +417,10 @@ export default function ServiceBookingPage() {
                   <Clock3 className="h-4 w-4 text-primary" />
                   <span>{t('Фиксированный формат {duration}', { duration: formatDurationLabel(durationMinutes || 0, t) })}</span>
                 </p>
-                {priceLabel ? (
-                  <p className="flex items-center gap-2">
-                    <Building2 className="h-4 w-4 text-primary" />
-                    <span>{t('От {price}', { price: priceLabel })}</span>
-                  </p>
-                ) : null}
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="rounded-[1.6rem] border border-border/60 bg-background/82 p-4 shadow-[0_18px_40px_-34px_rgba(18,44,87,0.28)] dark:bg-white/[0.03] dark:shadow-none">
-                <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{t('Цена')}</p>
-                <p className="mt-2 text-lg font-semibold text-foreground">{priceLabel ?? '—'}</p>
-              </div>
+            <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-[1.6rem] border border-border/60 bg-background/82 p-4 shadow-[0_18px_40px_-34px_rgba(18,44,87,0.28)] dark:bg-white/[0.03] dark:shadow-none">
                 <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{t('Длительность')}</p>
                 <p className="mt-2 text-lg font-semibold text-foreground">
@@ -486,12 +470,11 @@ export default function ServiceBookingPage() {
         <Card className="border-border/45">
           <CardHeader>
             <CardTitle>{t('Выберите специалиста')}</CardTitle>
-            <CardDescription>{t('Бронирование строится на параметрах выбранного специалиста: цена, длительность и график.')}</CardDescription>
+            <CardDescription>{t('Бронирование строится на параметрах выбранного специалиста: длительность и график.')}</CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {service.providers.map((provider) => {
               const isSelected = provider.id === selectedProviderId;
-              const providerPriceLabel = `${new Intl.NumberFormat(intlLocale).format(provider.price)} ${t('сум')}`;
               const providerWorkLabel = `${provider.workFrom?.trim() || '00:00'} - ${provider.workTo?.trim() || '24:00'}`;
 
               return (
@@ -526,11 +509,7 @@ export default function ServiceBookingPage() {
                     </div>
                   </div>
 
-                  <div className="mt-4 grid grid-cols-2 gap-3">
-                    <div className="rounded-2xl border border-border/60 bg-background/80 p-3">
-                      <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{t('Цена')}</p>
-                      <p className="mt-2 text-sm font-medium text-foreground">{providerPriceLabel}</p>
-                    </div>
+                  <div className="mt-4">
                     <div className="rounded-2xl border border-border/60 bg-background/80 p-3">
                       <p className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">{t('Формат')}</p>
                       <p className="mt-2 text-sm font-medium text-foreground">

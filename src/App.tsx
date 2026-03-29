@@ -16,17 +16,16 @@ const Invite = lazy(() => import('@/pages/Invite'));
 const AdminDashboard = lazy(() => import('@/pages/admin/AdminDashboard'));
 const EmployeesManagement = lazy(() => import('@/pages/admin/EmployeesManagement'));
 const PeopleManagement = lazy(() => import('@/pages/admin/PeopleManagement'));
-const RoomManagement = lazy(() => import('@/pages/admin/RoomManagement'));
-const ServicesManagement = lazy(() => import('@/pages/admin/ServicesManagement'));
 const AdminBookings = lazy(() => import('@/pages/admin/AdminBookings'));
 const VenueManagement = lazy(() => import('@/pages/admin/VenueManagement'));
+const FloorPlanManagement = lazy(() => import('@/pages/admin/FloorPlanManagement'));
 const RoomList = lazy(() => import('@/pages/user/RoomList'));
 const BookingPage = lazy(() => import('@/pages/user/BookingPage'));
+const VenueTableBookingPage = lazy(() => import('@/pages/user/VenueTableBookingPage'));
 const ServiceBookingPage = lazy(() => import('@/pages/user/ServiceBookingPage'));
 const MyBookings = lazy(() => import('@/pages/user/MyBookings'));
 const Profile = lazy(() => import('@/pages/Profile'));
 const B2BHome = lazy(() => import('@/pages/B2BHome'));
-const B2BFeatures = lazy(() => import('@/pages/B2BFeatures'));
 const B2BPricing = lazy(() => import('@/pages/B2BPricing'));
 const B2BAbout = lazy(() => import('@/pages/B2BAbout'));
 const B2BBlog = lazy(() => import('@/pages/B2BBlog'));
@@ -142,7 +141,7 @@ function App() {
         <Routes>
           {/* Public B2B site */}
           <Route path="/" element={<B2BHome />} />
-          <Route path="/features" element={<B2BFeatures />} />
+          <Route path="/features" element={<Navigate to="/" replace />} />
           <Route path="/pricing" element={<B2BPricing />} />
           <Route path="/about" element={<B2BAbout />} />
           <Route path="/blog" element={<B2BBlog />} />
@@ -226,9 +225,7 @@ function App() {
             path="/rooms"
             element={
               <AdminRoute>
-                <Layout>
-                  <RoomManagement />
-                </Layout>
+                <Navigate to="/my-venue" replace />
               </AdminRoute>
             }
           />
@@ -236,9 +233,7 @@ function App() {
             path="/services"
             element={
               <AdminRoute>
-                <Layout>
-                  <ServicesManagement />
-                </Layout>
+                <Navigate to="/my-venue" replace />
               </AdminRoute>
             }
           />
@@ -252,6 +247,16 @@ function App() {
               </AdminRoute>
             }
           />
+          <Route
+            path="/floor-plans"
+            element={
+              <AdminRoute>
+                <Layout>
+                  <FloorPlanManagement />
+                </Layout>
+              </AdminRoute>
+            }
+          />
 
           {/* User routes */}
           <Route
@@ -259,6 +264,14 @@ function App() {
             element={
               <Layout>
                 <RoomList />
+              </Layout>
+            }
+          />
+          <Route
+            path="/venue/:venueId/tables"
+            element={
+              <Layout>
+                <VenueTableBookingPage />
               </Layout>
             }
           />

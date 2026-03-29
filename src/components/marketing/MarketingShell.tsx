@@ -33,6 +33,7 @@ export default function MarketingShell({ children }: MarketingShellProps) {
     ...item,
     label: t(item.label),
   }));
+  const hasMarketingNav = localizedNavItems.length > 0;
 
   return (
     <div className="marketing-stage min-h-screen text-foreground">
@@ -45,13 +46,15 @@ export default function MarketingShell({ children }: MarketingShellProps) {
             <span className="brand-wordmark block truncate text-xl text-foreground">TezBron</span>
           </Link>
 
-          <nav className="hidden items-center gap-1 lg:flex">
-            {localizedNavItems.map((item) => (
-              <NavLink key={item.to} to={item.to} className={mainNavLinkClass}>
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
+          {hasMarketingNav ? (
+            <nav className="hidden items-center gap-1 lg:flex">
+              {localizedNavItems.map((item) => (
+                <NavLink key={item.to} to={item.to} className={mainNavLinkClass}>
+                  {item.label}
+                </NavLink>
+              ))}
+            </nav>
+          ) : null}
 
           <div className="hidden items-center gap-3 lg:flex">
             <LanguageSwitcher />
@@ -66,69 +69,71 @@ export default function MarketingShell({ children }: MarketingShellProps) {
             </Button>
           </div>
 
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="h-11 w-11 rounded-full lg:hidden">
-                <Menu className="h-5 w-5" />
-                <span className="sr-only">{t('Открыть навигацию')}</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-[88vw] border-l border-border/70 bg-background/98 p-0 sm:max-w-sm">
-              <SheetHeader className="border-b border-border/60 pb-5">
-                <SheetTitle className="flex items-center gap-3 text-left">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-primary/20 bg-white/85 dark:bg-card/90">
-                    <img src="/favicon.svg" alt={t('Логотип TezBron')} className="h-6 w-6" />
-                  </span>
-                  <span className="brand-wordmark block text-lg">TezBron</span>
-                </SheetTitle>
-                <SheetDescription>
-                  {t('Публичная навигация B2B-сайта и быстрый вход в бизнес-кабинет.')}
-                </SheetDescription>
-              </SheetHeader>
+          {hasMarketingNav ? (
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="icon" className="h-11 w-11 rounded-full lg:hidden">
+                  <Menu className="h-5 w-5" />
+                  <span className="sr-only">{t('Открыть навигацию')}</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[88vw] border-l border-border/70 bg-background/98 p-0 sm:max-w-sm">
+                <SheetHeader className="border-b border-border/60 pb-5">
+                  <SheetTitle className="flex items-center gap-3 text-left">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-2xl border border-primary/20 bg-white/85 dark:bg-card/90">
+                      <img src="/favicon.svg" alt={t('Логотип TezBron')} className="h-6 w-6" />
+                    </span>
+                    <span className="brand-wordmark block text-lg">TezBron</span>
+                  </SheetTitle>
+                  <SheetDescription>
+                    {t('Публичная навигация B2B-сайта и быстрый вход в бизнес-кабинет.')}
+                  </SheetDescription>
+                </SheetHeader>
 
-              <div className="flex flex-1 flex-col px-4 py-6">
-                <div className="mb-6">
-                  <LanguageSwitcher className="w-fit" />
-                </div>
-                <nav className="space-y-2">
-                  {localizedNavItems.map((item) => (
-                    <SheetClose key={item.to} asChild>
-                      <NavLink
-                        to={item.to}
-                        className={({ isActive }) =>
-                          cn(
-                            'flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-medium transition-colors',
-                            isActive
-                              ? 'bg-primary/10 text-primary'
-                              : 'bg-card/50 text-foreground hover:bg-accent/70',
-                          )
-                        }
-                      >
-                        <span>{item.label}</span>
-                        <ArrowRight className="h-4 w-4" />
-                      </NavLink>
+                <div className="flex flex-1 flex-col px-4 py-6">
+                  <div className="mb-6">
+                    <LanguageSwitcher className="w-fit" />
+                  </div>
+                  <nav className="space-y-2">
+                    {localizedNavItems.map((item) => (
+                      <SheetClose key={item.to} asChild>
+                        <NavLink
+                          to={item.to}
+                          className={({ isActive }) =>
+                            cn(
+                              'flex items-center justify-between rounded-2xl px-4 py-3 text-sm font-medium transition-colors',
+                              isActive
+                                ? 'bg-primary/10 text-primary'
+                                : 'bg-card/50 text-foreground hover:bg-accent/70',
+                            )
+                          }
+                        >
+                          <span>{item.label}</span>
+                          <ArrowRight className="h-4 w-4" />
+                        </NavLink>
+                      </SheetClose>
+                    ))}
+                  </nav>
+
+                  <div className="mt-8 space-y-3">
+                    <SheetClose asChild>
+                      <Button asChild variant="outline" className="h-11 w-full rounded-full">
+                        <Link to="/business/login">{t('Войти')}</Link>
+                      </Button>
                     </SheetClose>
-                  ))}
-                </nav>
-
-                <div className="mt-8 space-y-3">
-                  <SheetClose asChild>
-                    <Button asChild variant="outline" className="h-11 w-full rounded-full">
-                      <Link to="/business/login">{t('Войти')}</Link>
-                    </Button>
-                  </SheetClose>
-                  <SheetClose asChild>
-                    <Button asChild className="h-11 w-full rounded-full">
-                      <Link to="/business/register">
-                        {t('Попробовать бесплатно')}
-                        <ArrowRight className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                  </SheetClose>
+                    <SheetClose asChild>
+                      <Button asChild className="h-11 w-full rounded-full">
+                        <Link to="/business/register">
+                          {t('Попробовать бесплатно')}
+                          <ArrowRight className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                    </SheetClose>
+                  </div>
                 </div>
-              </div>
-            </SheetContent>
-          </Sheet>
+              </SheetContent>
+            </Sheet>
+          ) : null}
         </div>
       </header>
 

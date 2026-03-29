@@ -91,9 +91,6 @@ export default function B2BFeatures() {
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 </Button>
-                <Button asChild variant="outline" size="lg" className="h-12 rounded-full border-border/70 px-7">
-                  <Link to="/pricing">{t('Посмотреть тарифы')}</Link>
-                </Button>
               </div>
             </div>
 

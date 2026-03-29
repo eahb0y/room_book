@@ -70,6 +70,7 @@ const resolveAccessToken = (accessToken?: string, requireAuth = true) => {
 };
 
 const normalizePath = (path: string) => (path.startsWith('/') ? path : `/${path}`);
+const normalizeStoragePath = (path: string) => path.replace(/^\/+/, '');
 
 const buildSupabaseNetworkError = () =>
   'Не удалось подключиться к Supabase. Проверьте интернет, VPN/firewall и настройки URL проекта.';
@@ -135,4 +136,36 @@ export const supabaseDbRequest = async <T>(
   }
 
   return payload as T;
+};
+
+export const supabaseStorageRequest = async <T>(
+  path: string,
+  init?: RequestInit,
+  options?: { accessToken?: string; requireAuth?: boolean },
+): Promise<T> => {
+  const normalizedPath = normalizeStoragePath(path);
+  const token = resolveAccessToken(options?.accessToken, options?.requireAuth ?? true);
+  const withJson = init?.body !== undefined;
+  const url = `${getSupabaseUrl()}/storage/v1/${normalizedPath}`;
+  const res = await performSupabaseFetch(url, {
+    ...init,
+    headers: mergeHeaders(init?.headers, token, withJson),
+  });
+
+  const payload = await parsePayload(res);
+  if (!res.ok) {
+    throw new Error(extractErrorMessage(payload, `HTTP ${res.status}`));
+  }
+
+  return payload as T;
+};
+
+export const getSupabaseStoragePublicUrl = (bucket: string, objectPath: string) => {
+  const normalizedBucket = bucket.replace(/^\/+|\/+$/g, '');
+  const normalizedObjectPath = normalizeStoragePath(objectPath)
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+
+  return `${getSupabaseUrl()}/storage/v1/object/public/${normalizedBucket}/${normalizedObjectPath}`;
 };

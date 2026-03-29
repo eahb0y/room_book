@@ -65,7 +65,6 @@ interface ServiceProviderDraft {
   workFrom: string;
   workTo: string;
   durationMinutes: string;
-  price: string;
   photoUrl: string | null;
 }
 
@@ -132,30 +131,6 @@ const normalizeLocation = (value: string) => value.trim().replace(/\s+/g, ' ');
 const normalizeCategoryName = (value: string) => value.trim().replace(/\s+/g, ' ');
 const normalizePersonName = (value: string) => value.trim().replace(/\s+/g, ' ');
 const normalizeInteger = (value: string) => value.replace(/[^\d]/g, '');
-const normalizePriceInput = (value: string) => value.replace(/[^\d.,]/g, '').replace(',', '.');
-const formatPriceLabel = (
-  value: number,
-  intlLocale: string,
-  t: (value: string, params?: Record<string, string | number>) => string,
-) => `${value.toLocaleString(intlLocale)} ${t('сум')}`;
-const buildServicePriceSummary = (
-  providers: BusinessServiceProvider[],
-  intlLocale: string,
-  t: (value: string, params?: Record<string, string | number>) => string,
-) => {
-  const prices = providers
-    .map((provider) => provider.price)
-    .filter((value) => Number.isFinite(value) && value > 0);
-
-  if (prices.length === 0) return '';
-
-  const minPrice = Math.min(...prices);
-  const maxPrice = Math.max(...prices);
-
-  return minPrice === maxPrice
-    ? formatPriceLabel(minPrice, intlLocale, t)
-    : `${formatPriceLabel(minPrice, intlLocale, t)} - ${formatPriceLabel(maxPrice, intlLocale, t)}`;
-};
 const normalizeTimeValue = (value: string) => value.trim().slice(0, 5);
 const toTimeMinutes = (value: string) => {
   const [hour, minute] = value.split(':');
@@ -183,7 +158,7 @@ const prepareImageFile = async (file: File) => {
 };
 
 export default function ServicesManagement() {
-  const { t, intlLocale } = useI18n();
+  const { t } = useI18n();
   const { user, portal } = useAuthStore();
   const navigate = useNavigate();
   const isBusinessPortal = isBusinessPortalActive(user, portal);
@@ -259,7 +234,6 @@ export default function ServicesManagement() {
         workFrom: '',
         workTo: '',
         durationMinutes: '',
-        price: '',
         photoUrl: null,
       },
     ]);
@@ -402,7 +376,6 @@ export default function ServicesManagement() {
         workFrom: provider.workFrom ?? '',
         workTo: provider.workTo ?? '',
         durationMinutes: provider.durationMinutes > 0 ? String(provider.durationMinutes) : '',
-        price: provider.price > 0 ? String(provider.price) : '',
         photoUrl: provider.photoUrl ?? null,
       }));
     setProviders(
@@ -416,7 +389,6 @@ export default function ServicesManagement() {
           workFrom: '',
           workTo: '',
           durationMinutes: '',
-          price: '',
           photoUrl: null,
         }],
     );
@@ -452,7 +424,6 @@ export default function ServicesManagement() {
         workFrom: '',
         workTo: '',
         durationMinutes: '',
-        price: '',
         photoUrl: null,
       },
     ]);
@@ -480,7 +451,6 @@ export default function ServicesManagement() {
       workFrom: option.provider.workFrom ?? '',
       workTo: option.provider.workTo ?? '',
       durationMinutes: option.provider.durationMinutes > 0 ? String(option.provider.durationMinutes) : '',
-      price: option.provider.price > 0 ? String(option.provider.price) : '',
       photoUrl: option.provider.photoUrl ?? null,
     });
   };
@@ -721,7 +691,6 @@ export default function ServicesManagement() {
       const workFrom = normalizeTimeValue(provider.workFrom);
       const workTo = normalizeTimeValue(provider.workTo);
       const durationMinutes = Number(normalizeInteger(provider.durationMinutes));
-      const price = Number(normalizePriceInput(provider.price));
 
       if (!name) {
         setError(t('Укажите имя специалиста для каждой строки'));
@@ -755,11 +724,6 @@ export default function ServicesManagement() {
         return;
       }
 
-      if (!Number.isFinite(price) || price <= 0) {
-        setError(t('Укажите цену для каждого специалиста'));
-        return;
-      }
-
       const duplicateKey = `${name.toLowerCase()}::${location.toLowerCase()}`;
       if (seenProviderKeys.has(duplicateKey)) {
         setError(t('Один и тот же специалист не должен повторяться в сервисе'));
@@ -774,7 +738,7 @@ export default function ServicesManagement() {
         workFrom,
         workTo,
         durationMinutes,
-        price,
+        price: 0,
         photoUrl: provider.photoUrl ?? null,
       });
     }
@@ -1023,8 +987,6 @@ export default function ServicesManagement() {
                   <ScrollArea className="h-[420px] xl:h-[620px]">
                     <div className="space-y-3 p-3">
                       {selectedCategoryServices.map((service) => {
-                        const priceSummary = buildServicePriceSummary(service.providers, intlLocale, t);
-
                         return (
                           <div
                             key={service.id}
@@ -1053,11 +1015,6 @@ export default function ServicesManagement() {
                               </div>
 
                               <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                                {priceSummary ? (
-                                  <span className="rounded-full border border-border/45 bg-input/20 px-2.5 py-1">
-                                    {t('Цена: {value}', { value: priceSummary })}
-                                  </span>
-                                ) : null}
                                 {service.providers[0]?.name ? (
                                   <span className="rounded-full border border-border/45 bg-input/20 px-2.5 py-1">
                                     {service.providers[0].name}
@@ -1314,7 +1271,7 @@ export default function ServicesManagement() {
                   <div>
                     <Label className="text-sm text-muted-foreground">{t('Персонал сервиса *')}</Label>
                     <p className="mt-1 text-xs text-muted-foreground/70">
-                      {t('Для каждого специалиста укажите имя, локацию, рабочие часы, длительность, цену и фото.')}
+                      {t('Для каждого специалиста укажите имя, локацию, рабочие часы, длительность и фото.')}
                     </p>
                   </div>
                   <Button type="button" variant="outline" className="h-9 border-border/50" onClick={addProviderRow} disabled={!canManageServices}>
@@ -1419,18 +1376,6 @@ export default function ServicesManagement() {
                             onChange={(event) => updateProviderRow(index, { durationMinutes: normalizeInteger(event.target.value) })}
                             inputMode="numeric"
                             placeholder={t('Например: 45')}
-                            disabled={!canManageServices}
-                            className="h-11 border-border/50 bg-input/50 focus:border-primary/60"
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label className="text-xs text-muted-foreground">{t('Цена за услугу *')}</Label>
-                          <Input
-                            value={provider.price}
-                            onChange={(event) => updateProviderRow(index, { price: normalizePriceInput(event.target.value) })}
-                            inputMode="decimal"
-                            placeholder={t('Например: 120000')}
                             disabled={!canManageServices}
                             className="h-11 border-border/50 bg-input/50 focus:border-primary/60"
                           />

@@ -1,22 +1,13 @@
 import {
   ArrowRight,
-  BookOpen,
-  BriefcaseBusiness,
   Building2,
-  CalendarClock,
   CalendarRange,
-  Car,
   DoorOpen,
-  GraduationCap,
-  HeartPulse,
   MapPinned,
   NotebookPen,
-  PawPrint,
-  Scissors,
   ShieldCheck,
   Sparkles,
-  Stethoscope,
-  Users,
+  UtensilsCrossed,
   type LucideIcon,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -26,9 +17,7 @@ import {
   faqItems,
   heroStats,
   homeFeatureCards,
-  pricingPlans,
 } from '@/content/b2bMarketing';
-import { formatSumPrice } from '@/lib/pricingCatalog';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -62,249 +51,44 @@ interface IndustryShowcase {
 
 const industryShowcases: IndustryShowcase[] = [
   {
-    id: 'beauty',
-    label: 'Салоны и студии',
-    eyebrow: 'Красота и персональный уход',
-    title: 'Салоны и студии',
+    id: 'restaurants',
+    label: 'Рестораны',
+    eyebrow: 'Ресторанный бизнес',
+    title: 'Рестораны',
     description: [
-      'Когда записи живут в звонках, директе и мессенджерах, администратор тратит день не на загрузку бизнеса, а на ручную координацию.',
-      'TezBron открывает клиентам понятную запись 24/7, автоматически напоминает о визите и помогает держать календарь мастеров в одном контуре.',
-      'Владельцы и менеджеры видят смены, услуги и загрузку по специалистам без таблиц и бесконечных уточнений.',
+      'Когда брони столов, посадка и изменения по залам ведутся вручную, команда теряет ритм уже в пиковые часы.',
+      'TezBron собирает столы, слоты, подтверждения и рабочие сценарии в один понятный поток без хаоса в звонках и мессенджерах.',
+      'Администратор и менеджер видят актуальную загрузку по залам и времени, а гость получает понятный путь до бронирования.',
     ],
-    ctaLabel: 'Посмотреть сценарий для салонов и студий',
-    ctaHref: '/features',
-    visualTitle: 'Плотное расписание без ручных переписок',
-    visualSubtitle: 'Самозапись, напоминания и единый календарь для администраторов и мастеров.',
-    visualIcon: Scissors,
+    ctaLabel: 'Попробовать бесплатно',
+    ctaHref: '/business/register',
+    visualTitle: 'Залы, столы и брони без ручной координации',
+    visualSubtitle: 'Гости бронируют заранее, а команда держит под контролем посадку и загрузку смен.',
+    visualIcon: UtensilsCrossed,
     visualCards: [
       {
-        title: 'Стрижка + окрашивание',
-        meta: 'Клиент выбирает услугу и свободное окно сам',
-        status: '24/7',
-      },
-      {
-        title: 'Напоминание за 24 часа и за 1 час',
-        meta: 'Снижаем no-shows без ручных сообщений',
-        status: 'Синхронно',
-      },
-      {
-        title: 'Загрузка мастеров по сменам',
-        meta: 'Администратор видит подтверждения и переносы в одном месте',
+        title: 'Бронь столов по слотам',
+        meta: 'Гость выбирает время сам без звонка в ресторан',
         status: 'Онлайн',
       },
-    ],
-    scenarios: [
-      { label: 'Барбершопы', description: 'График мастеров и повторные визиты без хаоса.', icon: Scissors },
-      { label: 'Hair-студии', description: 'Окна, длительность услуг и напоминания клиентам.', icon: Sparkles },
-      { label: 'Бьюти-салоны', description: 'Командный календарь для администраторов и специалистов.', icon: Users },
-      { label: 'Ногтевой сервис', description: 'Запись по мастерам, сменам и типам услуг.', icon: CalendarRange },
-      { label: 'Ресницы и брови', description: 'Быстрое подтверждение и понятная загрузка дня.', icon: NotebookPen },
-      { label: 'SPA и уход', description: 'Пакеты услуг, кабинеты и ресурсы в одном контуре.', icon: ShieldCheck },
-    ],
-  },
-  {
-    id: 'coworking',
-    label: 'Коворкинги',
-    eyebrow: 'Коворкинг и гибкие пространства',
-    title: 'Коворкинги',
-    description: [
-      'Переговорные, рабочие места, дневные пропуска и команды быстро превращаются в хаос, если доступность ведётся вручную.',
-      'TezBron собирает ресурсы, правила бронирования и тарифные сценарии в единую систему, чтобы гости сами находили свободный формат.',
-      'Менеджеры контролируют занятость по площадкам, а руководитель видит общую загрузку без сверки между администраторами.',
-    ],
-    ctaLabel: 'Посмотреть сценарий для коворкингов',
-    ctaHref: '/features',
-    visualTitle: 'Ресурсы, переговорные и доступность в одной логике',
-    visualSubtitle: 'Бронируйте места, комнаты и посещения без ручного распределения.',
-    visualIcon: Building2,
-    visualCards: [
       {
-        title: 'Переговорная Room A',
-        meta: 'Свободные слоты обновляются для команды и гостей сразу',
-        status: 'Открыто',
+        title: 'Залы и посадка под контролем',
+        meta: 'Администратор видит подтверждения и загрузку в одном окне',
+        status: 'Зал',
       },
       {
-        title: 'Дневной доступ и фикс-места',
-        meta: 'Разные форматы бронирования без ручной путаницы',
-        status: 'Поток',
-      },
-      {
-        title: 'Загрузка по филиалам',
-        meta: 'Управляющая команда видит занятость площадок в одном обзоре',
-        status: 'Центр',
-      },
-    ],
-    scenarios: [
-      { label: 'Переговорные', description: 'Почасовые слоты и правила доступа без таблиц.', icon: DoorOpen },
-      { label: 'Дневные пропуска', description: 'Самозапись на посещение и подтверждения клиентам.', icon: CalendarRange },
-      { label: 'Фикс-места', description: 'Управление рабочими местами и загруженностью локации.', icon: BriefcaseBusiness },
-      { label: 'Командные зоны', description: 'Общий календарь для менеджеров и операционной команды.', icon: Users },
-      { label: 'Ивент-пространства', description: 'Отдельные сценарии для мероприятий и аренды залов.', icon: MapPinned },
-      { label: 'Мульти-площадки', description: 'Единый стандарт записи для всей сети пространств.', icon: Building2 },
-    ],
-  },
-  {
-    id: 'wellness',
-    label: 'Клиники и оздоровление',
-    eyebrow: 'Здоровье и оздоровление',
-    title: 'Клиники и оздоровление',
-    description: [
-      'Когда клиенту нужен специалист, он не хочет ждать ответа до утра или искать слот через несколько каналов.',
-      'TezBron принимает записи 24/7, отправляет подтверждения и напоминания, а команде показывает актуальную загрузку по кабинетам и специалистам.',
-      'Это снижает потери на пропущенных визитах и убирает лишнюю ручную координацию между администраторами и экспертами.',
-    ],
-    ctaLabel: 'Посмотреть сценарий для клиник и wellness',
-    ctaHref: '/features',
-    visualTitle: 'Доступная запись и меньше пропущенных визитов',
-    visualSubtitle: 'Клиенты записываются сами, а команда держит под контролем кабинеты и специалистов.',
-    visualIcon: HeartPulse,
-    visualCards: [
-      {
-        title: 'Запись на консультацию и процедуры',
-        meta: 'Свободные окна публикуются без ручного ответа в чатах',
-        status: '24/7',
-      },
-      {
-        title: 'Автоматические напоминания клиентам',
-        meta: 'Меньше забытых визитов и переносов в последний момент',
-        status: 'Забота',
-      },
-      {
-        title: 'Кабинеты и специалисты в одном расписании',
-        meta: 'Администратор видит пересечения до того, как они станут проблемой',
-        status: 'Ясно',
-      },
-    ],
-    scenarios: [
-      { label: 'Массаж', description: 'Слоты, кабинеты и напоминания для плотной загрузки дня.', icon: Sparkles },
-      { label: 'Физиотерапия', description: 'Специалисты и процедуры в одном календаре.', icon: Stethoscope },
-      { label: 'Консультанты', description: 'Удобная запись для частных практик и команд.', icon: Users },
-      { label: 'Диагностика', description: 'Управление временем, ресурсами и подтверждениями.', icon: CalendarClock },
-      { label: 'Оздоровительные программы', description: 'Пакеты услуг и повторные визиты без ручной рутины.', icon: NotebookPen },
-      { label: 'Клиники', description: 'Операционная прозрачность для администраторов и владельцев.', icon: ShieldCheck },
-    ],
-  },
-  {
-    id: 'education',
-    label: 'Учебные центры',
-    eyebrow: 'Классы и воркшопы',
-    title: 'Учебные центры',
-    description: [
-      'Группы, преподаватели, аудитории и повторяющиеся занятия быстро ломают расписание, если процессы живут в чатах и таблицах.',
-      'TezBron помогает собрать в одной системе курсы, слоты, ограничения по местам и календарь преподавателей.',
-      'Менеджеры видят заполняемость, а ученики записываются по понятному сценарию без звонков и ручной переписки.',
-    ],
-    ctaLabel: 'Посмотреть сценарий для учебных центров',
-    ctaHref: '/features',
-    visualTitle: 'Курсы, группы и аудитории под контролем',
-    visualSubtitle: 'Повторяющиеся занятия и запись на классы без перегрузки администраторов.',
-    visualIcon: GraduationCap,
-    visualCards: [
-      {
-        title: 'Еженедельные занятия и лимиты мест',
-        meta: 'Расписание курсов публикуется сразу с правилами записи',
-        status: 'Класс',
-      },
-      {
-        title: 'Преподаватели и аудитории',
-        meta: 'Ресурсы синхронизируются без двойных броней',
-        status: 'План',
-      },
-      {
-        title: 'Подтверждения и напоминания',
-        meta: 'Ученики получают понятный путь до занятия',
-        status: 'Готово',
-      },
-    ],
-    scenarios: [
-      { label: 'Языковые школы', description: 'Группы, преподаватели и уровни в одном процессе.', icon: BookOpen },
-      { label: 'Интенсивы', description: 'Сложные интенсивы и потоки без ручной сводки.', icon: GraduationCap },
-      { label: 'Воркшопы', description: 'Разовые события и лимиты мест по понятному сценарию.', icon: Sparkles },
-      { label: 'Тьюторы', description: 'Личные занятия и гибкое расписание по слотам.', icon: Users },
-      { label: 'Учебные аудитории', description: 'Контроль комнат и оборудования для каждой сессии.', icon: Building2 },
-      { label: 'Групповые курсы', description: 'Заполняемость, подтверждения и история изменений.', icon: CalendarRange },
-    ],
-  },
-  {
-    id: 'service',
-    label: 'Сервисные команды',
-    eyebrow: 'Сервисные команды',
-    title: 'Сервисные команды',
-    description: [
-      'Когда команда обслуживает клиентов по слотам, каждая переноска или пропущенное подтверждение сразу бьёт по загрузке дня.',
-      'TezBron фиксирует окна, статусы, напоминания и историю изменений, чтобы менеджеры и исполнители видели один источник правды.',
-      'Так проще планировать смены, перераспределять заявки и не терять выручку на хаосе в расписании.',
-    ],
-    ctaLabel: 'Посмотреть сценарий для сервисных команд',
-    ctaHref: '/features',
-    visualTitle: 'Окна выездов и смены без хаоса в коммуникации',
-    visualSubtitle: 'Единый поток заявок и понятное распределение нагрузки между исполнителями.',
-    visualIcon: BriefcaseBusiness,
-    visualCards: [
-      {
-        title: 'Заявки и переносы в одном потоке',
-        meta: 'Команда видит изменения без потерь между чатами',
-        status: 'Операции',
-      },
-      {
-        title: 'Напоминания клиентам и сотрудникам',
-        meta: 'Снижаем пропущенные визиты и накладки по времени',
-        status: 'Отправка',
-      },
-      {
-        title: 'Планирование загрузки по сменам',
-        meta: 'Менеджер распределяет день по актуальным слотам',
+        title: 'Переносы и изменения без потерь',
+        meta: 'Команда быстрее обрабатывает обновления по броням',
         status: 'Смена',
       },
     ],
     scenarios: [
-      { label: 'Автодетейлинг', description: 'Слоты, длительность работ и загрузка боксов.', icon: Car },
-      { label: 'Груминг животных', description: 'Запись по мастерам, услугам и времени визита.', icon: PawPrint },
-      { label: 'Домашний сервис', description: 'Выездные заявки и подтверждения по времени.', icon: MapPinned },
-      { label: 'Фото и продакшн', description: 'Команды, площадки и бронь под проектные слоты.', icon: BriefcaseBusiness },
-      { label: 'Тату-студии', description: 'Длинные сессии, депозиты и напоминания клиентам.', icon: Sparkles },
-      { label: 'Клининг', description: 'Смены, районы и контроль расписания в одной системе.', icon: ShieldCheck },
-    ],
-  },
-  {
-    id: 'multi-location',
-    label: 'Мульти-локации',
-    eyebrow: 'Сетевые операции',
-    title: 'Мульти-локации',
-    description: [
-      'Если у бизнеса несколько филиалов, сложнее всего сохранить единый стандарт записи и прозрачную загрузку по всей сети.',
-      'TezBron объединяет локации, комнаты, услуги и роли в одну систему без ручной сверки между администраторами.',
-      'Руководитель получает общую картину по сети, а каждая команда работает в своём понятном операционном контуре.',
-    ],
-    ctaLabel: 'Посмотреть сценарий для сети и филиалов',
-    ctaHref: '/features',
-    visualTitle: 'Одна система для филиалов, комнат и команд',
-    visualSubtitle: 'Сеть растет, а правила записи и контроля остаются едиными.',
-    visualIcon: MapPinned,
-    visualCards: [
-      {
-        title: 'Филиалы и локальные расписания',
-        meta: 'Каждая площадка работает в своём контуре, но по общим правилам',
-        status: 'Сеть',
-      },
-      {
-        title: 'Роли, доступы и история действий',
-        meta: 'Управляющая команда видит картину по сети без лишнего шума',
-        status: 'Роли',
-      },
-      {
-        title: 'Комнаты, услуги и загрузка по сети',
-        meta: 'Планирование масштабируется без ручной координации',
-        status: 'Масштаб',
-      },
-    ],
-    scenarios: [
-      { label: 'Сети студий', description: 'Единый стандарт записи и контроль загрузки по точкам.', icon: Building2 },
-      { label: 'Франшизы', description: 'Прозрачные процессы и разделение ролей между командами.', icon: ShieldCheck },
-      { label: 'Центральный офис', description: 'Общий обзор по филиалам и ключевым операционным метрикам.', icon: BriefcaseBusiness },
-      { label: 'Комнаты и ресурсы', description: 'Понятное управление кабинетами, залами и сервисами.', icon: DoorOpen },
-      { label: 'Общая команда', description: 'Права доступа и сценарии работы для разных ролей.', icon: Users },
-      { label: 'Сетевой календарь', description: 'Слоты, статусы и история бронирований по всем локациям.', icon: CalendarRange },
+      { label: 'Основной зал', description: 'Посадка по слотам и прозрачная загрузка смен.', icon: UtensilsCrossed },
+      { label: 'Летняя терраса', description: 'Отдельные зоны и брони без путаницы между столами.', icon: MapPinned },
+      { label: 'Банкеты', description: 'События, предзаказы и командные подтверждения в одном потоке.', icon: CalendarRange },
+      { label: 'Частные комнаты', description: 'Отдельные пространства и правила брони под формат гостей.', icon: DoorOpen },
+      { label: 'Список ожидания', description: 'Команда быстрее обрабатывает пиковые часы и изменения.', icon: NotebookPen },
+      { label: 'Сеть ресторанов', description: 'Единый подход к слотам, ролям и загрузке по точкам.', icon: ShieldCheck },
     ],
   },
 ];
@@ -385,16 +169,6 @@ export default function B2BHome() {
     description: t(card.description),
     bullets: card.bullets.map((bullet) => t(bullet)),
   }));
-  const localizedPricingPlans = pricingPlans.map((plan) => ({
-    ...plan,
-    name: t(plan.name),
-    tagline: t(plan.tagline),
-    description: t(plan.description),
-    badge: plan.badge ? t(plan.badge) : undefined,
-    ctaLabel: t(plan.ctaLabel),
-    billingNote: plan.billingNote ? t(plan.billingNote) : undefined,
-    features: plan.features.map((feature) => t(feature)),
-  }));
   const localizedFaqItems = faqItems.map((item) => ({
     question: t(item.question),
     answer: t(item.answer),
@@ -418,9 +192,6 @@ export default function B2BHome() {
                 {t('Попробовать бесплатно')}
                 <ArrowRight className="h-4 w-4" />
               </Link>
-            </Button>
-            <Button asChild variant="outline" size="lg" className="h-12 rounded-full border-border/70 px-7">
-              <Link to="/pricing">{t('Посмотреть тарифы')}</Link>
             </Button>
           </div>
 
@@ -598,62 +369,6 @@ export default function B2BHome() {
                 </article>
               );
             })}
-          </div>
-        </div>
-      </section>
-
-      <section className="border-y border-border/60 bg-background/72">
-        <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <h2 className="text-3xl font-semibold text-foreground sm:text-4xl">
-                {t('Выберите тариф, который подходит масштабу вашей команды и нагрузке бизнеса.')}
-              </h2>
-            </div>
-            <Button asChild variant="outline" className="rounded-full px-6">
-              <Link to="/pricing">{t('Открыть полные тарифы')}</Link>
-            </Button>
-          </div>
-
-          <div className="mt-10 grid gap-5 lg:grid-cols-3">
-            {localizedPricingPlans.map((plan) => (
-              <article
-                key={plan.name}
-                className={`rounded-[1.75rem] border p-6 ${
-                  plan.highlighted
-                    ? 'border-primary/30 bg-primary/[0.08] shadow-[0_26px_70px_-42px_hsl(var(--primary)/0.55)]'
-                    : 'marketing-panel border-border/70'
-                }`}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h3 className="text-xl font-semibold text-foreground">{plan.name}</h3>
-                    <p className="mt-2 text-sm text-muted-foreground">{plan.tagline}</p>
-                  </div>
-                  {plan.badge ? (
-                    <span className="rounded-full bg-background/90 px-3 py-1 text-xs font-medium text-primary shadow-sm">
-                      {plan.badge}
-                    </span>
-                  ) : null}
-                </div>
-                <p className="mt-6 text-4xl font-semibold text-foreground">
-                  {plan.monthlyPrice === null
-                    ? t('Индивидуально')
-                    : plan.monthlyPrice === 0
-                      ? t('Бесплатно')
-                      : formatSumPrice(plan.monthlyPrice)}
-                </p>
-                {plan.billingNote ? (
-                  <p className="mt-2 text-sm font-medium text-muted-foreground">{plan.billingNote}</p>
-                ) : null}
-                <p className="mt-3 text-sm leading-7 text-muted-foreground">{plan.description}</p>
-                <ul className="mt-6 space-y-3">
-                  {plan.features.map((feature) => (
-                    <li key={feature} className="text-sm text-foreground">{feature}</li>
-                  ))}
-                </ul>
-              </article>
-            ))}
           </div>
         </div>
       </section>

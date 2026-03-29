@@ -4,7 +4,7 @@ import { useAuthStore } from '@/store/authStore';
 import { useVenueStore } from '@/store/venueStore';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { LogOut, Home, DoorOpen, List, Users, UserRound, Sparkles, Building2 } from 'lucide-react';
+import { LogOut, Home, List, Users, UserRound, Building2, MapPinned } from 'lucide-react';
 import PreferenceControls from '@/components/PreferenceControls';
 import { useI18n } from '@/i18n/useI18n';
 import { canManageBusinessStaff, isBusinessPortalActive } from '@/lib/businessAccess';
@@ -141,17 +141,13 @@ export default function Layout({ children }: LayoutProps) {
                       <span>{t('Сотрудники')}</span>
                     </Link>
                   ) : null}
-                  <Link to="/rooms" className={navLink('/rooms')}>
-                    <DoorOpen className="h-4 w-4" />
-                    <span>{t('Комнаты')}</span>
-                  </Link>
-                  <Link to="/services" className={navLink('/services')}>
-                    <Sparkles className="h-4 w-4" />
-                    <span>{t('Услуги')}</span>
-                  </Link>
                   <Link to="/bookings" className={navLink('/bookings')}>
                     <List className="h-4 w-4" />
                     <span>{t('Бронирования')}</span>
+                  </Link>
+                  <Link to="/floor-plans" className={navLink('/floor-plans')}>
+                    <MapPinned className="h-4 w-4" />
+                    <span>{t('Планы залов')}</span>
                   </Link>
                   <Link to="/profile" className={navLink('/profile')}>
                     <UserRound className="h-4 w-4" />

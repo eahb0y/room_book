@@ -502,6 +502,26 @@ export default function RoomList() {
         </Card>
       </section>
 
+      <section>
+        <Card className="border-border/45 bg-[linear-gradient(135deg,rgba(46,204,113,0.08),rgba(52,152,219,0.08))] shadow-[0_18px_42px_-28px_rgba(0,0,0,0.75)]">
+          <CardContent className="flex flex-col gap-4 p-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="space-y-2">
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary/85">{t('План зала')}</p>
+              <h2 className="text-2xl font-semibold tracking-tight text-foreground">{t('Выберите стол прямо на схеме заведения')}</h2>
+              <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+                {t('Проверьте доступность на нужное время, сравните вместимость столов и подтвердите бронь через интерактивный план.')}
+              </p>
+            </div>
+            <Button asChild className="h-11 shrink-0">
+              <Link to={`/venue/${venue.id}/tables`}>
+                <CalendarClock className="mr-2 h-4 w-4" />
+                {t('Открыть план столов')}
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </section>
+
       <section className="space-y-4">
         <div className="flex items-center justify-between gap-4">
           <div>

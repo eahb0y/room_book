@@ -35,6 +35,62 @@ export interface Venue {
   createdAt: string;
 }
 
+export type VenueTableShape = 'rectangle' | 'circle' | 'square';
+
+export interface VenueTable {
+  id: string;
+  floorPlanId: string;
+  tableNumber: string;
+  capacity: number;
+  xPosition: number;
+  yPosition: number;
+  width: number;
+  height: number;
+  shape: VenueTableShape;
+  notes: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VenueFloorPlan {
+  id: string;
+  venueId: string;
+  name: string;
+  imagePath: string;
+  width: number;
+  height: number;
+  createdAt: string;
+  updatedAt: string;
+  tables: VenueTable[];
+}
+
+export type VenueTableBookingStatus = 'active' | 'cancelled';
+
+export interface VenueTableBooking {
+  id: string;
+  venueTableId: string;
+  userId: string;
+  guestCount: number;
+  bookingDate: string;
+  startTime: string;
+  endTime: string;
+  notes: string;
+  status: VenueTableBookingStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AvailableVenueTable extends VenueTable {
+  floorPlanId: string;
+  floorPlanName: string;
+  floorPlanImagePath: string;
+  floorPlanWidth: number;
+  floorPlanHeight: number;
+  isAvailable: boolean;
+  isCapacityMatch: boolean;
+}
+
 export type VenueMemberRole = 'member' | 'manager';
 
 export type InvitationConnectionStatus = 'pending' | 'connected';
