@@ -18,10 +18,10 @@ export default function ContactTelegramWidget() {
         <a
           href={TELEGRAM_LINK}
           className="inline-flex items-center gap-1 text-muted-foreground transition-colors hover:text-foreground"
-          aria-label={`Telegram @${TELEGRAM_USERNAME}`}
+          aria-label={t('Telegram @{value}', { value: TELEGRAM_USERNAME })}
         >
           <MessageCircle className="h-3.5 w-3.5" />
-          <span>Telegram: @{TELEGRAM_USERNAME}</span>
+          <span>{t('Telegram: @{value}', { value: TELEGRAM_USERNAME })}</span>
         </a>
 
         <span className="text-border/80" aria-hidden="true">|</span>

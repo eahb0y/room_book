@@ -3,15 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { AlertCircle, Copy, ShieldCheck, Trash2, UserRound } from 'lucide-react';
 import { useAuthStore } from '@/store/authStore';
 import { useVenueStore } from '@/store/venueStore';
-import type { BusinessStaffAccount, BusinessStaffRole, CreatedBusinessStaffAccount } from '@/types';
+import type { BusinessStaffAccount, BusinessStaffRole, CreatedBusinessStaffAccount, VenueSubscription } from '@/types';
 import {
   createBusinessStaffAccount,
   deleteBusinessStaffAccount,
   listBusinessStaffAccounts,
+  updateBusinessStaffAccountActiveState,
   updateBusinessStaffAccountRole,
 } from '@/lib/businessStaffApi';
 import { buildBusinessStaffLoginEmail } from '@/lib/businessStaffLogin';
 import { canManageBusinessStaff, getAccessibleBusinessVenues, isBusinessPortalActive } from '@/lib/businessAccess';
+import { getVenueSubscriptionSnapshot } from '@/lib/subscriptionApi';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,8 +21,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useI18n } from '@/i18n/useI18n';
-
-const MAX_BUSINESS_ACCESS_ACCOUNTS = 3;
+import { FREE_PLAN_ID, getCalendarOptionLabel, getPricingPlanTierById, getRecommendedUpgradePlanId } from '@/lib/pricingCatalog';
+import { debugWarn } from '@/lib/frontendDebug';
+import { cn } from '@/lib/utils';
 
 const getRoleLabel = (
   role: BusinessStaffRole | 'business',
@@ -49,7 +52,9 @@ export default function EmployeesManagement() {
   const ownedVenues = useMemo(() => getAccessibleBusinessVenues(user, venues), [user, venues]);
   const [selectedVenueId, setSelectedVenueId] = useState('');
   const [staffAccounts, setStaffAccounts] = useState<BusinessStaffAccount[]>([]);
+  const [subscription, setSubscription] = useState<VenueSubscription | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isSubscriptionLoading, setIsSubscriptionLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -59,6 +64,7 @@ export default function EmployeesManagement() {
   const [role, setRole] = useState<BusinessStaffRole>('staff');
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [togglingStatusId, setTogglingStatusId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user || !isBusinessPortal) {
@@ -98,14 +104,30 @@ export default function EmployeesManagement() {
     }
   }, [t]);
 
+  const loadSubscription = useCallback(async (venueId: string) => {
+    setIsSubscriptionLoading(true);
+    try {
+      const snapshot = await getVenueSubscriptionSnapshot(venueId);
+      setSubscription(snapshot);
+    } catch (err) {
+      const message = err instanceof Error ? t(err.message) : t('Не удалось загрузить подписку');
+      setError(message);
+      setSubscription(null);
+    } finally {
+      setIsSubscriptionLoading(false);
+    }
+  }, [t]);
+
   useEffect(() => {
     if (!selectedVenueId) {
       setStaffAccounts([]);
+      setSubscription(null);
       return;
     }
 
     void loadStaffAccounts(selectedVenueId);
-  }, [loadStaffAccounts, selectedVenueId]);
+    void loadSubscription(selectedVenueId);
+  }, [loadStaffAccounts, loadSubscription, selectedVenueId]);
 
   const previewEmail = useMemo(() => {
     if (!selectedVenue) return '';
@@ -118,8 +140,25 @@ export default function EmployeesManagement() {
     });
   }, [firstName, lastName, selectedVenue, staffAccounts]);
 
-  const usedAccountCount = 1 + staffAccounts.length;
-  const remainingAccountCount = Math.max(0, MAX_BUSINESS_ACCESS_ACCOUNTS - usedAccountCount);
+  const activeStaffAccounts = useMemo(
+    () => staffAccounts.filter((account) => account.isActive),
+    [staffAccounts],
+  );
+  const usedCalendarCount = 1 + activeStaffAccounts.length;
+  const remainingCalendarCount = useMemo(() => {
+    if (!subscription || subscription.maxCalendars === null) return Number.POSITIVE_INFINITY;
+    return Math.max(0, subscription.maxCalendars - usedCalendarCount);
+  }, [subscription, usedCalendarCount]);
+  const isAtCalendarLimit = Boolean(
+    subscription
+    && subscription.maxCalendars !== null
+    && usedCalendarCount >= subscription.maxCalendars,
+  );
+  const currentPlanId = subscription?.planId ?? FREE_PLAN_ID;
+  const recommendedPlanId = getRecommendedUpgradePlanId(currentPlanId);
+  const upgradeHref = selectedVenue
+    ? `/pricing?venueId=${selectedVenue.id}&plan=${currentPlanId}&recommended=${recommendedPlanId}&billing=${subscription?.billingCycle ?? 'annual'}`
+    : '/pricing';
 
   const resetForm = () => {
     setFirstName('');
@@ -144,8 +183,14 @@ export default function EmployeesManagement() {
       return;
     }
 
-    if (remainingAccountCount <= 0) {
-      setError(t('Для одного бизнеса доступно максимум 3 входа в админку'));
+    if (isAtCalendarLimit) {
+      debugWarn('calendar-limit.reached.create-blocked', {
+        venueId: selectedVenue.id,
+        planId: subscription?.planId,
+        currentCalendarsCount: usedCalendarCount,
+        maxCalendars: subscription?.maxCalendars,
+      });
+      setError('To add another staff member or resource, upgrade to a plan with more calendars.');
       return;
     }
 
@@ -162,6 +207,7 @@ export default function EmployeesManagement() {
       setSuccess(t('Сотрудник создан. Передайте ему логин и временный пароль'));
       resetForm();
       await loadStaffAccounts(selectedVenue.id);
+      await loadSubscription(selectedVenue.id);
     } catch (err) {
       const message = err instanceof Error ? t(err.message) : t('Не удалось создать сотрудника');
       setError(message);
@@ -197,12 +243,42 @@ export default function EmployeesManagement() {
     try {
       await deleteBusinessStaffAccount(accountId);
       await loadStaffAccounts(selectedVenue.id);
+      await loadSubscription(selectedVenue.id);
       setSuccess(t('Сотрудник удалён'));
     } catch (err) {
       const message = err instanceof Error ? t(err.message) : t('Не удалось удалить сотрудника');
       setError(message);
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  const handleActiveStateChange = async (account: BusinessStaffAccount, nextIsActive: boolean) => {
+    if (!selectedVenue || !canManageEmployees) return;
+
+    setTogglingStatusId(account.id);
+    setError('');
+    setSuccess('');
+
+    try {
+      await updateBusinessStaffAccountActiveState({ accountId: account.id, isActive: nextIsActive });
+      await loadStaffAccounts(selectedVenue.id);
+      await loadSubscription(selectedVenue.id);
+      setSuccess(nextIsActive ? t('Сотрудник снова активен') : t('Сотрудник деактивирован'));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : t('Не удалось обновить статус сотрудника');
+      if (nextIsActive) {
+        debugWarn('calendar-limit.reached.reactivate-blocked', {
+          venueId: selectedVenue.id,
+          planId: subscription?.planId,
+          currentCalendarsCount: usedCalendarCount,
+          maxCalendars: subscription?.maxCalendars,
+          staffAccountId: account.id,
+        });
+      }
+      setError(message);
+    } finally {
+      setTogglingStatusId(null);
     }
   };
 
@@ -232,7 +308,7 @@ export default function EmployeesManagement() {
       <div>
         <h1 className="text-4xl font-semibold tracking-tight text-foreground">{t('Сотрудники')}</h1>
         <p className="mt-2 text-muted-foreground">
-          {t('Для одного бизнеса доступно максимум 3 входа в админку: владелец и ещё 2 сотрудника.')}
+          {t('Управляйте активными календарями команды, доступами и статусами сотрудников в одном месте.')}
         </p>
       </div>
 
@@ -258,8 +334,38 @@ export default function EmployeesManagement() {
         </Card>
       ) : null}
 
-      {(error || success) ? (
+      {(error || success || subscription) ? (
         <div className="space-y-2">
+          {subscription ? (
+            <Alert className="border-border/60 bg-background/80">
+              <AlertDescription className="space-y-2">
+                <p>
+                  {subscription.maxCalendars === null
+                    ? t('Вы используете {count} календарей на текущем тарифе.', { count: usedCalendarCount })
+                    : t('Вы используете {count} из {total} календарей на текущем тарифе.', {
+                        count: usedCalendarCount,
+                        total: subscription.maxCalendars,
+                      })}
+                </p>
+                <p className="text-muted-foreground">
+                  {t(getPricingPlanTierById(subscription.planId)?.plan.name ?? subscription.planName)} · {t(getCalendarOptionLabel(subscription.maxCalendars))}
+                </p>
+                {isAtCalendarLimit ? (
+                  <div className="flex flex-col gap-3 pt-1 sm:flex-row sm:items-center sm:justify-between">
+                    <p>{t('Чтобы добавить ещё одного сотрудника или ресурс, перейдите на тариф с большим числом календарей.')}</p>
+                    <Button asChild size="sm" className="rounded-full">
+                      <a href={upgradeHref}>{t('Обновить тариф')}</a>
+                    </Button>
+                  </div>
+                ) : null}
+                {!isAtCalendarLimit && Number.isFinite(remainingCalendarCount) ? (
+                  <p className="text-muted-foreground">
+                    {t('Осталось календарей на этом тарифе: {count}', { count: remainingCalendarCount })}
+                  </p>
+                ) : null}
+              </AlertDescription>
+            </Alert>
+          ) : null}
           {error ? (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
@@ -305,13 +411,18 @@ export default function EmployeesManagement() {
             <CardTitle>{t('Новый сотрудник')}</CardTitle>
             <CardDescription>
               {canManageEmployees
-                ? t('Введите имя и фамилию. Система сама сгенерирует логин для входа.')
+                ? t('Введите имя и фамилию. Система создаст отдельный календарь сотрудника и сгенерирует логин для входа.')
                 : t('Только роль business может создавать новых сотрудников')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="rounded-xl border border-border/40 bg-input/20 p-4 text-sm text-muted-foreground">
-              {t('Занято входов: {used} из {total}', { used: usedAccountCount, total: MAX_BUSINESS_ACCESS_ACCOUNTS })}
+              {subscription?.maxCalendars === null
+                ? t('Активные календари: {count} · Безлимитно на текущем тарифе', { count: usedCalendarCount })
+                : t('Активные календари: {count} из {total}', {
+                    count: usedCalendarCount,
+                    total: subscription?.maxCalendars ?? '—',
+                  })}
             </div>
 
             <form onSubmit={handleCreateEmployee} className="space-y-4">
@@ -351,7 +462,11 @@ export default function EmployeesManagement() {
                 <Label>{t('Логин для входа')}</Label>
                 <Input value={previewEmail} readOnly className="h-11 bg-input/30 border-border/50 font-mono text-sm" />
               </div>
-              <Button type="submit" className="h-11 w-full" disabled={!canManageEmployees || isSaving || remainingAccountCount <= 0}>
+              <Button
+                type="submit"
+                className="h-11 w-full"
+                disabled={!canManageEmployees || isSaving || isSubscriptionLoading || isAtCalendarLimit}
+              >
                 {isSaving ? t('Создание…') : t('Создать сотрудника')}
               </Button>
             </form>
@@ -394,6 +509,16 @@ export default function EmployeesManagement() {
                         <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                           <UserRound className="h-4 w-4 text-primary" />
                           <span>{`${account.firstName} ${account.lastName}`.trim()}</span>
+                          <span
+                            className={cn(
+                              'rounded-full px-2.5 py-0.5 text-xs',
+                              account.isActive
+                                ? 'border border-emerald-800/40 bg-emerald-950/20 text-emerald-300'
+                                : 'border border-border/60 bg-background/80 text-muted-foreground',
+                            )}
+                          >
+                            {account.isActive ? 'Active' : 'Inactive'}
+                          </span>
                         </div>
                         <p className="text-sm text-muted-foreground">{account.email}</p>
                       </div>
@@ -401,7 +526,7 @@ export default function EmployeesManagement() {
                         <Select
                           value={account.role}
                           onValueChange={(value: BusinessStaffRole) => void handleRoleChange(account.id, value)}
-                          disabled={!canManageEmployees || updatingId === account.id}
+                          disabled={!canManageEmployees || updatingId === account.id || !account.isActive}
                         >
                           <SelectTrigger className="h-10 w-[160px] border-border/50 bg-input/40">
                             <SelectValue />
@@ -411,6 +536,15 @@ export default function EmployeesManagement() {
                             <SelectItem value="staff">{getRoleLabel('staff', t)}</SelectItem>
                           </SelectContent>
                         </Select>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="h-10 border-border/50"
+                          onClick={() => void handleActiveStateChange(account, !account.isActive)}
+                          disabled={!canManageEmployees || togglingStatusId === account.id}
+                        >
+                          {account.isActive ? 'Deactivate' : 'Activate'}
+                        </Button>
                         <Button
                           type="button"
                           variant="outline"

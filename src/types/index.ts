@@ -2,6 +2,8 @@
 export type UserRole = 'admin' | 'user';
 export type BusinessAccessRole = 'business' | 'manager' | 'staff';
 export type BusinessStaffRole = Exclude<BusinessAccessRole, 'business'>;
+export type SubscriptionBillingMode = 'monthly' | 'annual';
+export type SubscriptionPlanFamily = 'free' | 'plus' | 'pro';
 
 export interface BusinessAccess {
   venueId: string;
@@ -31,6 +33,62 @@ export interface Venue {
   activityType: string;
   adminId: string;
   createdAt: string;
+}
+
+export type VenueTableShape = 'rectangle' | 'circle' | 'square';
+
+export interface VenueTable {
+  id: string;
+  floorPlanId: string;
+  tableNumber: string;
+  capacity: number;
+  xPosition: number;
+  yPosition: number;
+  width: number;
+  height: number;
+  shape: VenueTableShape;
+  notes: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VenueFloorPlan {
+  id: string;
+  venueId: string;
+  name: string;
+  imagePath: string;
+  width: number;
+  height: number;
+  createdAt: string;
+  updatedAt: string;
+  tables: VenueTable[];
+}
+
+export type VenueTableBookingStatus = 'active' | 'cancelled';
+
+export interface VenueTableBooking {
+  id: string;
+  venueTableId: string;
+  userId: string;
+  guestCount: number;
+  bookingDate: string;
+  startTime: string;
+  endTime: string;
+  notes: string;
+  status: VenueTableBookingStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AvailableVenueTable extends VenueTable {
+  floorPlanId: string;
+  floorPlanName: string;
+  floorPlanImagePath: string;
+  floorPlanWidth: number;
+  floorPlanHeight: number;
+  isAvailable: boolean;
+  isCapacityMatch: boolean;
 }
 
 export type VenueMemberRole = 'member' | 'manager';
@@ -122,12 +180,28 @@ export interface BusinessStaffAccount {
   firstName: string;
   lastName: string;
   role: BusinessStaffRole;
+  isActive: boolean;
   createdByUserId: string;
   createdAt: string;
 }
 
 export interface CreatedBusinessStaffAccount extends BusinessStaffAccount {
   temporaryPassword: string;
+}
+
+export interface VenueSubscription {
+  id: string;
+  venueId: string;
+  planId: string;
+  planName: string;
+  planFamily: SubscriptionPlanFamily;
+  billingCycle: SubscriptionBillingMode;
+  maxCalendars: number | null;
+  priceMonthly: number;
+  priceAnnually: number;
+  currentCalendarsCount: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 // Booking types

@@ -1,16 +1,27 @@
 import { create } from 'zustand';
-import type { Booking, Room, ServiceBooking, User, Venue, VenueMembership } from '@/types';
+import type {
+  Booking,
+  Room,
+  ServiceBooking,
+  User,
+  Venue,
+  VenueMembership,
+  VenueFloorPlan,
+  VenueTable,
+} from '@/types';
 import * as venueApi from '@/lib/venueApi';
 import * as roomApi from '@/lib/roomApi';
 import * as bookingApi from '@/lib/bookingApi';
 import * as serviceBookingApi from '@/lib/serviceBookingApi';
 import * as membershipApi from '@/lib/membershipApi';
+import * as floorPlanApi from '@/lib/floorPlanApi';
 import { getBusinessVenueScopeKey, hasBusinessAccess } from '@/lib/businessAccess';
 import { debugError, debugInfo } from '@/lib/frontendDebug';
 
 interface VenueState {
   venues: Venue[];
   rooms: Room[];
+  floorPlans: VenueFloorPlan[];
   bookings: Booking[];
   serviceBookings: ServiceBooking[];
   memberships: VenueMembership[];
@@ -30,6 +41,17 @@ interface VenueState {
   createRoom: (room: Omit<Room, 'id' | 'createdAt'>) => Promise<Room>;
   updateRoom: (id: string, room: Partial<Room>) => Promise<Room>;
   deleteRoom: (id: string) => Promise<void>;
+
+  createFloorPlan: (payload: { venueId: string; name: string; file: File }) => Promise<VenueFloorPlan>;
+  updateFloorPlan: (id: string, floorPlan: Partial<Pick<VenueFloorPlan, 'name' | 'imagePath' | 'width' | 'height'>>) => Promise<VenueFloorPlan>;
+  createFloorTable: (
+    table: Omit<VenueTable, 'id' | 'createdAt' | 'updatedAt'> & { id?: string },
+  ) => Promise<VenueTable>;
+  updateFloorTable: (
+    id: string,
+    table: Partial<Pick<VenueTable, 'tableNumber' | 'capacity' | 'xPosition' | 'yPosition' | 'width' | 'height' | 'shape' | 'notes' | 'isActive'>>,
+  ) => Promise<VenueTable>;
+  deleteFloorTable: (id: string) => Promise<void>;
 
   getMembership: (venueId: string, userId: string) => VenueMembership | undefined;
 
@@ -58,9 +80,35 @@ const mergeById = <T extends { id: string }>(current: T[], next: T[]) => {
   return Array.from(map.values());
 };
 
+const mergeFloorPlansById = (current: VenueFloorPlan[], next: VenueFloorPlan[]) => {
+  const map = new Map<string, VenueFloorPlan>();
+  current.forEach((item) => map.set(item.id, item));
+  next.forEach((item) => map.set(item.id, item));
+  return Array.from(map.values());
+};
+
+const upsertFloorTableInPlans = (floorPlans: VenueFloorPlan[], table: VenueTable) =>
+  floorPlans.map((floorPlan) => (
+    floorPlan.id === table.floorPlanId
+      ? {
+          ...floorPlan,
+          tables: mergeById(floorPlan.tables, [table]).sort((left, right) =>
+            left.tableNumber.localeCompare(right.tableNumber, 'ru-RU', { numeric: true }),
+          ),
+        }
+      : floorPlan
+  ));
+
+const removeFloorTableFromPlans = (floorPlans: VenueFloorPlan[], tableId: string) =>
+  floorPlans.map((floorPlan) => ({
+    ...floorPlan,
+    tables: floorPlan.tables.filter((table) => table.id !== tableId),
+  }));
+
 export const useVenueStore = create<VenueState>((set, get) => ({
   venues: [],
   rooms: [],
+  floorPlans: [],
   bookings: [],
   serviceBookings: [],
   memberships: [],
@@ -81,22 +129,29 @@ export const useVenueStore = create<VenueState>((set, get) => ({
         ? await venueApi.listVenues({ adminId: user.id })
         : await venueApi.listVenues({ venueIds: [user.businessAccess.venueId] });
       const venueIds = venues.map((venue) => venue.id);
-      const rooms = venueIds.length ? await roomApi.listRooms({ venueIds }) : [];
-      const bookingResults = await Promise.allSettled(
-        venueIds.map((venueId) => bookingApi.listBookings({ venueId })),
-      );
-      const bookings = mergeById(
-        [],
-        bookingResults.flatMap((result) => (result.status === 'fulfilled' ? result.value : [])),
-      );
-      const serviceBookingResults = await Promise.allSettled(
-        venueIds.map((venueId) => serviceBookingApi.listServiceBookings({ venueId })),
-      );
+      const [rooms, floorPlans, bookingResults, serviceBookingResults] = await Promise.all([
+        venueIds.length ? roomApi.listRooms({ venueIds }) : Promise.resolve([]),
+        venueIds.length ? floorPlanApi.listVenueFloorPlans({ venueIds }) : Promise.resolve([]),
+        Promise.allSettled(venueIds.map((venueId) => bookingApi.listBookings({ venueId }))),
+        Promise.allSettled(venueIds.map((venueId) => serviceBookingApi.listServiceBookings({ venueId }))),
+      ]);
+      const bookings = mergeById([], bookingResults.flatMap((result) => (result.status === 'fulfilled' ? result.value : [])));
       const serviceBookings = mergeById(
         [],
         serviceBookingResults.flatMap((result) => (result.status === 'fulfilled' ? result.value : [])),
       );
-      set({ venues, rooms, bookings, serviceBookings, memberships: [], isLoading: false, loadedFor: key, settledFor: key });
+
+      set({
+        venues,
+        rooms,
+        floorPlans,
+        bookings,
+        serviceBookings,
+        memberships: [],
+        isLoading: false,
+        loadedFor: key,
+        settledFor: key,
+      });
     } catch (err) {
       set({ isLoading: false, settledFor: key });
       throw err;
@@ -107,10 +162,11 @@ export const useVenueStore = create<VenueState>((set, get) => ({
     const key = `user:${userId}`;
     set({ isLoading: true, loadedFor: null, settledFor: null });
     try {
-      const [memberships, venues, rooms, bookings, serviceBookings] = await Promise.all([
+      const [memberships, venues, rooms, floorPlans, bookings, serviceBookings] = await Promise.all([
         membershipApi.listMemberships({ userId }),
         venueApi.listVenues({ publicAccess: true }),
         roomApi.listRooms({ publicAccess: true }),
+        floorPlanApi.listVenueFloorPlans({ publicAccess: true }),
         bookingApi.listBookings({ userId }),
         serviceBookingApi.listServiceBookings({ userId }),
       ]);
@@ -118,6 +174,7 @@ export const useVenueStore = create<VenueState>((set, get) => ({
         memberships,
         venues,
         rooms,
+        floorPlans,
         bookings,
         serviceBookings,
         isLoading: false,
@@ -204,6 +261,47 @@ export const useVenueStore = create<VenueState>((set, get) => ({
       rooms: state.rooms.filter((room) => room.id !== id),
       bookings: state.bookings.filter((booking) => booking.roomId !== id),
     }));
+  },
+
+  createFloorPlan: async (payload) => {
+    const floorPlan = await floorPlanApi.uploadVenueFloorPlan(payload);
+    set((state) => ({ floorPlans: mergeFloorPlansById(state.floorPlans, [floorPlan]) }));
+    return floorPlan;
+  },
+
+  updateFloorPlan: async (id, floorPlanData) => {
+    const floorPlan = await floorPlanApi.updateVenueFloorPlan(id, floorPlanData);
+    set((state) => ({ floorPlans: mergeFloorPlansById(state.floorPlans, [floorPlan]) }));
+    return floorPlan;
+  },
+
+  createFloorTable: async (tableData) => {
+    const table = await floorPlanApi.createVenueTable({
+      id: tableData.id,
+      floorPlanId: tableData.floorPlanId,
+      tableNumber: tableData.tableNumber,
+      capacity: tableData.capacity,
+      xPosition: tableData.xPosition,
+      yPosition: tableData.yPosition,
+      width: tableData.width,
+      height: tableData.height,
+      shape: tableData.shape,
+      notes: tableData.notes,
+      isActive: tableData.isActive,
+    });
+    set((state) => ({ floorPlans: upsertFloorTableInPlans(state.floorPlans, table) }));
+    return table;
+  },
+
+  updateFloorTable: async (id, tableData) => {
+    const table = await floorPlanApi.updateVenueTable(id, tableData);
+    set((state) => ({ floorPlans: upsertFloorTableInPlans(state.floorPlans, table) }));
+    return table;
+  },
+
+  deleteFloorTable: async (id) => {
+    await floorPlanApi.deleteVenueTable(id);
+    set((state) => ({ floorPlans: removeFloorTableFromPlans(state.floorPlans, id) }));
   },
 
   getMembership: (venueId, userId) => {
@@ -355,6 +453,7 @@ export const useVenueStore = create<VenueState>((set, get) => ({
       rooms: [],
       bookings: [],
       serviceBookings: [],
+      floorPlans: [],
       memberships: [],
       isLoading: false,
       loadedFor: null,

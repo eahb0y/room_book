@@ -19,6 +19,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useI18n } from '@/i18n/useI18n';
 import { hasBusinessAccess } from '@/lib/businessAccess';
+import { formatDurationLabel } from '@/lib/formatDurationLabel';
 
 const SLOT_STEP_MINUTES = 15;
 const MINUTES_IN_DAY = 24 * 60;
@@ -37,14 +38,6 @@ const toTime = (totalMinutes: number) => {
   const hour = Math.floor(safeMinutes / 60).toString().padStart(2, '0');
   const minute = (safeMinutes % 60).toString().padStart(2, '0');
   return `${hour}:${minute}`;
-};
-
-const toDurationLabel = (minutes: number) => {
-  const hours = Math.floor(minutes / 60);
-  const restMinutes = minutes % 60;
-  if (hours > 0 && restMinutes > 0) return `${hours}ч ${restMinutes}м`;
-  if (hours > 0) return `${hours}ч`;
-  return `${restMinutes}м`;
 };
 
 export default function BookingPage() {
@@ -245,14 +238,18 @@ export default function BookingPage() {
     const durationMinutes = endMinute - startMinute;
     if (durationMinutes < roomMinBookingMinutes) {
       setError(
-        t('Минимальная длительность брони: {duration}', { duration: toDurationLabel(roomMinBookingMinutes) }),
+        t('Минимальная длительность брони: {duration}', {
+          duration: formatDurationLabel(roomMinBookingMinutes, t),
+        }),
       );
       return;
     }
 
     if (durationMinutes > roomMaxBookingMinutes) {
       setError(
-        t('Максимальная длительность брони: {duration}', { duration: toDurationLabel(roomMaxBookingMinutes) }),
+        t('Максимальная длительность брони: {duration}', {
+          duration: formatDurationLabel(roomMaxBookingMinutes, t),
+        }),
       );
       return;
     }
@@ -331,7 +328,12 @@ export default function BookingPage() {
             </p>
             <p className="flex items-center gap-2">
               <Clock3 className="h-4 w-4" />
-              <span>{t('Бронь: {min} - {max}', { min: toDurationLabel(roomMinBookingMinutes), max: toDurationLabel(roomMaxBookingMinutes) })}</span>
+              <span>
+                {t('Бронь: {min} - {max}', {
+                  min: formatDurationLabel(roomMinBookingMinutes, t),
+                  max: formatDurationLabel(roomMaxBookingMinutes, t),
+                })}
+              </span>
             </p>
           </div>
           <RoomAmenities
@@ -382,8 +384,8 @@ export default function BookingPage() {
                   {
                     from: room.availableFrom,
                     to: room.availableTo,
-                    min: toDurationLabel(roomMinBookingMinutes),
-                    max: toDurationLabel(roomMaxBookingMinutes),
+                    min: formatDurationLabel(roomMinBookingMinutes, t),
+                    max: formatDurationLabel(roomMaxBookingMinutes, t),
                   },
                 )}
               </CardDescription>

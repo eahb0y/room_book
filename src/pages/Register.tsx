@@ -40,7 +40,7 @@ export default function Register() {
   const loginPath = loginParams.toString() ? `/login?${loginParams.toString()}` : '/login';
   const isInviteFlow = Boolean(inviteToken);
   const resolvePostAuthPath = useCallback(
-    () => (inviteToken ? `/invite/${inviteToken}` : nextPath ?? '/'),
+    () => (inviteToken ? `/invite/${inviteToken}` : nextPath ?? '/profile'),
     [inviteToken, nextPath],
   );
 
