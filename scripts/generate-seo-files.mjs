@@ -22,10 +22,16 @@ const sitemapXml = `<?xml version="1.0" encoding="UTF-8"?>
     <priority>1.0</priority>
   </url>
   <url>
-    <loc>${siteUrl}/business/landing</loc>
+    <loc>${siteUrl}/about</loc>
+    <lastmod>${generatedAt}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>${siteUrl}/blog</loc>
     <lastmod>${generatedAt}</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
+    <priority>0.7</priority>
   </url>
 </urlset>
 `;
@@ -34,8 +40,13 @@ const robotsTxt = `User-agent: *
 Allow: /
 Disallow: /my-venue
 Disallow: /people
+Disallow: /employees
 Disallow: /rooms
+Disallow: /services
 Disallow: /bookings
+Disallow: /business/login
+Disallow: /business/register
+Disallow: /business/landing
 Disallow: /venue/
 Disallow: /room/
 Disallow: /my-bookings

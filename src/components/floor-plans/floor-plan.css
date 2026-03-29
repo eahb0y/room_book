@@ -1,0 +1,191 @@
+.floor-plan-shell {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.5rem;
+  border: 1px solid hsl(var(--border) / 0.55);
+  background:
+    radial-gradient(circle at top left, rgba(52, 152, 219, 0.12), transparent 34%),
+    linear-gradient(180deg, hsl(var(--card) / 0.82), hsl(var(--card) / 0.56));
+  box-shadow: 0 24px 60px -40px rgba(15, 23, 42, 0.55);
+}
+
+.floor-plan-scroll {
+  overflow: auto;
+  touch-action: pan-x pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+.floor-plan-viewport {
+  position: relative;
+  transform-origin: top left;
+  transition: transform 0.3s ease;
+  user-select: none;
+}
+
+.floor-plan-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+}
+
+.floor-plan-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 5% 5%;
+  pointer-events: none;
+}
+
+.floor-plan-table {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.12rem;
+  padding: 0.25rem;
+  color: white;
+  text-align: center;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 18px 30px -22px rgba(15, 23, 42, 0.9);
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease,
+    border-color 0.3s ease,
+    background-color 0.3s ease,
+    opacity 0.3s ease;
+  cursor: pointer;
+}
+
+.floor-plan-table:hover {
+  transform: scale(1.08);
+}
+
+.floor-plan-table--dragging {
+  cursor: grabbing;
+  z-index: 30;
+  box-shadow: 0 28px 50px -24px rgba(15, 23, 42, 0.95);
+}
+
+.floor-plan-table--selected {
+  outline: 2px solid rgba(255, 255, 255, 0.9);
+  outline-offset: 2px;
+}
+
+.floor-plan-table--rectangle {
+  border-radius: 1rem;
+}
+
+.floor-plan-table--square {
+  border-radius: 0.75rem;
+}
+
+.floor-plan-table--circle {
+  border-radius: 999px;
+}
+
+.floor-plan-table__number {
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.floor-plan-table__capacity {
+  font-size: 0.68rem;
+  opacity: 0.92;
+  line-height: 1;
+}
+
+.floor-plan-table__notes {
+  font-size: 0.62rem;
+  opacity: 0.86;
+  line-height: 1;
+}
+
+.floor-plan-table--admin {
+  background: rgba(52, 152, 219, 0.72);
+  border: 1px solid rgba(52, 152, 219, 0.95);
+}
+
+.floor-plan-table--available {
+  background: rgba(46, 204, 113, 0.72);
+  border: 1px solid rgba(46, 204, 113, 0.96);
+}
+
+.floor-plan-table--busy {
+  background: rgba(231, 76, 60, 0.5);
+  border: 1px solid rgba(231, 76, 60, 0.86);
+}
+
+.floor-plan-table--insufficient {
+  background: rgba(243, 156, 18, 0.54);
+  border: 1px solid rgba(243, 156, 18, 0.92);
+}
+
+.floor-plan-table--picked {
+  background: rgba(52, 152, 219, 0.9);
+  border: 1px solid rgba(41, 128, 185, 0.98);
+}
+
+.floor-plan-table--inactive {
+  background: rgba(100, 116, 139, 0.48);
+  border: 1px solid rgba(148, 163, 184, 0.7);
+  opacity: 0.7;
+}
+
+.floor-plan-minimap {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid hsl(var(--border) / 0.55);
+  background: hsl(var(--muted) / 0.18);
+}
+
+.floor-plan-minimap__frame {
+  position: relative;
+  width: 100%;
+}
+
+.floor-plan-minimap__marker {
+  position: absolute;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.92);
+  background: rgba(52, 152, 219, 0.78);
+}
+
+.floor-plan-dropzone {
+  position: relative;
+  border-radius: 1.5rem;
+  border: 1px dashed hsl(var(--border) / 0.75);
+  background:
+    linear-gradient(135deg, rgba(52, 152, 219, 0.09), transparent 52%),
+    hsl(var(--card) / 0.74);
+  transition: border-color 0.3s ease, background-color 0.3s ease, transform 0.3s ease;
+}
+
+.floor-plan-dropzone[data-active='true'] {
+  border-color: rgba(52, 152, 219, 0.9);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 768px) {
+  .floor-plan-table__number {
+    font-size: 0.82rem;
+  }
+
+  .floor-plan-table__capacity,
+  .floor-plan-table__notes {
+    font-size: 0.58rem;
+  }
+}
+
+@media print {
+  .floor-plan-shell {
+    box-shadow: none;
+    border-color: #d0d7de;
+    background: white;
+  }
+}

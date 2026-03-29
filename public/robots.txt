@@ -2,8 +2,13 @@ User-agent: *
 Allow: /
 Disallow: /my-venue
 Disallow: /people
+Disallow: /employees
 Disallow: /rooms
+Disallow: /services
 Disallow: /bookings
+Disallow: /business/login
+Disallow: /business/register
+Disallow: /business/landing
 Disallow: /venue/
 Disallow: /room/
 Disallow: /my-bookings

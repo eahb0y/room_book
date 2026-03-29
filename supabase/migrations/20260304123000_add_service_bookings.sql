@@ -1,3 +1,5 @@
+create extension if not exists btree_gist;
+
 create table if not exists public.service_bookings (
   id uuid primary key default gen_random_uuid(),
   service_id uuid not null references public.business_services (id) on delete cascade,

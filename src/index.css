@@ -193,80 +193,238 @@ body::after {
   transform: translateY(-1px);
 }
 
-.marketplace-stage {
+.marketing-stage {
   position: relative;
   overflow-x: hidden;
   overflow-x: clip;
   background:
-    radial-gradient(circle at 4% -8%, hsl(212 86% 49% / 0.14), transparent 34%),
-    radial-gradient(circle at 100% 10%, hsl(173 49% 53% / 0.12), transparent 33%),
-    linear-gradient(180deg, #f8fbff 0%, #f4f7fb 58%, #eef4fb 100%);
+    radial-gradient(circle at 6% -4%, hsl(var(--primary) / 0.18), transparent 34%),
+    radial-gradient(circle at 100% 10%, hsl(var(--teal) / 0.14), transparent 34%),
+    linear-gradient(180deg, hsl(var(--background)) 0%, hsl(212 60% 99%) 52%, hsl(210 70% 97%) 100%);
   isolation: isolate;
 }
 
-.marketplace-stage::before,
-.marketplace-stage::after {
+.marketing-stage::before,
+.marketing-stage::after {
   content: '';
   position: absolute;
   z-index: -1;
   pointer-events: none;
   border-radius: 999px;
-  filter: blur(42px);
+  filter: blur(56px);
 }
 
-.marketplace-stage::before {
-  top: 130px;
-  left: -120px;
-  width: 300px;
-  height: 300px;
-  background: hsl(212 86% 49% / 0.14);
+.marketing-stage::before {
+  top: 120px;
+  left: -80px;
+  width: 320px;
+  height: 320px;
+  background: hsl(var(--primary) / 0.12);
 }
 
-.marketplace-stage::after {
-  top: 320px;
-  right: -120px;
-  width: 260px;
-  height: 260px;
-  background: hsl(173 49% 53% / 0.12);
+.marketing-stage::after {
+  top: 260px;
+  right: -80px;
+  width: 280px;
+  height: 280px;
+  background: hsl(var(--teal) / 0.1);
 }
 
-.marketplace-hero-panel {
+.marketing-panel {
   background:
-    radial-gradient(circle at 82% 22%, rgba(75, 193, 180, 0.18), transparent 26%),
-    radial-gradient(circle at 12% 18%, rgba(18, 116, 231, 0.16), transparent 28%),
-    linear-gradient(135deg, rgba(253, 254, 255, 0.96), rgba(232, 238, 248, 0.94));
+    radial-gradient(circle at 88% 18%, hsl(var(--primary) / 0.16), transparent 28%),
+    radial-gradient(circle at 10% 14%, hsl(var(--teal) / 0.12), transparent 30%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(241, 246, 252, 0.95));
+  backdrop-filter: blur(18px);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.72),
-    0 22px 54px -36px rgba(18, 44, 87, 0.24);
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    0 24px 64px -40px rgba(18, 44, 87, 0.24);
 }
 
-html.dark .marketplace-hero-panel {
+html.dark .marketing-stage {
   background:
-    radial-gradient(circle at 85% 20%, hsl(29 68% 62% / 0.22), transparent 38%),
-    linear-gradient(130deg, hsl(240 8% 10%), hsl(240 6% 6%));
-  box-shadow:
-    inset 0 1px 0 hsl(37 55% 90% / 0.14),
-    0 18px 60px -30px hsl(0 0% 0% / 0.8);
+    radial-gradient(circle at 0% 0%, hsl(var(--primary) / 0.18), transparent 35%),
+    radial-gradient(circle at 100% 10%, hsl(var(--teal) / 0.12), transparent 34%),
+    linear-gradient(180deg, hsl(240 7% 5%), hsl(240 8% 6%));
 }
 
-.marketplace-search-panel,
-.marketplace-control-deck,
+html.dark .marketing-stage::before {
+  background: hsl(var(--primary) / 0.16);
+}
+
+html.dark .marketing-stage::after {
+  background: hsl(var(--teal) / 0.14);
+}
+
+html.dark .marketing-panel {
+  background:
+    radial-gradient(circle at 85% 18%, hsl(var(--primary) / 0.16), transparent 30%),
+    radial-gradient(circle at 10% 14%, hsl(var(--teal) / 0.12), transparent 28%),
+    linear-gradient(145deg, rgba(16, 19, 29, 0.92), rgba(11, 15, 24, 0.96));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 24px 64px -40px rgba(0, 0, 0, 0.7);
+}
+
+.marketing-grid-pattern {
+  background-image:
+    linear-gradient(to right, hsl(var(--border) / 0.45) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(var(--border) / 0.45) 1px, transparent 1px);
+  background-size: 26px 26px;
+}
+
+.features-showcase::before,
+.features-showcase::after {
+  content: '';
+  position: absolute;
+  pointer-events: none;
+  border-radius: 999px;
+  filter: blur(52px);
+  z-index: 0;
+}
+
+.features-showcase::before {
+  top: -32px;
+  left: -18px;
+  width: 180px;
+  height: 180px;
+  background: hsl(var(--primary) / 0.14);
+}
+
+.features-showcase::after {
+  right: -26px;
+  bottom: 18px;
+  width: 170px;
+  height: 170px;
+  background: hsl(var(--teal) / 0.12);
+}
+
+.features-drift {
+  animation: features-drift 8.6s cubic-bezier(0.37, 0, 0.63, 1) infinite;
+}
+
+.about-cinematic-root {
+  position: relative;
+  isolation: isolate;
+}
+
+.about-cinematic-root::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 0% 0%, hsl(var(--primary) / 0.12), transparent 26%),
+    radial-gradient(circle at 100% 12%, rgba(255, 255, 255, 0.72), transparent 18%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.62), transparent 32%, rgba(59, 130, 246, 0.04) 100%);
+}
+
+.about-cinematic-frame {
+  backdrop-filter: blur(20px);
+}
+
+.about-phone-shell {
+  position: relative;
+}
+
+.about-phone-shell::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  width: 32%;
+  height: 6px;
+  border-radius: 999px;
+  transform: translateX(-50%);
+  background: rgba(15, 23, 42, 0.42);
+  z-index: 2;
+}
+
+.about-floating-note {
+  animation: about-float 7s cubic-bezier(0.37, 0, 0.63, 1) infinite;
+  will-change: transform;
+}
+
+.about-signal-pulse {
+  animation: about-pulse 2.3s ease-in-out infinite;
+}
+
+.about-scan-line {
+  position: relative;
+  overflow: hidden;
+}
+
+.about-scan-line::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.75), transparent);
+  transform: translateX(-100%);
+  animation: about-scan 4.4s linear infinite;
+}
+
+@keyframes about-float {
+  0%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -10px, 0);
+  }
+}
+
+@keyframes about-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 hsl(var(--primary) / 0.32);
+  }
+  55% {
+    transform: scale(1.18);
+    box-shadow: 0 0 0 10px hsl(var(--primary) / 0);
+  }
+}
+
+@keyframes about-scan {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  20%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+@keyframes features-drift {
+  0%, 100% {
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    transform: translate3d(0, -10px, 0);
+  }
+}
+
+html.dark .about-cinematic-root::before {
+  background:
+    radial-gradient(circle at 0% 0%, hsl(var(--primary) / 0.16), transparent 28%),
+    radial-gradient(circle at 100% 12%, hsl(var(--teal) / 0.14), transparent 20%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.18), transparent 34%, rgba(59, 130, 246, 0.06) 100%);
+}
+
+@media (max-width: 1023px) {
+  .about-cinematic-root [data-scene] {
+    scroll-margin-top: 6rem;
+  }
+}
+
 .marketplace-service-card {
   box-shadow: 0 20px 48px -34px rgba(18, 44, 87, 0.22);
-}
-
-.marketplace-room-card-resident {
-  background:
-    radial-gradient(circle at top right, rgba(75, 193, 180, 0.18), transparent 34%),
-    linear-gradient(180deg, rgba(232, 238, 248, 0.88), rgba(253, 254, 255, 0.97));
-  box-shadow: 0 18px 42px -30px rgba(18, 116, 231, 0.18);
-}
-
-.marketplace-room-photo-fallback {
-  background:
-    radial-gradient(circle at 16% 0%, rgba(18, 116, 231, 0.25), transparent 48%),
-    radial-gradient(circle at 100% 100%, rgba(75, 193, 180, 0.18), transparent 38%),
-    linear-gradient(135deg, rgba(248, 251, 255, 0.96), rgba(232, 238, 248, 0.96));
 }
 
 .marketplace-service-showcase-card {
@@ -282,35 +440,8 @@ html.dark .marketplace-hero-panel {
     linear-gradient(140deg, rgba(248, 251, 255, 0.96), rgba(232, 238, 248, 0.96));
 }
 
-html.dark .marketplace-stage {
-  background:
-    radial-gradient(circle at 0% -10%, hsl(29 67% 53% / 0.16), transparent 35%),
-    radial-gradient(circle at 100% 10%, hsl(37 52% 62% / 0.09), transparent 36%),
-    linear-gradient(180deg, hsl(240 7% 5%), hsl(240 7% 4%));
-}
-
-html.dark .marketplace-stage::before {
-  background: hsl(29 67% 53% / 0.14);
-}
-
-html.dark .marketplace-stage::after {
-  background: hsl(37 50% 70% / 0.08);
-}
-
 html.dark .marketplace-service-card {
   box-shadow: 0 14px 32px -24px rgba(0, 0, 0, 0.9);
-}
-
-html.dark .marketplace-room-card-resident {
-  border-color: hsl(var(--primary) / 0.3);
-  background: linear-gradient(180deg, rgba(48, 31, 17, 0.3), rgba(18, 18, 22, 0.98));
-  box-shadow: 0 18px 42px -28px rgba(214, 138, 62, 0.35);
-}
-
-html.dark .marketplace-room-photo-fallback {
-  background:
-    radial-gradient(circle at 20% 0%, hsl(29 67% 53% / 0.35), transparent 55%),
-    linear-gradient(135deg, hsl(240 8% 18%), hsl(240 8% 8%));
 }
 
 html.dark .marketplace-service-showcase-card {
@@ -319,7 +450,7 @@ html.dark .marketplace-service-showcase-card {
 
 html.dark .marketplace-service-photo-fallback {
   background:
-    radial-gradient(circle at 20% 0%, hsl(29 67% 53% / 0.35), transparent 52%),
+    radial-gradient(circle at 20% 0%, hsl(var(--primary) / 0.35), transparent 52%),
     radial-gradient(circle at 100% 100%, rgba(255, 255, 255, 0.1), transparent 30%),
     linear-gradient(140deg, hsl(240 8% 18%), hsl(240 10% 8%));
 }

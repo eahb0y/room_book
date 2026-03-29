@@ -915,7 +915,7 @@ export default function Profile() {
             <Button
               type="button"
               onClick={() => {
-                navigate('/business/landing');
+                navigate('/business/register');
               }}
               className="h-11 sm:min-w-56"
             >

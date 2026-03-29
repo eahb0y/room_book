@@ -4,7 +4,34 @@
     <option name="autoReloadType" value="NONE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="5d8af239-161c-49fb-aba6-e7b569e26269" name="Changes" comment="" />
+    <list default="true" id="5d8af239-161c-49fb-aba6-e7b569e26269" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/.idea/.name" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/caches/deviceStreaming.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/public/sitemap.xml" beforeDir="false" afterPath="$PROJECT_DIR$/public/sitemap.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/scripts/generate-seo-files.mjs" beforeDir="false" afterPath="$PROJECT_DIR$/scripts/generate-seo-files.mjs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/App.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/BusinessActivityField.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/BusinessActivityField.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/Layout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/Layout.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/SeoRouteManager.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/SeoRouteManager.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/marketing/MarketingShell.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/components/marketing/MarketingShell.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/content/b2bMarketing.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/content/b2bMarketing.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/i18n/messages.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/i18n/messages.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/lib/businessActivity.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/lib/businessActivity.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/lib/supabaseHttp.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/lib/supabaseHttp.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/pages/B2BAbout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/pages/B2BAbout.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/pages/B2BFeatures.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/pages/B2BFeatures.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/pages/B2BHome.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/pages/B2BHome.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/pages/admin/ServicesManagement.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/pages/admin/ServicesManagement.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/pages/user/RoomList.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/pages/user/RoomList.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/pages/user/ServiceBookingPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/src/pages/user/ServiceBookingPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/store/venueStore.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/store/venueStore.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/types/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/src/types/index.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/supabase/migrations/20260304123000_add_service_bookings.sql" beforeDir="false" afterPath="$PROJECT_DIR$/supabase/migrations/20260304123000_add_service_bookings.sql" afterDir="false" />
+    </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -13,9 +40,24 @@
   <component name="ClangdSettings">
     <option name="formatViaClangd" value="false" />
   </component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 2
-}]]></component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;eahb0y&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;git@github.com:eahb0y/room_book.git&quot;,
+    &quot;accountId&quot;: &quot;86ad855c-92e3-4487-a0bd-6213c8381d00&quot;
+  }
+}</component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 2
+}</component>
   <component name="ProjectId" id="39RMWyx5m2FR38ATDxqnq2t3muJ" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
@@ -26,10 +68,14 @@
     "ModuleVcsDetector.initialDetectionPerformed": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
     "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.git.unshallow": "true",
     "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "SHARE_PROJECT_CONFIGURATION_FILES": "true",
     "cf.first.check.clang-format": "false",
     "cidr.known.project.marker": "true",
     "dart.analysis.tool.window.visible": "false",
+    "git-widget-placeholder": "codex/update-web-side",
+    "kotlin-language-version-configured": "true",
     "show.migrate.to.gradle.popup": "false"
   }
 }]]></component>
